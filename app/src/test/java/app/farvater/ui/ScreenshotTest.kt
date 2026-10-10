@@ -1,13 +1,19 @@
 package app.farvater.ui
 
 import android.app.Application
+import android.content.Intent
+import android.content.pm.ActivityInfo
+import android.content.pm.ApplicationInfo
+import android.content.pm.ResolveInfo
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.farvater.core.model.NetMode
 import app.farvater.core.model.Protocol
@@ -35,6 +41,7 @@ import com.github.takahirom.roborazzi.captureScreenRoboImage
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -95,6 +102,45 @@ class ScreenshotTest {
                 sources = Fake.state.sources.map { it.copy(inMode = it.mode.fits(NetMode.BLACK)) },
             ),
         )
+    }
+
+    @Test fun appsDark() {
+        installApps(
+            "ru.sberbankmobile" to "СберБанк", "com.idamob.tinkoff.android" to "Т-Банк", "ru.rostel" to "Госуслуги",
+            "ru.ozon.app.android" to "Ozon", "com.wildberries.ru" to "Wildberries", "ru.yandex.yandexmaps" to "Яндекс Карты",
+            "com.vkontakte.android" to "ВКонтакте", "com.mojang.minecraftpe" to "Minecraft", "org.telegram.messenger" to "Telegram",
+            "com.google.android.youtube" to "YouTube", "com.discord" to "Discord",
+        )
+        shot(
+            "30_apps_dark", dark = true, screen = true,
+            act = {
+                rule.onNodeWithText("Подключение").performClick()
+                rule.mainClock.advanceTimeBy(1_500)
+                rule.onNodeWithText("Приложения мимо VPN").performClick()
+                rule.waitUntil(5_000) {
+                    rule.mainClock.advanceTimeBy(100)
+                    rule.onAllNodesWithText("Т-Банк").fetchSemanticsNodes().isNotEmpty()
+                }
+            },
+        ) { Settings(Fake.state.settings.copy(bypassApps = setOf("com.mojang.minecraftpe"))) }
+    }
+
+    private fun installApps(vararg apps: Pair<String, String>) {
+        val pm = shadowOf(ApplicationProvider.getApplicationContext<Application>().packageManager)
+        val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        apps.forEach { (pkg, label) ->
+            pm.addResolveInfoForIntent(
+                launcher,
+                ResolveInfo().apply {
+                    nonLocalizedLabel = label
+                    activityInfo = ActivityInfo().apply {
+                        packageName = pkg
+                        name = "$pkg.Main"
+                        applicationInfo = ApplicationInfo().apply { packageName = pkg }
+                    }
+                },
+            )
+        }
     }
 
     @Test fun rkpAppearance() = shot(

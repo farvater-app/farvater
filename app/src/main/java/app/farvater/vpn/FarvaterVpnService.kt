@@ -17,6 +17,7 @@ import androidx.core.content.ContextCompat
 import app.farvater.App
 import app.farvater.MainActivity
 import app.farvater.R
+import app.farvater.core.catalog.RuApps
 import app.farvater.core.model.ProxyNode
 import app.farvater.core.xray.XrayConfigBuilder
 import app.farvater.data.DayTraffic
@@ -145,7 +146,8 @@ class FarvaterVpnService : VpnService() {
             .addRoute("0.0.0.0", 0)
             .addDnsServer("1.1.1.1")
         runCatching { builder.addDisallowedApplication(packageName) }
-        settings.bypassApps.forEach { pkg -> runCatching { builder.addDisallowedApplication(pkg) } }
+        val bypass = if (settings.directRuServices) settings.bypassApps + RuApps.packages else settings.bypassApps
+        bypass.forEach { pkg -> runCatching { builder.addDisallowedApplication(pkg) } }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false)
 
         val fd = builder.establish() ?: return abort("Нет разрешения на VPN")

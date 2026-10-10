@@ -47,12 +47,12 @@ import kotlinx.coroutines.withContext
 private data class InstalledApp(val pkg: String, val label: String)
 
 @Composable
-fun BypassAppsSheet(selected: Set<String>, onChange: (Set<String>) -> Unit, onClose: () -> Unit) {
+fun BypassAppsSheet(selected: Set<String>, ruApps: Set<String>, onChange: (Set<String>) -> Unit, onClose: () -> Unit) {
     val c = Ios.colors
     val context = LocalContext.current
     val pm = context.packageManager
     var query by remember { mutableStateOf("") }
-    val initial = remember { selected }
+    val initial = remember { selected + ruApps }
     val apps by produceState<List<InstalledApp>?>(null) {
         value = withContext(Dispatchers.IO) { loadApps(pm, context.packageName, initial) }
     }
@@ -66,7 +66,8 @@ fun BypassAppsSheet(selected: Set<String>, onChange: (Set<String>) -> Unit, onCl
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
         )
         Text(
-            "Отмеченные приложения ходят в интернет напрямую. Пригодится для банков и сервисов, которые не работают через VPN. Изменения применяются сразу.",
+            "Отмеченные приложения ходят в интернет напрямую. Изменения применяются сразу." +
+                if (ruApps.isEmpty()) "" else " Российские приложения идут напрямую сами, пока в настройках подключения включены «Российские сервисы».",
             style = IosType.footnote,
             color = c.secondaryLabel,
             modifier = Modifier.padding(horizontal = 32.dp).padding(bottom = 10.dp),
@@ -95,12 +96,16 @@ fun BypassAppsSheet(selected: Set<String>, onChange: (Set<String>) -> Unit, onCl
                     ) {
                         val checked = app.pkg in selected
                         val toggle = { v: Boolean -> onChange(if (v) selected + app.pkg else selected - app.pkg) }
-                        IosRow(
-                            title = app.label,
-                            leading = { AppIcon(app.pkg, pm, icons) },
-                            onClick = { toggle(!checked) },
-                            trailing = { IosSwitch(checked, toggle) },
-                        )
+                        if (app.pkg in ruApps) {
+                            IosRow(title = app.label, leading = { AppIcon(app.pkg, pm, icons) }, value = "напрямую")
+                        } else {
+                            IosRow(
+                                title = app.label,
+                                leading = { AppIcon(app.pkg, pm, icons) },
+                                onClick = { toggle(!checked) },
+                                trailing = { IosSwitch(checked, toggle) },
+                            )
+                        }
                         if (index != shown.lastIndex) IosDivider(start = 60.dp)
                     }
                 }

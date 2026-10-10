@@ -95,6 +95,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.farvater.BuildConfig
+import app.farvater.core.catalog.RuApps
 import app.farvater.data.AppSettings
 import app.farvater.data.ThemeMode
 import app.farvater.data.UiStyle
@@ -205,6 +206,7 @@ fun SettingsScreen(
     if (showApps) {
         BypassAppsSheet(
             selected = settings.bypassApps,
+            ruApps = if (settings.directRuServices) RuApps.packages else emptySet(),
             onChange = { apps -> onChange { it.copy(bypassApps = apps) } },
             onClose = { showApps = false },
         )
@@ -435,16 +437,21 @@ private val ThemeChoices = listOf(
 private fun ConnectionPage(settings: AppSettings, onChange: ((AppSettings) -> AppSettings) -> Unit, onApps: () -> Unit) {
     val c = Ios.colors
     val context = LocalContext.current
-    val bypassCount = remember(settings.bypassApps) { context.installedCount(settings.bypassApps) }
-    IosSection(footer = "Сайты Госуслуг, банков, Яндекса, VK и маркетплейсов открываются напрямую, как без VPN.") {
+    val bypassCount = remember(settings.bypassApps, settings.directRuServices) {
+        context.installedCount(if (settings.directRuServices) settings.bypassApps + RuApps.packages else settings.bypassApps)
+    }
+    IosSection(
+        footer = "Сайты и приложения банков, Госуслуг, Яндекса, VK и маркетплейсов работают напрямую, как без VPN: " +
+            "они видят ваш обычный адрес, а не адрес сервера. Что VPN включён, приложения всё равно могут узнать у Android.",
+    ) {
         IosRow(
-            title = "Банки и госсервисы",
+            title = "Российские сервисы",
             icon = Icons.Rounded.AccountBalance,
             iconTint = c.green,
             trailing = { IosSwitch(settings.directRuServices, { v -> onChange { it.copy(directRuServices = v) } }) },
         )
     }
-    IosSection(footer = "Отмеченные приложения ходят в интернет напрямую. Пригодится для банков, которые не работают через VPN.") {
+    IosSection(footer = "Выбранные приложения ходят в интернет напрямую. Пригодится, если приложение не работает через VPN.") {
         IosRow(
             title = "Приложения мимо VPN",
             icon = Icons.Rounded.Apps,
@@ -772,7 +779,7 @@ fun OnboardingDialog(onChoice: (enableCommunity: Boolean) -> Unit, onOpenDocumen
                 Spacer(Modifier.height(20.dp))
                 Text("Добро пожаловать\nв Фарватер", style = IosType.title1, color = c.label, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(28.dp))
-                Feature(Icons.Rounded.Lock, c.green, "Ваши подписки", "VLESS, Trojan, Shadowsocks, VMess и Hysteria2. Банки и госсервисы идут мимо VPN.")
+                Feature(Icons.Rounded.Lock, c.green, "Ваши подписки", "VLESS, Trojan, Shadowsocks, VMess и Hysteria2. Российские сервисы идут мимо VPN.")
                 Feature(Icons.Rounded.Public, c.tint, "Публичные подписки", "Бесплатные серверы сообщества помогают при белых списках.")
                 Feature(Icons.Rounded.Shield, c.red, "Осторожно с паролями", "Владельцы чужих серверов видят, куда вы ходите. Не вводите через них пароли.")
                 Spacer(Modifier.height(20.dp))
