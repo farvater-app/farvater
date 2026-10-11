@@ -3,7 +3,7 @@ name: Релиз
 on:
   push:
     tags: ["v*"]
-    branches: ["release/v*"]
+    branches: ["release/v*", "test/v*"]
 
 permissions:
   contents: write
@@ -39,7 +39,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Версия релиза
-        run: echo "TAG=${GITHUB_REF_NAME#release/}" >> "$GITHUB_ENV"
+        run: echo "TAG=${GITHUB_REF_NAME#*/}" >> "$GITHUB_ENV"
 
       - uses: actions/setup-java@v5
         with:
@@ -114,6 +114,8 @@ jobs:
             done
           done
           CERT=$("$APKSIGNER" verify --print-certs dist/*universal*.apk | grep -m1 'SHA-256' | awk '{print toupper($NF)}' | sed 's/../&:/g; s/:$//')
+          echo "Отпечаток сертификата: $CERT"
+          [[ "$GITHUB_REF_NAME" == test/* ]] && exit 0
           python3 scripts/make-update-json.py "$VERSION" "$GITHUB_REPOSITORY" "$TAG" release-notes.txt dist > dist/update.json
           cat dist/update.json
           {
@@ -129,6 +131,7 @@ jobs:
           cat dist/NOTES.md
 
       - uses: softprops/action-gh-release@v2
+        if: ${{ !startsWith(github.ref_name, 'test/') }}
         with:
           name: Фарватер ${{ env.TAG }}
           tag_name: ${{ env.TAG }}
@@ -140,6 +143,7 @@ jobs:
             dist/update.json
 
       - name: Ветка updates
+        if: ${{ !startsWith(github.ref_name, 'test/') }}
         run: |
           git config user.name "github-actions"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -153,3 +157,15 @@ jobs:
           git add update.json
           git commit -q -m "update.json ${TAG}" || exit 0
           git push origin updates
+
+      - name: Тестовая сборка в ветку test-build
+        if: startsWith(github.ref_name, 'test/')
+        run: |
+          git config user.name "github-actions"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git worktree add --orphan -b test-build tb
+          cp dist/*.apk dist/SHA256SUMS.txt tb/
+          cd tb
+          git add .
+          git commit -q -m "Тестовая сборка ${TAG}"
+          git push -f origin test-build

@@ -25,7 +25,7 @@ android {
         targetSdk = 35
         val tagVersion = (findProperty("farvaterVersion") as String?)?.removePrefix("v")
         versionName = tagVersion ?: "1.0.0"
-        versionCode = tagVersion?.split('.')?.map { it.toInt() }?.let { (a, b, c) -> a * 10000 + b * 100 + c } ?: 1
+        versionCode = tagVersion?.split('.', '-')?.let { p -> p[0].toInt() * 10000 + p[1].toInt() * 100 + p[2].toInt() - if (p.size > 3) 1 else 0 } ?: 1
         buildConfigField("String", "UPDATE_REPO", "\"${findProperty("farvaterUpdateRepo") ?: "lutzashl290788-cell/farvater"}\"")
     }
 
