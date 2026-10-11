@@ -176,7 +176,7 @@ fun HomeScreen(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        if (m == ConnectMode.Connected && stalled) "Узел не отвечает. Проверьте интернет или выберите другой узел" else supporting(m, vpn, state),
+                        if (m == ConnectMode.Connected && stalled) "Узел не отвечает. Проверьте интернет или выберите другой узел" else supporting(m, vpn, state, sumie),
                         style = IosType.subheadline,
                         color = c.secondaryLabel,
                         textAlign = TextAlign.Center,
@@ -294,8 +294,8 @@ private fun headline(mode: ConnectMode): String = when (mode) {
     ConnectMode.Error -> "Не удалось подключиться"
 }
 
-private fun supporting(mode: ConnectMode, vpn: VpnState, state: UiState): String = when (mode) {
-    ConnectMode.Idle -> "Нажмите кнопку, чтобы подключиться"
+private fun supporting(mode: ConnectMode, vpn: VpnState, state: UiState, sumie: Boolean): String = when (mode) {
+    ConnectMode.Idle -> if (sumie) "Нажмите на круг, чтобы подключиться" else "Нажмите кнопку, чтобы подключиться"
     ConnectMode.Searching -> state.progress?.let { "Отвечают ${it.alive}" }.orEmpty()
     ConnectMode.Connecting -> (vpn as? VpnState.Connecting)?.node?.let { splitFlag(it.name).second }.orEmpty()
     ConnectMode.Connected -> "Трафик идёт через выбранный узел"
