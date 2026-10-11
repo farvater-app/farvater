@@ -16,6 +16,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -28,6 +29,8 @@ import app.farvater.ui.MainViewModel
 import app.farvater.ui.FarvaterRoot
 import app.farvater.ui.UiEvent
 import app.farvater.ui.theme.FarvaterTheme
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -62,8 +65,8 @@ class MainActivity : ComponentActivity() {
 
         if (savedInstanceState == null) handleDeepLink(intent)
         setContent {
-            val state by vm.state.collectAsStateWithLifecycle()
-            val settings = state.settings
+            val settings by remember { vm.state.map { it.settings }.distinctUntilChanged() }
+                .collectAsStateWithLifecycle(vm.state.value.settings)
             val dark = settings.uiStyle == UiStyle.ROSKOMPOZOR || when (settings.themeMode) {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
                 ThemeMode.LIGHT -> false

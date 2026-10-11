@@ -35,10 +35,6 @@ import app.farvater.vpn.VpnBus
 @Composable
 fun FarvaterRoot(vm: MainViewModel) {
     val state by vm.state.collectAsStateWithLifecycle()
-    val vpn by vm.vpnState.collectAsStateWithLifecycle()
-    val traffic by vm.traffic.collectAsStateWithLifecycle()
-    val history by vm.speedHistory.collectAsStateWithLifecycle()
-    val failed by vm.failedChecks.collectAsStateWithLifecycle()
 
     var tab by rememberSaveable { mutableStateOf(Tab.Home) }
     var reopenOnboarding by remember { mutableStateOf(false) }
@@ -59,18 +55,24 @@ fun FarvaterRoot(vm: MainViewModel) {
             label = "tabs",
         ) { current ->
             when (current) {
-                Tab.Home -> HomeScreen(
-                    state = state,
-                    vpn = vpn,
-                    traffic = traffic,
-                    history = history,
-                    onToggle = vm::toggleConnection,
-                    onFindWorking = vm::findWorking,
-                    onCancelTest = vm::cancelTest,
-                    onOpenServers = { tab = Tab.Servers },
-                    onOpenUpdate = vm::openUpdate,
-                    stalled = failed >= VpnBus.STALL_CHECKS,
-                )
+                Tab.Home -> {
+                    val vpn by vm.vpnState.collectAsStateWithLifecycle()
+                    val traffic by vm.traffic.collectAsStateWithLifecycle()
+                    val history by vm.speedHistory.collectAsStateWithLifecycle()
+                    val failed by vm.failedChecks.collectAsStateWithLifecycle()
+                    HomeScreen(
+                        state = state,
+                        vpn = vpn,
+                        traffic = traffic,
+                        history = history,
+                        onToggle = vm::toggleConnection,
+                        onFindWorking = vm::findWorking,
+                        onCancelTest = vm::cancelTest,
+                        onOpenServers = { tab = Tab.Servers },
+                        onOpenUpdate = vm::openUpdate,
+                        stalled = failed >= VpnBus.STALL_CHECKS,
+                    )
+                }
                 Tab.Servers -> ServersScreen(
                     state = state,
                     onSelect = vm::select,
