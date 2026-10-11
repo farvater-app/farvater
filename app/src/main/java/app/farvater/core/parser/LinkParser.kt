@@ -161,7 +161,7 @@ object LinkParser {
     private fun displayName(fragment: String, host: String, port: Int): String =
         pctDecode(fragment).trim().ifBlank { "$host:$port" }
 
-    private fun nodeId(seed: String): String =
+    internal fun nodeId(seed: String): String =
         MessageDigest.getInstance("SHA-1").digest(seed.trim().toByteArray())
             .take(8).joinToString("") { "%02x".format(it) }
 }

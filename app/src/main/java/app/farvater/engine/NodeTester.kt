@@ -45,10 +45,10 @@ object NodeTester {
         val realGate = Semaphore(concurrency.coerceIn(1, 32))
         nodes.forEach { node ->
             launch(workers) {
-                val udp = node.protocol == Protocol.HYSTERIA2
-                val tcp = if (udp) 0L else tcpGate.withPermit { tcping(node) }
+                val coreOnly = node.protocol == Protocol.HYSTERIA2 || node.isJson
+                val tcp = if (coreOnly) 0L else tcpGate.withPermit { tcping(node) }
                 if (tcp < 0 || !real) {
-                    send(TestResult(node.id, if (udp) -1L else tcp, TestMethod.TCP))
+                    send(TestResult(node.id, if (coreOnly) -1L else tcp, TestMethod.TCP))
                     return@launch
                 }
                 send(realGate.withPermit { test(node, url) })

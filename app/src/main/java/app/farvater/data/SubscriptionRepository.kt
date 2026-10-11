@@ -9,6 +9,7 @@ import app.farvater.net.SafeHttp
 import app.farvater.net.SafeHttp.hardened
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import java.io.File
@@ -51,13 +52,15 @@ class SubscriptionRepository(context: Context) {
         urls: List<String>,
         viaTunnel: Boolean,
         extraHeaders: Map<String, String> = emptyMap(),
+        json: Boolean = false,
     ): SourceSnapshot =
         withContext(Dispatchers.IO) {
             val client = if (viaTunnel) tunnelClient else baseClient
             var lastError: String? = null
-            for (url in urls) {
+            for (url in urls) for (asJson in if (json) listOf(true, false) else listOf(false)) {
                 try {
-                    val target = SafeHttp.parse(url) ?: throw IOException("недопустимый адрес подписки")
+                    val base = SafeHttp.parse(url) ?: throw IOException("недопустимый адрес подписки")
+                    val target = if (asJson) base.jsonVariant() ?: continue else base
                     SafeHttp.execute(
                         client, target,
                         headers = mapOf("User-Agent" to "Farvater/${BuildConfig.VERSION_NAME}"),
@@ -138,7 +141,14 @@ class SubscriptionRepository(context: Context) {
         File(dir, "$sourceId.interval").delete()
     }
 
+    private fun HttpUrl.jsonVariant(): HttpUrl? {
+        val last = pathSegments.lastOrNull().orEmpty()
+        if (query != null || last.isEmpty() || '.' in last || last == JSON_FORMAT) return null
+        return newBuilder().addPathSegment(JSON_FORMAT).build()
+    }
+
     companion object {
         const val MAX_BODY = 8L * 1024 * 1024
+        private const val JSON_FORMAT = "v2ray-json"
     }
 }

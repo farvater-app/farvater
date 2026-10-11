@@ -14,7 +14,8 @@ data class ParsedSubscription(
 object SubscriptionParser {
     fun parse(body: String, sourceId: String, headers: Map<String, String> = emptyMap()): ParsedSubscription {
         var text = body.trim().removePrefix("\uFEFF")
-        if (!text.contains("://")) {
+        val json = XrayJsonParser.parse(text, sourceId)
+        if (json == null && !text.contains("://")) {
             Base64Util.decodeToString(text)?.takeIf { it.contains("://") }?.let { text = it }
         }
 
@@ -24,7 +25,16 @@ object SubscriptionParser {
         val skipped = HashMap<String, Int>()
         val announceLines = mutableListOf<String>()
 
-        text.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.forEach { line ->
+        fun add(node: ProxyNode) {
+            if (node.address == "0.0.0.0" || node.address == "127.0.0.1") notices += node.name else nodes.putIfAbsent(node.id, node)
+        }
+
+        json?.forEach(::add)
+        if (json == null) text.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.forEach { line ->
+            if (line.startsWith("{")) {
+                XrayJsonParser.parse(line, sourceId)?.forEach(::add)
+                return@forEach
+            }
             if (line.startsWith("#")) {
                 val kv = line.removePrefix("#").trim()
                 val key = kv.substringBefore(':', "").trim().lowercase()
@@ -41,11 +51,7 @@ object SubscriptionParser {
                 if (scheme.isNotEmpty() && scheme.length <= 16) skipped[scheme] = (skipped[scheme] ?: 0) + 1
                 return@forEach
             }
-            if (node.address == "0.0.0.0" || node.address == "127.0.0.1") {
-                notices += node.name
-                return@forEach
-            }
-            nodes.putIfAbsent(node.id, node)
+            add(node)
         }
 
         return ParsedSubscription(

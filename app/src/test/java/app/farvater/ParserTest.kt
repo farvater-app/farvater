@@ -165,4 +165,76 @@ class ParserTest {
         assertTrue(cfg.contains("\"xhttpSettings\""))
         assertTrue(cfg.contains("domain:gosuslugi.ru"))
     }
+
+    private val remnawaveJson = """[
+        {"remarks":"Германия","outbounds":[
+            {"tag":"proxy","protocol":"vless","settings":{"vnext":[{"address":"de.example.com","port":443,"users":[{"id":"u1","encryption":"none","flow":"xtls-rprx-vision"}]}]},
+             "streamSettings":{"network":"tcp","security":"reality","realitySettings":{"serverName":"ok.ru","publicKey":"pk","shortId":"ab","fingerprint":"chrome"}}},
+            {"tag":"direct","protocol":"freedom"},{"tag":"block","protocol":"blackhole"}],
+         "routing":{"rules":[{"type":"field","ip":["geoip:private"],"outboundTag":"direct"}]}},
+        {"remarks":"Автовыбор","outbounds":[
+            {"tag":"proxy","protocol":"vless","settings":{"vnext":[{"address":"de.example.com","port":443,"users":[{"id":"u1","encryption":"none"}]}]},
+             "streamSettings":{"network":"tcp","security":"reality","realitySettings":{"serverName":"ok.ru","publicKey":"pk","shortId":"ab"}}},
+            {"tag":"proxy-2","protocol":"trojan","settings":{"servers":[{"address":"nl.example.com","port":443,"password":"p"}]},
+             "streamSettings":{"network":"tcp","security":"tls","tlsSettings":{"serverName":"nl.example.com","allowInsecure":true}}},
+            {"tag":"direct","protocol":"freedom"}],
+         "routing":{"balancers":[{"tag":"auto","selector":["proxy"],"strategy":{"type":"leastPing"}}],
+                    "rules":[{"type":"field","network":"tcp,udp","balancerTag":"auto"}]},
+         "observatory":{"subjectSelector":["proxy"],"probeUrl":"https://www.gstatic.com/generate_204"}},
+        {"remarks":"Обход","outbounds":[
+            {"tag":"proxy","protocol":"trojan","settings":{"servers":[{"address":"de.example.com","port":8443,"password":"p"}]},
+             "streamSettings":{"network":"tcp","security":"tls","sockopt":{"dialerProxy":"relay"}}},
+            {"tag":"relay","protocol":"vless","settings":{"vnext":[{"address":"95.163.1.2","port":443,"users":[{"id":"u1","encryption":"none"}]}]},
+             "streamSettings":{"network":"tcp","security":"reality","realitySettings":{"serverName":"ok.ru","publicKey":"pk","shortId":"ab"}}}]},
+        {"remarks":"Подписка истекла","outbounds":[{"tag":"proxy","protocol":"vless","settings":{"vnext":[{"address":"0.0.0.0","port":1,"users":[{"id":"x"}]}]}}]}
+    ]"""
+
+    private fun tags(cfg: String) =
+        Json.parseToJsonElement(cfg).jsonObject["outbounds"]!!.jsonArray.map { it.jsonObject["tag"]!!.jsonPrimitive.content }
+
+    @Test fun xrayJsonSubscription() {
+        val s = SubscriptionParser.parse(remnawaveJson, "src", mapOf("profile-title" to "NoName"))
+        assertEquals("NoName", s.title)
+        assertEquals(listOf("Германия", "Автовыбор", "Обход"), s.nodes.map { it.name })
+        assertEquals(listOf("Подписка истекла"), s.notices)
+        val de = s.nodes[0]
+        assertEquals(Protocol.VLESS, de.protocol)
+        assertEquals("de.example.com", de.address)
+        assertEquals(443, de.port)
+        assertEquals("ok.ru", de.params["sni"])
+        assertEquals(listOf("VLESS", "Reality"), de.tags)
+        assertNull(de.securityIssue)
+        assertEquals(3, s.nodes.map { it.id }.toSet().size)
+        assertEquals(s.nodes, s.nodes.onePerEndpoint(null))
+    }
+
+    @Test fun xrayJsonBalancerAndChainReachXray() {
+        val nodes = SubscriptionParser.parse(remnawaveJson, "src").nodes
+        val auto = XrayConfigBuilder.build(nodes[1], directRuServices = true)
+        assertEquals(listOf("proxy", "proxy-2", "direct", "block", "dns-out"), tags(auto))
+        val routing = Json.parseToJsonElement(auto).jsonObject["routing"]!!.jsonObject
+        assertEquals("auto", routing["rules"]!!.jsonArray.last().jsonObject["balancerTag"]!!.jsonPrimitive.content)
+        val selector = routing["balancers"]!!.jsonArray[0].jsonObject["selector"]!!.jsonArray.map { it.jsonPrimitive.content }
+        assertEquals(listOf("proxy", "proxy-2"), selector)
+        assertTrue(auto.contains("\"observatory\""))
+        assertTrue("allowInsecure" !in auto)
+        assertEquals(listOf("proxy", "relay", "direct", "block", "dns-out"), tags(XrayConfigBuilder.build(nodes[2], directRuServices = false)))
+        assertTrue("routing" !in XrayConfigBuilder.build(nodes[2], directRuServices = false, forTest = true))
+    }
+
+    @Test fun xrayJsonBalancerNeverPicksDirectOutbound() {
+        val json = """[{"remarks":"a","outbounds":[
+            {"tag":"p","protocol":"trojan","settings":{"servers":[{"address":"a.example.com","port":443,"password":"x"}]},"streamSettings":{"security":"tls"}},
+            {"tag":"p-free","protocol":"freedom"}],
+            "routing":{"balancers":[{"tag":"b","selector":["p"]}],"rules":[{"type":"field","network":"tcp,udp","balancerTag":"b"}]}}]"""
+        val node = SubscriptionParser.parse(json, "src").nodes.single()
+        assertTrue("balancerTag" !in XrayConfigBuilder.build(node, directRuServices = false))
+    }
+
+    @Test fun xrayJsonNodesSurviveManualFile() {
+        val nodes = SubscriptionParser.parse(remnawaveJson, "src").nodes
+        val manual = SubscriptionParser.parse(nodes.joinToString("\n") { it.raw } + "\n" + vless, "manual").nodes
+        assertEquals(nodes.map { it.id } + LinkParser.parse(vless)!!.id, manual.map { it.id })
+        assertEquals(nodes.map { it.name }, manual.take(3).map { it.name })
+    }
 }

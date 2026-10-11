@@ -262,7 +262,7 @@ fun ServersScreen(
 
     menuFor?.let { node ->
         val actions = buildList {
-            add(AlertAction("Скопировать ссылку") {
+            add(AlertAction(if (node.isJson) "Скопировать конфиг" else "Скопировать ссылку") {
                 clipboard.setText(AnnotatedString(node.raw))
                 menuFor = null
                 onCopied()

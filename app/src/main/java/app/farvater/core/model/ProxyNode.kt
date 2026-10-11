@@ -45,6 +45,8 @@ data class ProxyNode(
 
     val isInsecure: Boolean get() = securityIssue != null
 
+    val isJson: Boolean get() = raw.startsWith("{")
+
     val pinnedCert: String? get() = (params["pcs"] ?: params["pinSHA256"])?.takeIf { it.isNotBlank() }
 
     val tags: List<String>
@@ -68,5 +70,5 @@ data class ProxyNode(
 }
 
 fun List<ProxyNode>.onePerEndpoint(keepId: String?): List<ProxyNode> =
-    groupBy { Triple(it.protocol, it.address.lowercase(), it.port) }.values
+    groupBy { if (it.isJson) it.id else Triple(it.protocol, it.address.lowercase(), it.port) }.values
         .map { same -> same.firstOrNull { it.id == keepId } ?: same.first() }
