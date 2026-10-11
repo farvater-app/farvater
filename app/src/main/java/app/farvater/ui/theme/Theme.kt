@@ -1,7 +1,9 @@
 package app.farvater.ui.theme
 
 import android.os.Build
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -15,11 +17,16 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -286,6 +293,22 @@ private val Type = Typography(
 
 private val MaterialType = Typography()
 
+private val M3Shapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(28.dp),
+)
+
+private val IosShapes = Shapes(
+    extraSmall = RoundedCornerShape(7.dp),
+    small = RoundedCornerShape(10.dp),
+    medium = RoundedCornerShape(12.dp),
+    large = RoundedCornerShape(14.dp),
+    extraLarge = RoundedCornerShape(20.dp),
+)
+
 object IosMotion {
     const val SoftDamping = 0.86f
     const val SoftStiffness = 300f
@@ -295,6 +318,68 @@ object IosMotion {
 
 val EaseOutQuint = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
 val EaseInOut = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)
+
+private val ThemeFade = tween<Float>(durationMillis = 350, easing = EaseInOut)
+
+@Composable
+private fun <T> fadeTo(target: T, lerp: (T, T, Float) -> T): T {
+    val progress = remember { Animatable(1f) }
+    var from by remember { mutableStateOf(target) }
+    var to by remember { mutableStateOf(target) }
+    val shown = if (progress.value < 1f) lerp(from, to, progress.value) else to
+    LaunchedEffect(target) {
+        if (target == to) return@LaunchedEffect
+        from = shown
+        to = target
+        progress.snapTo(0f)
+        progress.animateTo(1f, ThemeFade)
+    }
+    return shown
+}
+
+private fun IosColors.lerpTo(o: IosColors, t: Float) = IosColors(
+    dark = if (t < 0.5f) dark else o.dark,
+    background = lerp(background, o.background, t), cell = lerp(cell, o.cell, t),
+    cellRaised = lerp(cellRaised, o.cellRaised, t), fill = lerp(fill, o.fill, t),
+    highlight = lerp(highlight, o.highlight, t), segmentThumb = lerp(segmentThumb, o.segmentThumb, t),
+    bar = lerp(bar, o.bar, t), barBorder = lerp(barBorder, o.barBorder, t), label = lerp(label, o.label, t),
+    secondaryLabel = lerp(secondaryLabel, o.secondaryLabel, t), tertiaryLabel = lerp(tertiaryLabel, o.tertiaryLabel, t),
+    separator = lerp(separator, o.separator, t), tint = lerp(tint, o.tint, t), green = lerp(green, o.green, t),
+    red = lerp(red, o.red, t), blue = lerp(blue, o.blue, t), teal = lerp(teal, o.teal, t),
+    indigo = lerp(indigo, o.indigo, t), purple = lerp(purple, o.purple, t), gray = lerp(gray, o.gray, t),
+    yellow = lerp(yellow, o.yellow, t), pink = lerp(pink, o.pink, t),
+)
+
+private fun ColorScheme.lerpTo(o: ColorScheme, t: Float) = copy(
+    primary = lerp(primary, o.primary, t), onPrimary = lerp(onPrimary, o.onPrimary, t),
+    primaryContainer = lerp(primaryContainer, o.primaryContainer, t),
+    onPrimaryContainer = lerp(onPrimaryContainer, o.onPrimaryContainer, t),
+    inversePrimary = lerp(inversePrimary, o.inversePrimary, t),
+    secondary = lerp(secondary, o.secondary, t), onSecondary = lerp(onSecondary, o.onSecondary, t),
+    secondaryContainer = lerp(secondaryContainer, o.secondaryContainer, t),
+    onSecondaryContainer = lerp(onSecondaryContainer, o.onSecondaryContainer, t),
+    tertiary = lerp(tertiary, o.tertiary, t), onTertiary = lerp(onTertiary, o.onTertiary, t),
+    tertiaryContainer = lerp(tertiaryContainer, o.tertiaryContainer, t),
+    onTertiaryContainer = lerp(onTertiaryContainer, o.onTertiaryContainer, t),
+    background = lerp(background, o.background, t), onBackground = lerp(onBackground, o.onBackground, t),
+    surface = lerp(surface, o.surface, t), onSurface = lerp(onSurface, o.onSurface, t),
+    surfaceVariant = lerp(surfaceVariant, o.surfaceVariant, t),
+    onSurfaceVariant = lerp(onSurfaceVariant, o.onSurfaceVariant, t),
+    surfaceTint = lerp(surfaceTint, o.surfaceTint, t),
+    inverseSurface = lerp(inverseSurface, o.inverseSurface, t),
+    inverseOnSurface = lerp(inverseOnSurface, o.inverseOnSurface, t),
+    error = lerp(error, o.error, t), onError = lerp(onError, o.onError, t),
+    errorContainer = lerp(errorContainer, o.errorContainer, t),
+    onErrorContainer = lerp(onErrorContainer, o.onErrorContainer, t),
+    outline = lerp(outline, o.outline, t), outlineVariant = lerp(outlineVariant, o.outlineVariant, t),
+    scrim = lerp(scrim, o.scrim, t),
+    surfaceBright = lerp(surfaceBright, o.surfaceBright, t), surfaceDim = lerp(surfaceDim, o.surfaceDim, t),
+    surfaceContainer = lerp(surfaceContainer, o.surfaceContainer, t),
+    surfaceContainerHigh = lerp(surfaceContainerHigh, o.surfaceContainerHigh, t),
+    surfaceContainerHighest = lerp(surfaceContainerHighest, o.surfaceContainerHighest, t),
+    surfaceContainerLow = lerp(surfaceContainerLow, o.surfaceContainerLow, t),
+    surfaceContainerLowest = lerp(surfaceContainerLowest, o.surfaceContainerLowest, t),
+)
 
 val Numeric = TextStyle(fontFeatureSettings = "tnum")
 
@@ -308,7 +393,7 @@ fun FarvaterTheme(
     val context = LocalContext.current
     val material = style != UiStyle.IOS
     val dark = darkTheme || style == UiStyle.ROSKOMPOZOR
-    val colorScheme = remember(dark, style, dynamicColor) {
+    val targetScheme = remember(dark, style, dynamicColor) {
         if (style == UiStyle.ROSKOMPOZOR) {
             RkpDark
         } else if (!material) {
@@ -321,34 +406,20 @@ fun FarvaterTheme(
             OrangeLight
         }
     }
-    val ios = remember(colorScheme, dark, material) {
+    val targetIos = remember(targetScheme, dark, material) {
         when {
-            material -> materialColors(colorScheme, dark)
+            material -> materialColors(targetScheme, dark)
             dark -> IosDark
             else -> IosLight
         }
     }
+    val colorScheme = fadeTo(targetScheme) { a, b, t -> a.lerpTo(b, t) }
+    val ios = fadeTo(targetIos) { a, b, t -> a.lerpTo(b, t) }
     CompositionLocalProvider(LocalIos provides ios, LocalUiStyle provides style) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = if (material) MaterialType else Type,
-            shapes = if (material) {
-                Shapes(
-                    extraSmall = RoundedCornerShape(8.dp),
-                    small = RoundedCornerShape(12.dp),
-                    medium = RoundedCornerShape(16.dp),
-                    large = RoundedCornerShape(20.dp),
-                    extraLarge = RoundedCornerShape(28.dp),
-                )
-            } else {
-                Shapes(
-                    extraSmall = RoundedCornerShape(7.dp),
-                    small = RoundedCornerShape(10.dp),
-                    medium = RoundedCornerShape(12.dp),
-                    large = RoundedCornerShape(14.dp),
-                    extraLarge = RoundedCornerShape(20.dp),
-                )
-            },
+            shapes = if (material) M3Shapes else IosShapes,
             content = content,
         )
     }
