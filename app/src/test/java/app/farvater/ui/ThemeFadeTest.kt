@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -36,6 +37,7 @@ class ThemeFadeTest {
         assertEquals(IosLight.background, background)
 
         dark = true
+        Snapshot.sendApplyNotifications()
         rule.mainClock.advanceTimeBy(170)
         assertNotEquals(IosLight.background, background)
         assertNotEquals(IosDark.background, background)
