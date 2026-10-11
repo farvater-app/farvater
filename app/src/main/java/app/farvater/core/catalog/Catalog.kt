@@ -109,19 +109,6 @@ object BuiltInCatalog {
             mirrors = listOf("https://hub.mos.ru/rkp/sub-roskompozor/raw/main/bl"),
             mode = SourceMode.BLACK,
         ),
-        CatalogSource(
-            id = "byewhitelists2",
-            title = "ByeWhiteLists 2.0",
-            author = "ByeWhiteLists и GoodbyeWL",
-            homepage = "https://byewhitelists.github.io/",
-            license = "не указана",
-            description = "Более 300 серверов с предварительной проверкой.",
-            mirrors = listOf(
-                "https://raw.githubusercontent.com/ByeWhiteLists/ByeWhiteLists2/refs/heads/main/ByeWhiteLists2.txt",
-                "https://cdn.jsdelivr.net/gh/ByeWhiteLists/ByeWhiteLists2@main/ByeWhiteLists2.txt",
-            ),
-            mode = SourceMode.WHITE,
-        ),
     )
 
     fun byId(id: String): CatalogSource? = sources.firstOrNull { it.id == id }

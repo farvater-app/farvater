@@ -328,7 +328,7 @@ sha256sum --check --ignore-missing SHA256SUMS.txt
 
 **Мои подписки.** Кнопка «Добавить подписку» принимает ссылку на подписку из панели: Marzban, 3x-ui, Remnawave и других. Кнопка «Вставить из буфера» понимает ссылку на подписку, одну или несколько ссылок на узлы (`vless://`, `vmess://`, `trojan://`, `ss://`) и содержимое подписки в Base64.
 
-**Публичные подписки.** Восемь источников от сторонних авторов, у каждого свой переключатель. Под названием видны режим, интервал обновления, автор, лицензия, число узлов и время последнего обновления.
+**Публичные подписки.** Семь источников от сторонних авторов, у каждого свой переключатель. Под названием видны режим, интервал обновления, автор, лицензия, число узлов и время последнего обновления.
 
 Вверху вкладки переключатель режима сети:
 
@@ -616,7 +616,7 @@ Workflow [release.yml](.github/workflows/release.yml) соберёт и подп
 
 AndroidLiquidGlass подсказал подход к эффекту стекла: запись фона в слой, размытие и линзу на AGSL. На его основе написана своя реализация.
 
-Спасибо авторам публичных подписок из каталога: [zieng2](https://github.com/zieng2/wl), [igareck](https://github.com/igareck/vpn-configs-for-russia), [whoahaow](https://github.com/whoahaow/rjsxrd), [РКП](https://hub.mos.ru/rkp/sub-roskompozor) и [ByeWhiteLists](https://byewhitelists.github.io/).
+Спасибо авторам публичных подписок из каталога: [zieng2](https://github.com/zieng2/wl), [igareck](https://github.com/igareck/vpn-configs-for-russia), [whoahaow](https://github.com/whoahaow/rjsxrd) и [РКП](https://hub.mos.ru/rkp/sub-roskompozor).
 
 Логотип #РКП в стиле #РосКомПозор используется с разрешения [РКП](https://hub.mos.ru/rkp/sub-roskompozor).
 

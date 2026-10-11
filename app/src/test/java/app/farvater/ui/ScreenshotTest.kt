@@ -258,8 +258,8 @@ private object Fake {
         node("d4444", "🇳🇱 Амстердам", Protocol.TROJAN, mapOf("security" to "tls"), "rkp-wl"),
         node("e55555", "🇩🇪 Франкфурт, Join Telegram @SolVPN", Protocol.VMESS, mapOf("type" to "ws"), "rjsxrd-bypass"),
         node("f666666", "🇹🇷 Стамбул", Protocol.SHADOWSOCKS, mapOf("method" to "chacha20-ietf-poly1305"), "manual"),
-        node("g7777777", "🇰🇿 Алматы", Protocol.VLESS, mapOf("security" to "none"), "byewhitelists2"),
-        node("h88888888", "🇺🇸 Нью-Йорк", Protocol.VLESS, reality + ("type" to "grpc"), "byewhitelists2"),
+        node("g7777777", "🇰🇿 Алматы", Protocol.VLESS, mapOf("security" to "none"), "rkp-wl"),
+        node("h88888888", "🇺🇸 Нью-Йорк", Protocol.VLESS, reality + ("type" to "grpc"), "rkp-wl"),
     )
     val results = mapOf(
         "a1" to TestResult("a1", 84, TestMethod.REAL),
