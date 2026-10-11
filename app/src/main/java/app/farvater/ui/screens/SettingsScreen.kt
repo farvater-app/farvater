@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Android
 import androidx.compose.material.icons.rounded.Apps
@@ -566,6 +567,14 @@ private fun TestingPage(settings: AppSettings, onChange: ((AppSettings) -> AppSe
             icon = Icons.Rounded.VisibilityOff,
             iconTint = c.gray,
             trailing = { IosSwitch(settings.hideDead, { v -> onChange { it.copy(hideDead = v) } }) },
+        )
+        IosDivider(start = Divider.dp)
+        IosRow(
+            title = "Сортировать во время проверки",
+            subtitle = "Быстрые узлы поднимаются наверх сразу",
+            icon = Icons.AutoMirrored.Rounded.Sort,
+            iconTint = c.teal,
+            trailing = { IosSwitch(settings.liveSort, { v -> onChange { it.copy(liveSort = v) } }) },
         )
         IosDivider(start = Divider.dp)
         IosRow(

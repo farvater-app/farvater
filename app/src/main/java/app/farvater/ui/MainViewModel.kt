@@ -464,7 +464,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     pending.clear()
                     results.update { it + batch }
                 }
-                _state.update { it.copy(results = results.value, progress = TestProgress(done, nodes.size, alive)) }
+                _state.update {
+                    it.copy(
+                        results = results.value,
+                        progress = TestProgress(done, nodes.size, alive),
+                        nodes = if (settings.liveSort) sortNodes(it.nodes, results.value) else it.nodes,
+                    )
+                }
             }
             _state.update { it.copy(progress = TestProgress(0, nodes.size, 0)) }
             try {
@@ -702,7 +708,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             it.copy(
                 settings = settings,
                 sources = sources,
-                nodes = if (testing) keepOrder(it.nodes, nodes) else sortNodes(nodes, res),
+                nodes = if (testing && !settings.liveSort) keepOrder(it.nodes, nodes) else sortNodes(nodes, res),
                 hiddenInsecure = all.size - secure.size,
                 duplicates = secure.size - single.size,
                 results = res,
