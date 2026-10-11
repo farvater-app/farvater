@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
@@ -28,7 +29,9 @@ object XrayConfigBuilder {
     private val ENCRYPTED_DNS = listOf("https://1.1.1.1/dns-query", "https://8.8.8.8/dns-query")
 
     fun build(node: ProxyNode, directRuServices: Boolean, forTest: Boolean = false, encryptedDns: Boolean = true): String {
-        val proxy = outbound(node)
+        val provider = if (node.isJson) Json.parseToJsonElement(node.raw).jsonObject else null
+        val proxies = provider?.get("outbounds")?.jsonArray ?: listOf(outbound(node))
+        val balancers = provider?.get("routing")?.jsonObject?.get("balancers")?.jsonArray
         return buildJsonObject {
             putJsonObject("log") { put("loglevel", "warning") }
             if (!forTest) {
@@ -63,7 +66,7 @@ object XrayConfigBuilder {
                 }
             }
             putJsonArray("outbounds") {
-                add(proxy)
+                proxies.forEach { add(it) }
                 addJsonObject { put("tag", "direct"); put("protocol", "freedom") }
                 addJsonObject { put("tag", "block"); put("protocol", "blackhole") }
                 if (!forTest && encryptedDns) addJsonObject { put("tag", "dns-out"); put("protocol", "dns") }
@@ -88,8 +91,18 @@ object XrayConfigBuilder {
                             putJsonArray("domain") { DIRECT_DOMAINS.forEach { add("domain:$it") } }
                             put("outboundTag", "direct")
                         }
+                        balancers?.firstOrNull()?.jsonObject?.get("tag")?.let { tag ->
+                            addJsonObject {
+                                put("type", "field")
+                                put("network", "tcp,udp")
+                                put("balancerTag", tag)
+                            }
+                        }
                     }
+                    balancers?.let { put("balancers", it) }
                 }
+                provider?.get("observatory")?.let { put("observatory", it) }
+                provider?.get("burstObservatory")?.let { put("burstObservatory", it) }
             }
         }.toString()
     }

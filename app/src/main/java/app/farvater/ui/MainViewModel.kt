@@ -329,7 +329,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun refreshOne(id: String, urls: List<String>, viaTunnel: Boolean) {
         loading.update { it + id }
         rebuild()
-        val snapshot = repo.fetch(id, urls, viaTunnel, deviceHeaders(id))
+        val snapshot = repo.fetch(id, urls, viaTunnel, deviceHeaders(id), json = id !in communityIds)
         snapshots.update { it + (id to snapshot) }
         loading.update { it - id }
         rebuild()
