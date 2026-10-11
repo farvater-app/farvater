@@ -55,6 +55,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.farvater.core.model.Protocol
 import app.farvater.core.model.ProxyNode
+import app.farvater.data.UiStyle
 import app.farvater.ui.Announcement
 import app.farvater.ui.LocalBottomInset
 import app.farvater.ui.UiState
@@ -64,6 +65,7 @@ import app.farvater.ui.components.ConnectMode
 import app.farvater.ui.components.DelayLabel
 import app.farvater.ui.components.NodeAvatar
 import app.farvater.ui.components.Sparkline
+import app.farvater.ui.components.SumieHero
 import app.farvater.ui.components.nodeSummary
 import app.farvater.ui.formatBytes
 import app.farvater.ui.formatDuration
@@ -81,6 +83,7 @@ import app.farvater.ui.ios.IosSection
 import app.farvater.ui.splitFlag
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.IosType
+import app.farvater.ui.theme.LocalUiStyle
 import app.farvater.ui.theme.Numeric
 import app.farvater.vpn.Traffic
 import app.farvater.vpn.VpnState
@@ -107,6 +110,7 @@ fun HomeScreen(
         vpn is VpnState.Failed -> ConnectMode.Error
         else -> ConnectMode.Idle
     }
+    val sumie = LocalUiStyle.current == UiStyle.SUMIE
     val scroll = rememberScrollState()
     val collapsed by remember { derivedStateOf { scroll.value > 70 } }
 
@@ -124,7 +128,7 @@ fun HomeScreen(
                 .glassSource(backdrop)
                 .verticalScroll(scroll)
                 .drawBehind {
-                    drawRect(
+                    if (!sumie) drawRect(
                         Brush.radialGradient(
                             listOf(glow, Color.Transparent),
                             center = Offset(size.width / 2, 190.dp.toPx()),
@@ -150,7 +154,7 @@ fun HomeScreen(
             }
 
             Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.Center) {
-                ConnectButton(mode = mode, onClick = onToggle, size = 184.dp)
+                if (sumie) SumieHero(mode = mode, onClick = onToggle) else ConnectButton(mode = mode, onClick = onToggle, size = 184.dp)
             }
 
             Spacer(Modifier.height(8.dp))

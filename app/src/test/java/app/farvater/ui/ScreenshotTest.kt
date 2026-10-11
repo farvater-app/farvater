@@ -104,6 +104,18 @@ class ScreenshotTest {
         )
     }
 
+    @Test fun sumieIdleLight() = shot("31_sumie_home_idle_light", dark = false, sumie = true) { Home(VpnState.Idle) }
+    @Test fun sumieConnectedLight() = shot("32_sumie_home_connected_light", dark = false, sumie = true) { Home(Fake.connected) }
+    @Test fun sumieConnectedDark() = shot("33_sumie_home_connected_dark", dark = true, sumie = true) { Home(Fake.connected) }
+    @Test fun sumieSearchingLight() = shot("34_sumie_home_searching_light", dark = false, sumie = true) {
+        Home(VpnState.Idle, Fake.state.copy(progress = TestProgress(37, 120, 9)))
+    }
+    @Test fun sumieErrorDark() = shot("35_sumie_home_error_dark", dark = true, sumie = true) {
+        Home(VpnState.Failed("Узел не ответил", Fake.state.nodes.first()))
+    }
+    @Test fun sumieServersLight() = shot("36_sumie_servers_light", dark = false, sumie = true) { Servers() }
+    @Test fun sumieSettingsDark() = shot("37_sumie_settings_dark", dark = true, sumie = true) { Settings() }
+
     @Test fun appsDark() {
         installApps(
             "ru.sberbankmobile" to "СберБанк", "com.idamob.tinkoff.android" to "Т-Банк", "ru.rostel" to "Госуслуги",
@@ -183,6 +195,7 @@ class ScreenshotTest {
         screen: Boolean = false,
         material: Boolean = false,
         rkp: Boolean = false,
+        sumie: Boolean = false,
         act: (() -> Unit)? = null,
         content: @Composable () -> Unit,
     ) {
@@ -192,6 +205,7 @@ class ScreenshotTest {
                 darkTheme = dark,
                 style = when {
                     rkp -> UiStyle.ROSKOMPOZOR
+                    sumie -> UiStyle.SUMIE
                     material -> UiStyle.MATERIAL
                     else -> UiStyle.IOS
                 },

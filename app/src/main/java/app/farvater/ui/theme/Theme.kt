@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -204,6 +205,62 @@ private val RkpDark = darkColorScheme(
     surfaceContainerHighest = Color(0xFF3B3D42),
 )
 
+val SumieSeal = Color(0xFFB23A30)
+val SumieSealNight = Color(0xFFD4574A)
+
+private val SumieLight = lightColorScheme(
+    primary = Color(0xFFA9322A), onPrimary = Color(0xFFFFF8F0),
+    primaryContainer = Color(0xFFF2D9CF), onPrimaryContainer = Color(0xFF3E0D08),
+    secondary = Color(0xFF5E5A52), onSecondary = Color(0xFFFBF8F1),
+    secondaryContainer = Color(0xFFE2DCCD), onSecondaryContainer = Color(0xFF1F1D1A),
+    tertiary = Color(0xFF3F6A4E), onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFD5E5D3), onTertiaryContainer = Color(0xFF0E2015),
+    error = Color(0xFFA9322A), onError = Color.White,
+    errorContainer = Color(0xFFF2D9CF), onErrorContainer = Color(0xFF3E0D08),
+    background = Color(0xFFEFEADF), onBackground = Color(0xFF1F1D1A),
+    surface = Color(0xFFEFEADF), onSurface = Color(0xFF1F1D1A),
+    surfaceVariant = Color(0xFFE2DCCD), onSurfaceVariant = Color(0xFF55504A),
+    outline = Color(0xFF8A8378), outlineVariant = Color(0xFFD3CBBB),
+    inverseSurface = Color(0xFF2E2B27), inverseOnSurface = Color(0xFFF4EFE5), inversePrimary = Color(0xFFF0A093),
+    surfaceTint = Color.Transparent, scrim = Color.Black,
+    surfaceDim = Color(0xFFDDD7CA), surfaceBright = Color(0xFFF7F3EA),
+    surfaceContainerLowest = Color(0xFFF8F5EE), surfaceContainerLow = Color(0xFFF3EEE4),
+    surfaceContainer = Color(0xFFEBE5D8), surfaceContainerHigh = Color(0xFFE5DFD1),
+    surfaceContainerHighest = Color(0xFFDFD8C9),
+)
+
+private val SumieDark = darkColorScheme(
+    primary = Color(0xFFE0705F), onPrimary = Color(0xFF3B0D07),
+    primaryContainer = Color(0xFF5B1C15), onPrimaryContainer = Color(0xFFFFDAD3),
+    secondary = Color(0xFFCCC4B4), onSecondary = Color(0xFF33302A),
+    secondaryContainer = Color(0xFF3A3731), onSecondaryContainer = Color(0xFFEDE6D7),
+    tertiary = Color(0xFF9CC7A6), onTertiary = Color(0xFF0E2A17),
+    tertiaryContainer = Color(0xFF26402E), onTertiaryContainer = Color(0xFFCDE9D2),
+    error = Color(0xFFE0705F), onError = Color(0xFF3B0D07),
+    errorContainer = Color(0xFF5B1C15), onErrorContainer = Color(0xFFFFDAD3),
+    background = Color(0xFF151412), onBackground = Color(0xFFEAE3D5),
+    surface = Color(0xFF151412), onSurface = Color(0xFFEAE3D5),
+    surfaceVariant = Color(0xFF3A3731), onSurfaceVariant = Color(0xFFC2BAAB),
+    outline = Color(0xFF8E877B), outlineVariant = Color(0xFF3A3731),
+    inverseSurface = Color(0xFFEAE3D5), inverseOnSurface = Color(0xFF2B2925), inversePrimary = Color(0xFFA9322A),
+    surfaceTint = Color.Transparent, scrim = Color.Black,
+    surfaceDim = Color(0xFF151412), surfaceBright = Color(0xFF3A3731),
+    surfaceContainerLowest = Color(0xFF100F0D), surfaceContainerLow = Color(0xFF1C1B18),
+    surfaceContainer = Color(0xFF201E1B), surfaceContainerHigh = Color(0xFF2A2824),
+    surfaceContainerHighest = Color(0xFF35322D),
+)
+
+private fun sumieColors(s: ColorScheme, dark: Boolean): IosColors = materialColors(s, dark).copy(
+    green = if (dark) Color(0xFF8FC29C) else Color(0xFF3F6A4E),
+    red = if (dark) Color(0xFFE0705F) else Color(0xFFA9322A),
+    blue = if (dark) Color(0xFF9DB6D3) else Color(0xFF3D5A78),
+    teal = if (dark) Color(0xFF8CC2BD) else Color(0xFF3B6B68),
+    indigo = if (dark) Color(0xFFAEB2DE) else Color(0xFF4A4E78),
+    purple = if (dark) Color(0xFFCBA9CB) else Color(0xFF6B4A6B),
+    yellow = if (dark) Color(0xFFD8B565) else Color(0xFF94701F),
+    pink = if (dark) Color(0xFFE3A1B0) else Color(0xFF9C4A5C),
+)
+
 private fun materialColors(s: ColorScheme, dark: Boolean): IosColors {
     val cell = if (dark) s.surfaceContainerHigh else s.surfaceContainerLowest
     return IosColors(
@@ -292,6 +349,24 @@ private val Type = Typography(
 )
 
 private val MaterialType = Typography()
+
+private val SumieType = MaterialType.copy(
+    displayLarge = MaterialType.displayLarge.copy(fontFamily = FontFamily.Serif),
+    displayMedium = MaterialType.displayMedium.copy(fontFamily = FontFamily.Serif),
+    displaySmall = MaterialType.displaySmall.copy(fontFamily = FontFamily.Serif),
+    headlineLarge = MaterialType.headlineLarge.copy(fontFamily = FontFamily.Serif, fontWeight = FontWeight.SemiBold),
+    headlineMedium = MaterialType.headlineMedium.copy(fontFamily = FontFamily.Serif, fontWeight = FontWeight.SemiBold),
+    headlineSmall = MaterialType.headlineSmall.copy(fontFamily = FontFamily.Serif, fontWeight = FontWeight.Medium),
+    titleLarge = MaterialType.titleLarge.copy(fontFamily = FontFamily.Serif, fontWeight = FontWeight.SemiBold),
+)
+
+private val SumieShapes = Shapes(
+    extraSmall = RoundedCornerShape(4.dp),
+    small = RoundedCornerShape(6.dp),
+    medium = RoundedCornerShape(8.dp),
+    large = RoundedCornerShape(10.dp),
+    extraLarge = RoundedCornerShape(14.dp),
+)
 
 private val M3Shapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),
@@ -396,6 +471,8 @@ fun FarvaterTheme(
     val targetScheme = remember(dark, style, dynamicColor) {
         if (style == UiStyle.ROSKOMPOZOR) {
             RkpDark
+        } else if (style == UiStyle.SUMIE) {
+            if (dark) SumieDark else SumieLight
         } else if (!material) {
             scheme(if (dark) IosDark else IosLight)
         } else if (dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -406,8 +483,9 @@ fun FarvaterTheme(
             OrangeLight
         }
     }
-    val targetIos = remember(targetScheme, dark, material) {
+    val targetIos = remember(targetScheme, dark, style) {
         when {
+            style == UiStyle.SUMIE -> sumieColors(targetScheme, dark)
             material -> materialColors(targetScheme, dark)
             dark -> IosDark
             else -> IosLight
@@ -418,8 +496,16 @@ fun FarvaterTheme(
     CompositionLocalProvider(LocalIos provides ios, LocalUiStyle provides style) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = if (material) MaterialType else Type,
-            shapes = if (material) M3Shapes else IosShapes,
+            typography = when {
+                style == UiStyle.SUMIE -> SumieType
+                material -> MaterialType
+                else -> Type
+            },
+            shapes = when {
+                style == UiStyle.SUMIE -> SumieShapes
+                material -> M3Shapes
+                else -> IosShapes
+            },
             content = content,
         )
     }

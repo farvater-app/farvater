@@ -65,6 +65,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import app.farvater.data.UiStyle
+import app.farvater.ui.components.paperGrain
 import app.farvater.ui.ios.GlassBackdrop
 import app.farvater.ui.ios.GlassStyles
 import app.farvater.ui.ios.glassSource
@@ -72,6 +74,7 @@ import app.farvater.ui.ios.liquidGlass
 import app.farvater.ui.ios.rememberGlassBackdrop
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.IosType
+import app.farvater.ui.theme.LocalUiStyle
 
 internal enum class Tab(val title: String, val icon: ImageVector, val iconIdle: ImageVector) {
     Home("Фарватер", Icons.Rounded.Home, Icons.Outlined.Home),
@@ -157,8 +160,9 @@ private fun MaterialFrame(
     val haptics = LocalHapticFeedback.current
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val bottomInset: Dp = navInset + 64.dp
+    val paper = if (LocalUiStyle.current == UiStyle.SUMIE) Modifier.paperGrain(c.label) else Modifier
     Surface(color = c.background, contentColor = c.label, modifier = Modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().then(paper)) {
             CompositionLocalProvider(LocalBottomInset provides bottomInset) {
                 content(WindowInsets.statusBars.asPaddingValues())
             }
