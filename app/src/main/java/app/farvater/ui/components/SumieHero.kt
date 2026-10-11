@@ -71,7 +71,6 @@ import app.farvater.ui.theme.SumieSealNight
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
-import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.max
@@ -89,8 +88,10 @@ private val SWEEP = (-332.0 * PI / 180.0).toFloat()
 private const val SOLID_END = 0.84f
 private val ensoBounds = Rect(CX - 92f, CY - 92f, CX + 92f, CY + 92f)
 
-private class Palette(val ink: Color, val paper: Color, val seal: Color, val straw: Color) {
-    val whisker = lerp(paper, ink, 0.38f)
+private class Palette(val ink: Color, val paper: Color, val seal: Color, val straw: Color, dark: Boolean) {
+    val fur = if (dark) ink else Color(0xFFFBF8F2)
+    val line = if (dark) paper else ink
+    val whisker = lerp(fur, line, 0.5f)
 }
 
 @Composable
@@ -102,6 +103,7 @@ fun SumieHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modif
             paper = c.background,
             seal = if (c.dark) SumieSealNight else SumieSeal,
             straw = if (c.dark) Color(0xFF8C7B57) else Color(0xFFCDBB92),
+            dark = c.dark,
         )
     }
     val haptics = LocalHapticFeedback.current
@@ -216,12 +218,12 @@ fun SumieHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modif
             val tilt = if (still) 0f else if (rough) 1.2f * sin(t * 3.6f + 0.6f) else 0.6f * sin(t * 1.9f + 0.6f)
             translate(0f, bob) {
                 rotate(tilt, Offset(296f, 196f)) {
-                    if (row > 0.01f) rowingCat(t, still, pal, row)
+                    if (row > 0.01f) faded(row) { rowingCat(t, still, pal) }
                     drawPath(hull, pal.ink)
                     drawPath(rim, pal.paper, alpha = 0.42f, style = Stroke(0.9f))
-                    if (sleep > 0.01f) sleepingCat(t, still, pal, sleep, measurer)
-                    if (light > 0.01f) lanternCat(t, still, pal, light)
-                    if (storm > 0.01f) umbrellaCat(t, still, pal, storm)
+                    if (sleep > 0.01f) faded(sleep) { sleepingCat(t, still, pal, measurer) }
+                    if (light > 0.01f) faded(light) { lanternCat(t, still, pal) }
+                    if (storm > 0.01f) faded(storm) { umbrellaCat(t, still, pal) }
                 }
             }
             if (storm > 0.01f) rain(storm, t, pal.ink)
@@ -541,6 +543,30 @@ private fun DrawScope.rain(alpha: Float, t: Float, ink: Color) {
     }
 }
 
+private val catBounds = Rect(190f, 90f, 362f, 236f)
+
+private inline fun DrawScope.faded(alpha: Float, block: DrawScope.() -> Unit) {
+    if (alpha > 0.99f) return block()
+    val layer = Paint().also { it.alpha = alpha }
+    drawIntoCanvas { it.saveLayer(catBounds, layer) }
+    block()
+    drawIntoCanvas { it.restore() }
+}
+
+private val outline = Stroke(1.1f, join = StrokeJoin.Round)
+
+private fun DrawScope.fur(path: Path, pal: Palette) {
+    drawPath(path, pal.fur)
+    drawPath(path, pal.line, style = outline)
+}
+
+private fun DrawScope.furLine(path: Path, width: Float, pal: Palette) {
+    drawPath(path, pal.line, style = Stroke(width + 2.2f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    drawPath(path, pal.fur, style = Stroke(width, cap = StrokeCap.Round, join = StrokeJoin.Round))
+}
+
+private fun oval(left: Float, top: Float, right: Float, bottom: Float) = Path().apply { addOval(Rect(left, top, right, bottom)) }
+
 private val headShape = Path().apply {
     moveTo(-12.5f, 2f)
     cubicTo(-13.5f, -6.5f, -7.5f, -10.5f, 0f, -10.5f)
@@ -553,12 +579,12 @@ private val headShape = Path().apply {
     close()
 }
 
-private val earsUp = Path().apply {
+private val upEars = Path().apply {
     moveTo(-12.6f, -2f); lineTo(-12.8f, -17.5f); quadraticTo(-7f, -13.5f, -3f, -10f); close()
     moveTo(12.6f, -2f); lineTo(12.8f, -17.5f); quadraticTo(7f, -13.5f, 3f, -10f); close()
 }
 
-private val earsDown = Path().apply {
+private val flatEars = Path().apply {
     moveTo(-6f, -9f); lineTo(-17.5f, -8.5f); lineTo(-11.5f, -2f); close()
     moveTo(6f, -9f); lineTo(17.5f, -8.5f); lineTo(11.5f, -2f); close()
 }
@@ -598,56 +624,50 @@ private val whiskers = Path().apply {
     }
 }
 
+private val hatShape = Path().apply {
+    moveTo(-24f, -5f)
+    quadraticTo(-8f, -11f, 0f, -25f)
+    quadraticTo(8f, -11f, 24f, -5f)
+    quadraticTo(0f, -1f, -24f, -5f)
+    close()
+}
+
 private enum class Eyes { Open, Happy, Sleep, Sad }
 
 private fun blinking(t: Float): Boolean = (t % 4.3f) > 4.15f
 
-private fun DrawScope.ears(cx: Float, cy: Float, down: Boolean, pal: Palette, alpha: Float) {
+private fun DrawScope.head(cx: Float, cy: Float, eyes: Eyes, earsDown: Boolean, blink: Boolean, look: Float, hatted: Boolean, pal: Palette) {
     translate(cx, cy) {
-        drawPath(if (down) earsDown else earsUp, pal.ink, alpha = alpha)
-        if (!down) drawPath(innerEars, pal.seal, alpha = 0.5f * alpha)
-    }
-}
-
-private fun DrawScope.head(cx: Float, cy: Float, eyes: Eyes, earsDown: Boolean, blink: Boolean, look: Float, pal: Palette, alpha: Float) {
-    ears(cx, cy, earsDown, pal, alpha)
-    translate(cx, cy) {
-        drawPath(headShape, pal.ink, alpha = alpha)
-        val line = Stroke(1.4f, cap = StrokeCap.Round)
+        if (!hatted) {
+            fur(if (earsDown) flatEars else upEars, pal)
+            if (!earsDown) drawPath(innerEars, pal.seal, alpha = 0.45f)
+        }
+        fur(headShape, pal)
+        val line = Stroke(1.3f, cap = StrokeCap.Round)
         when (eyes) {
-            Eyes.Open -> {
-                val ry = if (blink) 0.35f else 2.5f
-                for (dx in floatArrayOf(-5.2f, 5.2f)) {
-                    drawOval(pal.paper, Offset(dx - 2.3f, 0.6f - ry), Size(4.6f, ry * 2), alpha = alpha)
-                    if (!blink) drawOval(pal.ink, Offset(dx - 0.75f + look, -1.3f), Size(1.5f, 3.8f), alpha = alpha)
+            Eyes.Open -> for (dx in floatArrayOf(-5.2f, 5.2f)) {
+                if (blink) {
+                    drawLine(pal.line, Offset(dx - 1.8f, 0.8f), Offset(dx + 1.8f, 0.8f), 1.2f, StrokeCap.Round)
+                } else {
+                    drawOval(pal.line, Offset(dx - 1.6f + look * 0.5f, -1.5f), Size(3.2f, 4.2f))
+                    drawCircle(pal.fur, 0.65f, Offset(dx - 0.5f + look * 0.5f, -0.4f))
                 }
             }
-            Eyes.Happy -> drawPath(happyEyes, pal.paper, alpha = alpha, style = line)
-            Eyes.Sleep -> drawPath(sleepyEyes, pal.paper, alpha = alpha, style = line)
-            Eyes.Sad -> drawPath(sadEyes, pal.paper, alpha = alpha, style = line)
+            Eyes.Happy -> drawPath(happyEyes, pal.line, style = line)
+            Eyes.Sleep -> drawPath(sleepyEyes, pal.line, style = line)
+            Eyes.Sad -> drawPath(sadEyes, pal.line, style = line)
         }
-        drawPath(nose, pal.seal, alpha = 0.9f * alpha)
-        drawPath(mouth, pal.paper, alpha = 0.85f * alpha, style = Stroke(0.7f, cap = StrokeCap.Round))
-        drawPath(whiskers, pal.whisker, alpha = alpha, style = Stroke(0.65f, cap = StrokeCap.Round))
-    }
-}
-
-private val brim = Path().apply {
-    moveTo(-24f, 4f)
-    quadraticTo(0f, -16f, 24f, 4f)
-    quadraticTo(0f, 0.5f, -24f, 4f)
-    close()
-}
-
-private fun DrawScope.hat(cx: Float, cy: Float, degrees: Float, pal: Palette, alpha: Float) {
-    rotate(degrees, Offset(cx, cy)) {
-        translate(cx, cy) {
-            drawPath(brim, pal.straw, alpha = alpha)
-            drawPath(brim, pal.ink, alpha = alpha, style = Stroke(1.3f))
-            for (dx in floatArrayOf(-13f, -6.5f, 0f, 6.5f, 13f)) {
-                drawLine(pal.ink, Offset(0f, -10f), Offset(dx, 2.4f - abs(dx) * 0.05f), 0.6f, alpha = 0.45f * alpha)
+        drawPath(nose, pal.seal, alpha = 0.9f)
+        drawPath(mouth, pal.line, alpha = 0.85f, style = Stroke(0.7f, cap = StrokeCap.Round))
+        drawPath(whiskers, pal.whisker, style = Stroke(0.65f, cap = StrokeCap.Round))
+        if (hatted) {
+            drawPath(hatShape, pal.straw)
+            for (dx in floatArrayOf(-14f, -7f, 0f, 7f, 14f)) {
+                val s = (24f - dx) / 48f
+                drawLine(pal.line, Offset(0f, -24f), Offset(dx, -5f * ((1 - s) * (1 - s) + s * s) - 2f * (1 - s) * s), 0.6f, alpha = 0.45f)
             }
-            drawCircle(pal.ink, 1.4f, Offset(0f, -10.5f), alpha = alpha)
+            drawPath(hatShape, pal.line, style = Stroke(1.2f, join = StrokeJoin.Round))
+            drawCircle(pal.line, 1.5f, Offset(0f, -25.3f))
         }
     }
 }
@@ -668,10 +688,12 @@ private val scarfEnd = Path().apply {
     close()
 }
 
-private fun DrawScope.scarf(cx: Float, cy: Float, flutter: Float, pal: Palette, alpha: Float) {
+private fun DrawScope.scarf(cx: Float, cy: Float, flutter: Float, trailing: Boolean, pal: Palette) {
     translate(cx, cy) {
-        drawPath(scarfBand, pal.seal, alpha = alpha)
-        rotate(flutter, Offset(5f, 5f)) { drawPath(scarfEnd, pal.seal, alpha = alpha) }
+        drawPath(scarfBand, pal.seal)
+        scale(if (trailing) -1f else 1f, 1f, Offset.Zero) {
+            rotate(flutter, Offset(5f, 5f)) { drawPath(scarfEnd, pal.seal) }
+        }
     }
 }
 
@@ -688,6 +710,9 @@ private val pawLine = Path().apply {
     quadraticTo(-1.6f, -5f, -1.2f, -0.5f)
 }
 
+private val leftPaw = oval(-7.5f, -3.6f, -1f, 0.4f)
+private val rightPaw = oval(1f, -3.6f, 7.5f, 0.4f)
+
 private fun tailPath(curl: Float) = Path().apply {
     moveTo(0f, 0f)
     cubicTo(12f * curl, 2f, 17f * curl, -8f, 12f * curl, -16f)
@@ -697,59 +722,43 @@ private fun tailPath(curl: Float) = Path().apply {
 private val tailRight = tailPath(1f)
 private val tailLeft = tailPath(-1f)
 
-private fun DrawScope.tail(x: Float, y: Float, sway: Float, right: Boolean, pal: Palette, alpha: Float) {
+private fun DrawScope.tail(x: Float, y: Float, sway: Float, right: Boolean, pal: Palette) {
     rotate(sway, Offset(x, y)) {
-        translate(x, y) {
-            drawPath(if (right) tailRight else tailLeft, pal.ink, alpha = alpha, style = Stroke(4.4f, cap = StrokeCap.Round, join = StrokeJoin.Round))
-        }
+        translate(x, y) { furLine(if (right) tailRight else tailLeft, 4.4f, pal) }
     }
 }
 
-private fun DrawScope.sittingCat(t: Float, still: Boolean, cx: Float, by: Float, eyes: Eyes, earsDown: Boolean, pal: Palette, alpha: Float) {
-    tail(cx + 10f, by - 2f, if (still) 0f else 6f * sin(t * 1.7f), true, pal, alpha)
+private fun DrawScope.sittingCat(t: Float, still: Boolean, cx: Float, by: Float, eyes: Eyes, earsDown: Boolean, hatted: Boolean, pal: Palette) {
+    tail(cx + 10f, by - 2f, if (still) 0f else 6f * sin(t * 1.7f), true, pal)
     translate(cx, by) {
-        drawPath(sitBody, pal.ink, alpha = alpha)
-        drawPath(pawLine, pal.paper, alpha = 0.7f * alpha, style = Stroke(0.8f, cap = StrokeCap.Round))
-        drawOval(pal.ink, Offset(-7.5f, -3.6f), Size(6.5f, 4f), alpha = alpha)
-        drawOval(pal.ink, Offset(1f, -3.6f), Size(6.5f, 4f), alpha = alpha)
+        fur(sitBody, pal)
+        drawPath(pawLine, pal.line, alpha = 0.8f, style = Stroke(0.8f, cap = StrokeCap.Round))
+        fur(leftPaw, pal)
+        fur(rightPaw, pal)
     }
-    scarf(cx, by - 30f, if (still) 0f else 5f * sin(t * 2.2f), pal, alpha)
-    head(cx, by - 40f, eyes, earsDown, eyes == Eyes.Open && !still && blinking(t), 0f, pal, alpha)
+    scarf(cx, by - 30f, if (still) 0f else 5f * sin(t * 2.2f), false, pal)
+    head(cx, by - 40f, eyes, earsDown, eyes == Eyes.Open && !still && blinking(t), 0f, hatted, pal)
 }
 
-private val oarBlade = Path().apply {
-    moveTo(229f, 210f); lineTo(218f, 222f); lineTo(212f, 218f); lineTo(224f, 206f); close()
-}
-
-private fun DrawScope.rowingCat(t: Float, still: Boolean, pal: Palette, alpha: Float) {
+private fun DrawScope.rowingCat(t: Float, still: Boolean, pal: Palette) {
     val cx = 268f
     val by = 196f
-    val stroke = if (still) 0f else sin(t * 3.6f)
-    val oarPivot = Offset(246f, 190f)
-    rotate(stroke * 5f, oarPivot) {
-        drawLine(pal.ink, Offset(282f, 158f), Offset(222f, 220f), 2.4f, StrokeCap.Round, alpha = alpha)
-        drawPath(oarBlade, pal.ink, alpha = alpha)
-    }
-    rotate(stroke * 2.5f, Offset(cx, by)) {
-        tail(cx - 10f, by - 2f, if (still) 0f else 8f * sin(t * 3.6f + 1f), false, pal, alpha)
-        translate(cx, by) { drawPath(sitBody, pal.ink, alpha = alpha) }
-        scarf(cx, by - 30f, if (still) 0f else 8f * sin(t * 4.4f), pal, alpha)
-        head(cx, by - 40f, Eyes.Open, false, !still && blinking(t), 1f, pal, alpha)
-        hat(cx, by - 59f, -3f, pal, alpha)
-        rotate(stroke * 5f, oarPivot) {
-            val arm = Path().apply {
-                moveTo(cx + 6f, by - 22f)
-                quadraticTo(cx + 12f, by - 28f, cx + 14f, by - 36f)
-            }
-            drawPath(arm, pal.ink, alpha = alpha, style = Stroke(4.4f, cap = StrokeCap.Round))
-            drawCircle(pal.ink, 3f, Offset(cx + 14f, by - 36.5f), alpha = alpha)
-        }
-    }
+    val push = if (still) 0f else 3.5f * sin(t * 3.6f)
+    val top = Offset(cx + 20f, by - 72f)
+    val bottom = Offset(cx + 4f, by + 26f)
+    val axis = (bottom - top) / (bottom - top).getDistance()
+    drawLine(pal.ink, top + axis * push, bottom + axis * push, 2.2f, StrokeCap.Round)
+    tail(cx - 10f, by - 2f, if (still) 0f else 8f * sin(t * 3.6f + 1f), false, pal)
+    translate(cx, by) { fur(sitBody, pal) }
+    scarf(cx, by - 30f, if (still) 0f else 8f * sin(t * 4.4f), true, pal)
+    head(cx, by - 40f, Eyes.Open, false, !still && blinking(t), 1f, true, pal)
+    val paw = Offset(cx + 12.6f, by - 24f) + axis * (push * 0.4f)
+    fur(oval(paw.x - 3.4f, paw.y - 3f, paw.x + 3.4f, paw.y + 3f), pal)
     if (!still) {
         for (i in 0..1) {
             val phase = (t * 0.9f + i * 0.5f) % 1f
             val r = 4f + 12f * phase
-            drawOval(pal.ink, Offset(218f - r, 214f - r * 0.25f), Size(r * 2, r * 0.5f), alpha = 0.35f * (1f - phase) * alpha, style = Stroke(0.8f))
+            drawOval(pal.ink, Offset(277f - r, 213f - r * 0.25f), Size(r * 2, r * 0.5f), alpha = 0.35f * (1f - phase), style = Stroke(0.8f))
         }
     }
 }
@@ -762,60 +771,51 @@ private val sleepBody = Path().apply {
 }
 
 private val sleepTail = Path().apply {
-    moveTo(21f, -2f)
-    cubicTo(10f, 1f, -8f, 1f, -17f, -1.5f)
+    moveTo(21f, -3f)
+    cubicTo(14f, 1f, -4f, 1.5f, -12f, -2f)
 }
 
-private fun DrawScope.sleepingCat(t: Float, still: Boolean, pal: Palette, alpha: Float, measurer: TextMeasurer) {
+private fun DrawScope.sleepingCat(t: Float, still: Boolean, pal: Palette, measurer: TextMeasurer) {
     val cx = 292f
     val by = 198f
     val breath = if (still) 1f else 1f + 0.03f * sin(t * 1.6f)
     scale(1f, breath, Offset(cx, by)) {
-        translate(cx, by) { drawPath(sleepBody, pal.ink, alpha = alpha) }
+        translate(cx, by) { fur(sleepBody, pal) }
     }
-    translate(cx, by) {
-        drawPath(sleepTail, pal.paper, alpha = 0.55f * alpha, style = Stroke(0.8f, cap = StrokeCap.Round))
-    }
-    head(cx - 14f, by - 16f, Eyes.Sleep, false, false, 0f, pal, alpha)
-    hat(cx + 12f, by - 24f, 14f, pal, alpha)
+    translate(cx, by) { furLine(sleepTail, 4.2f, pal) }
+    head(cx - 14f, by - 15f, Eyes.Sleep, false, false, 0f, false, pal)
     val first = if (still) 0.3f else (t / 2.6f) % 1f
-    glyph(measurer, "z", Offset(cx - 2f + 3f * first, by - 38f - 10f * first), 12f, pal.ink, 0.5f * alpha * (1f - first), italic = true)
+    glyph(measurer, "z", Offset(cx - 2f + 3f * first, by - 38f - 10f * first), 12f, pal.ink, 0.5f * (1f - first), italic = true)
     val second = if (still) 0.6f else ((t + 1.3f) / 2.6f) % 1f
-    glyph(measurer, "z", Offset(cx + 7f + 3f * second, by - 47f - 10f * second), 9f, pal.ink, 0.35f * alpha * (1f - second), italic = true)
+    glyph(measurer, "z", Offset(cx + 7f + 3f * second, by - 47f - 10f * second), 9f, pal.ink, 0.35f * (1f - second), italic = true)
 }
 
-private fun DrawScope.lanternCat(t: Float, still: Boolean, pal: Palette, alpha: Float) {
-    val cx = 284f
-    val by = 198f
-    sittingCat(t, still, cx, by, Eyes.Happy, false, pal, alpha)
-    hat(cx, by - 59f, -4f, pal, alpha)
-    val sway = if (still) 0f else 2.5f * sin(t * 1.1f)
-    rotate(sway, Offset(cx + 14f, by - 1f)) {
-        drawLine(pal.ink, Offset(cx + 14f, by - 1f), Offset(cx + 40f, by - 54f), 2f, StrokeCap.Round, alpha = alpha)
-        lantern(t, still, cx + 40f, by - 54f, -sway, pal, alpha)
-    }
-    val arm = Path().apply {
-        moveTo(cx + 6f, by - 24f)
-        quadraticTo(cx + 14f, by - 24f, cx + 22.5f, by - 21f)
-    }
-    drawPath(arm, pal.ink, alpha = alpha, style = Stroke(4.4f, cap = StrokeCap.Round))
-    drawCircle(pal.ink, 3f, Offset(cx + 23f, by - 21.5f), alpha = alpha)
+private val lanternPole = Path().apply {
+    moveTo(330f, 194f)
+    quadraticTo(333f, 170f, 331f, 147f)
+    quadraticTo(336f, 144f, 341f, 147f)
+}
+
+private fun DrawScope.lanternCat(t: Float, still: Boolean, pal: Palette) {
+    drawPath(lanternPole, pal.ink, style = Stroke(2f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    lantern(t, still, 341f, 147f, pal)
+    sittingCat(t, still, 286f, 198f, Eyes.Happy, false, true, pal)
 }
 
 private fun glow(t: Float, still: Boolean) = if (still) 1f else 0.85f + 0.15f * sin(t * 2.3f)
 
-private fun DrawScope.lantern(t: Float, still: Boolean, x: Float, y: Float, counter: Float, pal: Palette, alpha: Float) {
+private fun DrawScope.lantern(t: Float, still: Boolean, x: Float, y: Float, pal: Palette) {
     val glow = glow(t, still)
-    rotate(counter + if (still) 0f else 3f * sin(t * 1.3f), Offset(x, y)) {
-        drawCircle(pal.seal, 16f, Offset(x, y + 15f), alpha = 0.12f * glow * alpha)
-        drawCircle(pal.seal, 10f, Offset(x, y + 15f), alpha = 0.16f * glow * alpha)
-        drawLine(pal.ink, Offset(x, y), Offset(x, y + 6f), 1.1f, alpha = alpha)
-        drawOval(pal.seal, Offset(x - 7f, y + 6f), Size(14f, 18f), alpha = alpha)
+    rotate(if (still) 0f else 3f * sin(t * 1.3f), Offset(x, y)) {
+        drawCircle(pal.seal, 16f, Offset(x, y + 15f), alpha = 0.12f * glow)
+        drawCircle(pal.seal, 10f, Offset(x, y + 15f), alpha = 0.16f * glow)
+        drawLine(pal.ink, Offset(x, y), Offset(x, y + 6f), 1.1f)
+        drawOval(pal.seal, Offset(x - 7f, y + 6f), Size(14f, 18f))
         for (dy in floatArrayOf(10.5f, 15f, 19.5f)) {
-            drawLine(Color.Black, Offset(x - 6f, y + dy), Offset(x + 6f, y + dy), 0.8f, alpha = 0.2f * alpha)
+            drawLine(Color.Black, Offset(x - 6f, y + dy), Offset(x + 6f, y + dy), 0.8f, alpha = 0.2f)
         }
-        drawRect(pal.ink, Offset(x - 2.5f, y + 5f), Size(5f, 1.8f), alpha = alpha)
-        drawRect(pal.ink, Offset(x - 2.5f, y + 23.5f), Size(5f, 1.8f), alpha = alpha)
+        drawRect(pal.ink, Offset(x - 2.5f, y + 5f), Size(5f, 1.8f))
+        drawRect(pal.ink, Offset(x - 2.5f, y + 23.5f), Size(5f, 1.8f))
     }
 }
 
@@ -825,7 +825,7 @@ private fun DrawScope.reflection(t: Float, still: Boolean, seal: Color, alpha: F
         val w = 9f - i * 1.8f
         val y = 207f + i * 3.2f
         val shift = if (still) 0f else 1.6f * sin(t * 2.6f + i)
-        drawLine(seal, Offset(324f - w / 2 + shift, y), Offset(324f + w / 2 + shift, y), 1.1f, StrokeCap.Round, alpha = 0.4f * glow * alpha * (1f - i * 0.2f))
+        drawLine(seal, Offset(341f - w / 2 + shift, y), Offset(341f + w / 2 + shift, y), 1.1f, StrokeCap.Round, alpha = 0.4f * glow * alpha * (1f - i * 0.2f))
     }
 }
 
@@ -837,21 +837,21 @@ private val canopy = Path().apply {
     close()
 }
 
-private fun DrawScope.umbrellaCat(t: Float, still: Boolean, pal: Palette, alpha: Float) {
+private fun DrawScope.umbrellaCat(t: Float, still: Boolean, pal: Palette) {
     val cx = 290f
     val by = 198f
     val top = Offset(cx, by - 68f)
-    rotate(-12f + if (still) 0f else 1.5f * sin(t * 1.4f), Offset(cx, by - 20f)) {
-        drawLine(pal.ink, top, Offset(cx, by - 20f), 1.6f, StrokeCap.Round, alpha = alpha)
+    rotate(-5f + if (still) 0f else 1.5f * sin(t * 1.4f), Offset(cx, by - 20f)) {
+        drawLine(pal.ink, top, Offset(cx, by - 20f), 1.6f, StrokeCap.Round)
         translate(top.x, top.y) {
-            drawPath(canopy, pal.seal, alpha = alpha)
+            drawPath(canopy, pal.seal)
             for (dx in floatArrayOf(-17f, 0f, 17f)) {
-                drawLine(pal.ink, Offset(0f, -6.5f), Offset(dx, 14.5f), 0.7f, alpha = 0.45f * alpha)
+                drawLine(pal.ink, Offset(0f, -6.5f), Offset(dx, 14.5f), 0.7f, alpha = 0.45f)
             }
-            drawPath(canopy, pal.ink, alpha = 0.9f * alpha, style = Stroke(1f, join = StrokeJoin.Round))
-            drawCircle(pal.ink, 1.8f, Offset(0f, -7.5f), alpha = alpha)
+            drawPath(canopy, pal.ink, alpha = 0.9f, style = Stroke(1f, join = StrokeJoin.Round))
+            drawCircle(pal.ink, 1.8f, Offset(0f, -7.5f))
         }
     }
     val shiver = if (still || sin(t * 0.9f) <= 0.6f) 0f else 0.5f * sin(t * 20f)
-    translate(shiver, 0f) { sittingCat(t, still, cx, by, Eyes.Sad, true, pal, alpha) }
+    translate(shiver, 0f) { sittingCat(t, still, cx, by, Eyes.Sad, true, false, pal) }
 }
