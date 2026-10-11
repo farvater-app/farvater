@@ -1,38 +1,38 @@
 {
-  "versionCode": 10021,
-  "versionName": "1.0.21",
-  "published": "10.10.2026",
+  "versionCode": 10022,
+  "versionName": "1.0.22",
+  "published": "11.10.2026",
   "critical": false,
   "notes": [
-    "Полная поддержка Hysteria2: обфускация Salamander, смена портов и закреплённый сертификат",
-    "Узлы Hysteria2 проверяются сразу через ядро, по UDP",
-    "Исправлен запуск узлов с allowInsecure и insecure: сертификат теперь проверяется всегда"
+    "35 российских приложений сами идут мимо VPN: банки, Госуслуги, маркетплейсы, Яндекс, VK",
+    "«Банки и госсервисы» теперь называются «Российские сервисы»",
+    "В «Приложениях мимо VPN» такие приложения помечены «напрямую»"
   ],
   "assets": {
     "arm64-v8a": {
-      "url": "https://github.com/lutzashl290788-cell/farvater/releases/download/v1.0.21/Farvater-1.0.21-arm64-v8a.apk",
-      "sha256": "323695caa45280fc2f471612e6f3bf30f2437c2ae003a92c5c0c3220ad9a0ae9",
-      "size": 21326289
+      "url": "https://github.com/lutzashl290788-cell/farvater/releases/download/v1.0.22/Farvater-1.0.22-arm64-v8a.apk",
+      "sha256": "8a2723e575368d8042df8639a3927827b91855b9ab5926e4ffb1850bdfed9a3f",
+      "size": 21327440
     },
     "armeabi-v7a": {
-      "url": "https://github.com/lutzashl290788-cell/farvater/releases/download/v1.0.21/Farvater-1.0.21-armeabi-v7a.apk",
-      "sha256": "46bc50eb2e508c55eefad3a0401df5b228740602871600285c721509b3b8db40",
-      "size": 21836493
+      "url": "https://github.com/lutzashl290788-cell/farvater/releases/download/v1.0.22/Farvater-1.0.22-armeabi-v7a.apk",
+      "sha256": "69adbc8394cfaa10e3049c336c14838de8396f63eefe4af3f60ccc666ae319fb",
+      "size": 21837620
     },
     "universal": {
-      "url": "https://github.com/lutzashl290788-cell/farvater/releases/download/v1.0.21/Farvater-1.0.21-universal.apk",
-      "sha256": "b2ec0fab43ecb66b9cb8dac0caaf4630217e36b3533193689bcff2d50f085fd1",
-      "size": 61438267
+      "url": "https://github.com/lutzashl290788-cell/farvater/releases/download/v1.0.22/Farvater-1.0.22-universal.apk",
+      "sha256": "49dc75a805532ea9725fb34dc351fc7b67407846a5af1acc6378b9445deccfa9",
+      "size": 61439406
     },
     "x86": {
-      "url": "https://github.com/lutzashl290788-cell/farvater/releases/download/v1.0.21/Farvater-1.0.21-x86.apk",
-      "sha256": "8d28d5773b81fd12d1cc977a5b7c88fe67657d073e12bb2658e619db4222d18b",
-      "size": 22864511
+      "url": "https://github.com/lutzashl290788-cell/farvater/releases/download/v1.0.22/Farvater-1.0.22-x86.apk",
+      "sha256": "e9b412dcb9fa2e64acd7d68e9ffa4a7ad5a491e00483fdeffa0684a75e4421bc",
+      "size": 22865651
     },
     "x86_64": {
-      "url": "https://github.com/lutzashl290788-cell/farvater/releases/download/v1.0.21/Farvater-1.0.21-x86_64.apk",
-      "sha256": "e6f96a81c46cc40f80700556ada6dc9298ab11a95fd50aa1f7dce5ebd3f03257",
-      "size": 22348071
+      "url": "https://github.com/lutzashl290788-cell/farvater/releases/download/v1.0.22/Farvater-1.0.22-x86_64.apk",
+      "sha256": "5b0101c2aff58560dad98aaa2d56dd123f755ec231bdb002d492995046b0f6ea",
+      "size": 22349215
     }
   }
 }
