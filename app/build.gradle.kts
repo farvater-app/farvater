@@ -110,6 +110,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp)
     implementation(libs.androidx.work.runtime)
+    implementation(libs.androidx.profileinstaller)
     debugImplementation(libs.compose.ui.tooling)
 
     debugImplementation(libs.compose.ui.test.manifest)

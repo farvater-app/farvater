@@ -74,8 +74,12 @@ fun Modifier.glassSource(backdrop: GlassBackdrop): Modifier = composed {
     }
     onGloballyPositioned { backdrop.coordinates = it }
         .drawWithContent {
-            drawContent()
-            if (glassSupported) layer.record { this@drawWithContent.drawContent() }
+            if (glassSupported) {
+                layer.record { this@drawWithContent.drawContent() }
+                drawLayer(layer)
+            } else {
+                drawContent()
+            }
         }
 }
 

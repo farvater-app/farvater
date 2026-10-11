@@ -1,0 +1,4 @@
+HSPLapp/farvater/**;->**(**)**
+Lapp/farvater/**;
+HSPLhev/sockstun/**;->**(**)**
+HSPLkotlinx/serialization/json/**;->**(**)**
