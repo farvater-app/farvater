@@ -1,0 +1,3 @@
+- 35 Russian apps now bypass the VPN by default: banks, Gosuslugi, marketplaces, Yandex, VK
+- "Banks and government services" is renamed to "Russian services"
+- Such apps are marked "direct" in "Apps outside VPN"
