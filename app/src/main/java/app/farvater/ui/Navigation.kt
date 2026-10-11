@@ -38,8 +38,8 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.ShortNavigationBar
+import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -156,7 +156,7 @@ private fun MaterialFrame(
     val c = Ios.colors
     val haptics = LocalHapticFeedback.current
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val bottomInset: Dp = navInset + 80.dp
+    val bottomInset: Dp = navInset + 64.dp
     Surface(color = c.background, contentColor = c.label, modifier = Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize()) {
             CompositionLocalProvider(LocalBottomInset provides bottomInset) {
@@ -165,9 +165,9 @@ private fun MaterialFrame(
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset + 8.dp)) { data ->
                 Snackbar(data, modifier = Modifier.padding(horizontal = 16.dp), shape = RoundedCornerShape(12.dp))
             }
-            NavigationBar(modifier = Modifier.align(Alignment.BottomCenter), containerColor = c.bar) {
+            ShortNavigationBar(modifier = Modifier.align(Alignment.BottomCenter), containerColor = c.bar) {
                 Tab.entries.forEach { t ->
-                    NavigationBarItem(
+                    ShortNavigationBarItem(
                         selected = t == tab,
                         onClick = {
                             if (t != tab) {
