@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Android
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.BatteryChargingFull
+import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Description
@@ -122,6 +123,7 @@ import app.farvater.R
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.IosType
 import app.farvater.ui.theme.RkpBlue
+import app.farvater.ui.theme.SumieSeal
 import kotlinx.coroutines.launch
 
 private val TestUrls = listOf(
@@ -259,6 +261,7 @@ private fun SettingsRoot(
                         UiStyle.IOS -> "iOS 26"
                         UiStyle.MATERIAL -> "Material You"
                         UiStyle.ROSKOMPOZOR -> "#РосКомПозор"
+                        UiStyle.SUMIE -> "Сумиэ"
                     },
                     chevron = true,
                     onClick = { onOpen(SettingsPage.Appearance) },
@@ -395,6 +398,15 @@ private fun AppearancePage(settings: AppSettings, onChange: ((AppSettings) -> Ap
             icon = ImageVector.vectorResource(R.drawable.ic_rkp),
             iconTint = RkpBlue,
             onClick = { onChange { it.copy(uiStyle = UiStyle.ROSKOMPOZOR) } },
+        )
+        IosDivider(start = divider)
+        IosChoiceRow(
+            title = "Сумиэ",
+            subtitle = "Тушь на рисовой бумаге: круг энсо, красная печать и кот-лодочник",
+            selected = settings.uiStyle == UiStyle.SUMIE,
+            icon = Icons.Rounded.Brush,
+            iconTint = SumieSeal,
+            onClick = { onChange { it.copy(uiStyle = UiStyle.SUMIE) } },
         )
     }
 
