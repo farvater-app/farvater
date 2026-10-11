@@ -114,7 +114,10 @@ class ScreenshotTest {
         Home(VpnState.Failed("Узел не ответил", Fake.state.nodes.first()))
     }
     @Test fun sumieServersLight() = shot("36_sumie_servers_light", dark = false, sumie = true) { Servers() }
-    @Test fun sumieSettingsDark() = shot("37_sumie_settings_dark", dark = true, sumie = true) { Settings() }
+    @Test fun sumieAppearanceDark() = shot(
+        "37_sumie_appearance_dark", dark = true, sumie = true,
+        act = { rule.onNodeWithText("Оформление").performClick() },
+    ) { Settings(Fake.state.settings.copy(uiStyle = UiStyle.SUMIE)) }
 
     @Test fun appsDark() {
         installApps(
