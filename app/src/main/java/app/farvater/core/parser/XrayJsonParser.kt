@@ -64,6 +64,13 @@ object XrayJsonParser {
             put("outbounds", JsonArray(outbounds))
             if (balancer != null && selected.isNotEmpty() && !leaks) {
                 putJsonObject("routing") {
+                    putJsonArray("rules") {
+                        addJsonObject {
+                            put("type", "field")
+                            put("network", "tcp,udp")
+                            put("balancerTag", balancerTag)
+                        }
+                    }
                     putJsonArray("balancers") {
                         addJsonObject {
                             put("tag", balancerTag)
