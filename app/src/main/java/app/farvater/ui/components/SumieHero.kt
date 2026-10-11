@@ -609,8 +609,8 @@ private fun DrawScope.ears(cx: Float, cy: Float, down: Boolean, pal: Palette, al
     }
 }
 
-private fun DrawScope.head(cx: Float, cy: Float, eyes: Eyes, earsDown: Boolean, blink: Boolean, look: Float, hatted: Boolean, pal: Palette, alpha: Float) {
-    if (!hatted) ears(cx, cy, earsDown, pal, alpha)
+private fun DrawScope.head(cx: Float, cy: Float, eyes: Eyes, earsDown: Boolean, blink: Boolean, look: Float, pal: Palette, alpha: Float) {
+    ears(cx, cy, earsDown, pal, alpha)
     translate(cx, cy) {
         drawPath(headShape, pal.ink, alpha = alpha)
         val line = Stroke(1.4f, cap = StrokeCap.Round)
@@ -650,11 +650,6 @@ private fun DrawScope.hat(cx: Float, cy: Float, degrees: Float, pal: Palette, al
             drawCircle(pal.ink, 1.4f, Offset(0f, -10.5f), alpha = alpha)
         }
     }
-}
-
-private fun DrawScope.hattedHead(cx: Float, cy: Float, degrees: Float, earsDown: Boolean, pal: Palette, alpha: Float) {
-    hat(cx, cy - 10f, degrees, pal, alpha)
-    rotate(degrees, Offset(cx, cy - 10f)) { ears(cx, cy, earsDown, pal, alpha) }
 }
 
 private val scarfBand = Path().apply {
@@ -710,7 +705,7 @@ private fun DrawScope.tail(x: Float, y: Float, sway: Float, right: Boolean, pal:
     }
 }
 
-private fun DrawScope.sittingCat(t: Float, still: Boolean, cx: Float, by: Float, eyes: Eyes, earsDown: Boolean, hatted: Boolean, pal: Palette, alpha: Float) {
+private fun DrawScope.sittingCat(t: Float, still: Boolean, cx: Float, by: Float, eyes: Eyes, earsDown: Boolean, pal: Palette, alpha: Float) {
     tail(cx + 10f, by - 2f, if (still) 0f else 6f * sin(t * 1.7f), true, pal, alpha)
     translate(cx, by) {
         drawPath(sitBody, pal.ink, alpha = alpha)
@@ -719,7 +714,7 @@ private fun DrawScope.sittingCat(t: Float, still: Boolean, cx: Float, by: Float,
         drawOval(pal.ink, Offset(1f, -3.6f), Size(6.5f, 4f), alpha = alpha)
     }
     scarf(cx, by - 30f, if (still) 0f else 5f * sin(t * 2.2f), pal, alpha)
-    head(cx, by - 40f, eyes, earsDown, eyes == Eyes.Open && !still && blinking(t), 0f, hatted, pal, alpha)
+    head(cx, by - 40f, eyes, earsDown, eyes == Eyes.Open && !still && blinking(t), 0f, pal, alpha)
 }
 
 private val oarBlade = Path().apply {
@@ -739,8 +734,8 @@ private fun DrawScope.rowingCat(t: Float, still: Boolean, pal: Palette, alpha: F
         tail(cx - 10f, by - 2f, if (still) 0f else 8f * sin(t * 3.6f + 1f), false, pal, alpha)
         translate(cx, by) { drawPath(sitBody, pal.ink, alpha = alpha) }
         scarf(cx, by - 30f, if (still) 0f else 8f * sin(t * 4.4f), pal, alpha)
-        head(cx, by - 40f, Eyes.Open, false, !still && blinking(t), 1f, true, pal, alpha)
-        hattedHead(cx, by - 40f, -3f, false, pal, alpha)
+        head(cx, by - 40f, Eyes.Open, false, !still && blinking(t), 1f, pal, alpha)
+        hat(cx, by - 59f, -3f, pal, alpha)
         rotate(stroke * 5f, oarPivot) {
             val arm = Path().apply {
                 moveTo(cx + 6f, by - 22f)
@@ -781,7 +776,7 @@ private fun DrawScope.sleepingCat(t: Float, still: Boolean, pal: Palette, alpha:
     translate(cx, by) {
         drawPath(sleepTail, pal.paper, alpha = 0.55f * alpha, style = Stroke(0.8f, cap = StrokeCap.Round))
     }
-    head(cx - 14f, by - 16f, Eyes.Sleep, false, false, 0f, false, pal, alpha)
+    head(cx - 14f, by - 16f, Eyes.Sleep, false, false, 0f, pal, alpha)
     hat(cx + 12f, by - 24f, 14f, pal, alpha)
     val first = if (still) 0.3f else (t / 2.6f) % 1f
     glyph(measurer, "z", Offset(cx - 2f + 3f * first, by - 38f - 10f * first), 12f, pal.ink, 0.5f * alpha * (1f - first), italic = true)
@@ -792,8 +787,8 @@ private fun DrawScope.sleepingCat(t: Float, still: Boolean, pal: Palette, alpha:
 private fun DrawScope.lanternCat(t: Float, still: Boolean, pal: Palette, alpha: Float) {
     val cx = 284f
     val by = 198f
-    sittingCat(t, still, cx, by, Eyes.Happy, false, true, pal, alpha)
-    hattedHead(cx, by - 40f, -4f, false, pal, alpha)
+    sittingCat(t, still, cx, by, Eyes.Happy, false, pal, alpha)
+    hat(cx, by - 59f, -4f, pal, alpha)
     val sway = if (still) 0f else 2.5f * sin(t * 1.1f)
     rotate(sway, Offset(cx + 14f, by - 1f)) {
         drawLine(pal.ink, Offset(cx + 14f, by - 1f), Offset(cx + 40f, by - 54f), 2f, StrokeCap.Round, alpha = alpha)
@@ -858,5 +853,5 @@ private fun DrawScope.umbrellaCat(t: Float, still: Boolean, pal: Palette, alpha:
         }
     }
     val shiver = if (still || sin(t * 0.9f) <= 0.6f) 0f else 0.5f * sin(t * 20f)
-    translate(shiver, 0f) { sittingCat(t, still, cx, by, Eyes.Sad, true, false, pal, alpha) }
+    translate(shiver, 0f) { sittingCat(t, still, cx, by, Eyes.Sad, true, pal, alpha) }
 }
