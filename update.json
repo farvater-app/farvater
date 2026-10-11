@@ -1,38 +1,41 @@
 {
-  "versionCode": 10022,
-  "versionName": "1.0.22",
-  "published": "11.10.2026",
+  "versionCode": 10023,
+  "versionName": "1.0.23",
+  "published": "12.10.2026",
   "critical": false,
   "notes": [
-    "35 российских приложений сами идут мимо VPN: банки, Госуслуги, маркетплейсы, Яндекс, VK",
-    "«Банки и госсервисы» теперь называются «Российские сервисы»",
-    "В «Приложениях мимо VPN» такие приложения помечены «напрямую»"
+    "Подписки Xray JSON: все узлы из Remnawave и Marzban, как в Happ",
+    "Новый стиль «Сумиэ»: тушь на рисовой бумаге и кот в лодке",
+    "Плавная смена тем и новая нижняя панель в Material You",
+    "Сортировка узлов прямо во время проверки",
+    "Быстрее запуск и прокрутка",
+    "Убрана устаревшая подписка ByeWhiteLists 2.0"
   ],
   "assets": {
     "arm64-v8a": {
-      "url": "https://github.com/lutzashl290788-cell/farvater/releases/download/v1.0.22/Farvater-1.0.22-arm64-v8a.apk",
-      "sha256": "8a2723e575368d8042df8639a3927827b91855b9ab5926e4ffb1850bdfed9a3f",
-      "size": 21327440
+      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.23/Farvater-1.0.23-arm64-v8a.apk",
+      "sha256": "2f92c5509266ad83f5113452374e912b3eeae6cbd976587742441ec8f1b72cd4",
+      "size": 21446970
     },
     "armeabi-v7a": {
-      "url": "https://github.com/lutzashl290788-cell/farvater/releases/download/v1.0.22/Farvater-1.0.22-armeabi-v7a.apk",
-      "sha256": "69adbc8394cfaa10e3049c336c14838de8396f63eefe4af3f60ccc666ae319fb",
-      "size": 21837620
+      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.23/Farvater-1.0.23-armeabi-v7a.apk",
+      "sha256": "47dc3b8069cb72e48f8cf3e3751ba5a8996d676dc8aa42ee0b21e8f6218cdd57",
+      "size": 21957172
     },
     "universal": {
-      "url": "https://github.com/lutzashl290788-cell/farvater/releases/download/v1.0.22/Farvater-1.0.22-universal.apk",
-      "sha256": "49dc75a805532ea9725fb34dc351fc7b67407846a5af1acc6378b9445deccfa9",
-      "size": 61439406
+      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.23/Farvater-1.0.23-universal.apk",
+      "sha256": "1427f32e011d9bb91ab2932f5d34eb3641d556fc3b24c315601008ef235e1d02",
+      "size": 61558944
     },
     "x86": {
-      "url": "https://github.com/lutzashl290788-cell/farvater/releases/download/v1.0.22/Farvater-1.0.22-x86.apk",
-      "sha256": "e9b412dcb9fa2e64acd7d68e9ffa4a7ad5a491e00483fdeffa0684a75e4421bc",
-      "size": 22865651
+      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.23/Farvater-1.0.23-x86.apk",
+      "sha256": "391df2bbbda1019b0054b8dbd72c9ae593461284006401a015bea406a2e4103f",
+      "size": 22985194
     },
     "x86_64": {
-      "url": "https://github.com/lutzashl290788-cell/farvater/releases/download/v1.0.22/Farvater-1.0.22-x86_64.apk",
-      "sha256": "5b0101c2aff58560dad98aaa2d56dd123f755ec231bdb002d492995046b0f6ea",
-      "size": 22349215
+      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.23/Farvater-1.0.23-x86_64.apk",
+      "sha256": "ccd72a90f77024ef897a988b9465aff5511b65221b1dcfe0d9b19c0c19492896",
+      "size": 22468750
     }
   }
 }
