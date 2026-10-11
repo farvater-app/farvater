@@ -1,4 +1,6 @@
+- Xray JSON subscriptions: every server from Remnawave and Marzban, like in Happ
 - New Sumi-e style: ink on rice paper and a cat in a boat
 - Smooth theme transitions and the new bottom bar in Material You
+- Servers can be sorted live while testing
 - Faster startup and scrolling
 - Removed the outdated ByeWhiteLists 2.0 subscription
