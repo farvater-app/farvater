@@ -153,17 +153,7 @@ fun SourcesScreen(
                                 onClick = { menuFor = source },
                                 trailing = { if (source.loading) IosSpinner() },
                             )
-                            source.announce?.let { text ->
-                                IosDivider(start = 59.dp)
-                                IosRow(
-                                    title = "Сообщение подписки",
-                                    subtitle = text,
-                                    subtitleLines = 8,
-                                    icon = Icons.Rounded.Info,
-                                    iconTint = c.gray,
-                                    modifier = Modifier.graphicsLayer { this.alpha = alpha },
-                                )
-                            }
+                            source.announce?.let { AnnounceRow(it, alpha) }
                         }
                     }
                 }
@@ -268,6 +258,20 @@ private fun CommunityRow(source: SourceUi, onToggle: (String, Boolean) -> Unit, 
                 IosSwitch(checked = source.enabled, onCheckedChange = { onToggle(source.id, it) })
             }
         },
+    )
+    if (source.enabled) source.announce?.let { AnnounceRow(it, alpha) }
+}
+
+@Composable
+private fun AnnounceRow(text: String, alpha: Float) {
+    IosDivider(start = 59.dp)
+    IosRow(
+        title = "Сообщение подписки",
+        subtitle = text,
+        subtitleLines = 8,
+        icon = Icons.Rounded.Info,
+        iconTint = Ios.colors.gray,
+        modifier = Modifier.graphicsLayer { this.alpha = alpha },
     )
 }
 

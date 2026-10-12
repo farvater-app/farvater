@@ -39,7 +39,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -56,7 +55,6 @@ import androidx.compose.ui.unit.dp
 import app.farvater.core.model.Protocol
 import app.farvater.core.model.ProxyNode
 import app.farvater.data.UiStyle
-import app.farvater.ui.Announcement
 import app.farvater.ui.LocalBottomInset
 import app.farvater.ui.UiState
 import app.farvater.ui.components.Badge
@@ -259,8 +257,6 @@ fun HomeScreen(
                 )
             }
 
-            if (state.announcements.isNotEmpty()) AnnouncementsSection(state.announcements)
-
             Spacer(Modifier.height(24.dp + LocalBottomInset.current))
         }
         IosCompactBar("Фарватер", visible = collapsed, backdrop = backdrop)
@@ -350,22 +346,6 @@ private fun Stat(icon: ImageVector, label: String, value: String, tint: Color, m
         }
         Spacer(Modifier.height(2.dp))
         Text(value, style = IosType.title3.merge(Numeric), color = c.label, maxLines = 1)
-    }
-}
-
-@Composable
-private fun AnnouncementsSection(items: List<Announcement>) {
-    IosSection(header = "Сообщения источников") {
-        items.forEachIndexed { i, item ->
-            if (i > 0) IosDivider()
-            var open by remember(item) { mutableStateOf(false) }
-            IosRow(
-                title = item.source,
-                subtitle = item.text,
-                subtitleLines = if (open) Int.MAX_VALUE else 1,
-                onClick = { open = !open },
-            )
-        }
     }
 }
 
