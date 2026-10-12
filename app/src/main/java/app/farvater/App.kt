@@ -17,6 +17,10 @@ import app.farvater.data.UpdateWorker
 import app.farvater.engine.XrayEngine
 import app.farvater.ui.ios.powerSave
 import app.farvater.vpn.FarvaterVpnService
+import app.farvater.vpn.VpnBus
+import app.farvater.vpn.VpnWidget
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
 import java.net.Authenticator
 import java.net.PasswordAuthentication
 
@@ -44,6 +48,7 @@ class App : Application() {
             deleteNotificationChannel("updates")
         }
         UpdateWorker.schedule(this)
+        MainScope().launch { VpnBus.state.collect { VpnWidget.refresh(this@App, it) } }
         val power = getSystemService(PowerManager::class.java)
         powerSave = power.isPowerSaveMode
         ContextCompat.registerReceiver(
