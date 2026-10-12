@@ -68,8 +68,6 @@ data class SourceUi(
 
 data class TestProgress(val done: Int, val total: Int, val alive: Int)
 
-data class Announcement(val source: String, val text: String)
-
 data class UiState(
     val settings: AppSettings = AppSettings(),
     val sources: List<SourceUi> = emptyList(),
@@ -78,7 +76,6 @@ data class UiState(
     val selectedId: String? = null,
     val progress: TestProgress? = null,
     val refreshing: Boolean = false,
-    val announcements: List<Announcement> = emptyList(),
     val message: String? = null,
     val pendingImport: String? = null,
     val hiddenInsecure: Int = 0,
@@ -666,6 +663,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             return parts.takeIf { it.isNotEmpty() }?.joinToString(", ")
         }
+        fun message(snap: SourceSnapshot?) = snap?.let { (listOfNotNull(it.announce) + it.notices).distinct().joinToString("\n") }?.ifBlank { null }
         val community = BuiltInCatalog.sources.map { s ->
             val snap = snaps[s.id]
             SourceUi(
@@ -677,6 +675,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 mode = configs[s.id]?.mode ?: s.mode,
                 intervalHours = configs[s.id]?.intervalHours,
                 ownIntervalHours = snap?.intervalHours,
+                announce = message(snap),
             )
         }
         val own = prefs.userSources.map { u ->
@@ -690,7 +689,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 intervalHours = configs[u.id]?.intervalHours,
                 ownIntervalHours = snap?.intervalHours,
                 usage = snap?.usage,
-                announce = snap?.announce,
+                announce = message(snap),
             )
         }
         val sources = (community + own).map { it.copy(inMode = it.mode.fits(mode)) }
@@ -702,12 +701,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val nodes = if (settings.dropDuplicates) single else secure
         val selected = reconcileSelection(nodes)
         val res = results.value
-        val titles = sources.associate { it.id to it.title }
-        val announcements = activeSnaps.mapNotNull { snap ->
-            val text = (listOfNotNull(snap.announce) + snap.notices).distinct().joinToString("\n")
-            if (text.isBlank()) null
-            else Announcement(if (snap.sourceId == ProxyNode.MANUAL_SOURCE) "Вручную" else titles[snap.sourceId] ?: snap.sourceId, text)
-        }
 
         _state.update {
             it.copy(
@@ -717,7 +710,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 hiddenInsecure = all.size - secure.size,
                 duplicates = secure.size - single.size,
                 results = res,
-                announcements = announcements,
                 netMode = mode,
                 detectedMode = detected,
                 selectedId = selected?.id,

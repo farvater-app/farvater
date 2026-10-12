@@ -289,21 +289,24 @@ private object Fake {
     )
     private fun source(
         id: String, title: String, author: String, license: String, count: Int,
-        error: String? = null, mode: SourceMode = SourceMode.WHITE,
+        error: String? = null, mode: SourceMode = SourceMode.WHITE, announce: String? = null,
     ) =
         SourceUi(
             id = id, title = title, author = author, license = license, homepage = "https://example.org",
             description = "Белые списки, проверенные подсети. Обновляется раз в час.", community = true,
             enabled = error == null, nodeCount = count, updatedAt = System.currentTimeMillis() - 23 * 60_000,
-            error = error, loading = false, mode = mode, inMode = mode.fits(NetMode.WHITE),
+            error = error, loading = false, mode = mode, inMode = mode.fits(NetMode.WHITE), announce = announce,
         )
     val sources = listOf(
         source("zieng2-universal", "WL Universal", "zieng2", "не указана", 85),
         source("igareck-mobile", "Белые списки, мобильные", "igareck", "GPL-3.0", 20),
         source("igareck-cidr", "Белые списки, проверенные подсети", "igareck", "GPL-3.0", 0, "в подписке сейчас нет серверов"),
         source("igareck-black-mobile", "Чёрные списки, мобильные", "igareck", "GPL-3.0", 140, mode = SourceMode.BLACK),
-        source("rjsxrd-bypass", "rjsxrd", "whoahaow", "MIT", 475),
-        source("rkp-wl", "РКП: белые списки", "RKP", "не указана", 64),
+        source("rjsxrd-bypass", "rjsxrd", "whoahaow", "MIT", 475, announce = "t.me/rjsxrd · 475 configs · last update: 14:27 05/10/2026"),
+        source(
+            "rkp-wl", "РКП: белые списки", "RKP", "не указана", 64,
+            announce = "⚠️ - Конфиг без шифрования трафика.\n🏴 - Конфиг с неизвестным выходным трафиком.",
+        ),
         source("rkp-bl", "РКП: чёрные списки", "RKP", "не указана", 112, mode = SourceMode.BLACK),
         SourceUi(
             id = "user-1", title = "sub.example.net", author = "ваша подписка", license = "",
@@ -322,10 +325,6 @@ private object Fake {
         selectedId = "a1",
         netMode = NetMode.WHITE,
         detectedMode = NetMode.WHITE,
-        announcements = listOf(
-            Announcement("РКП: белые списки", "⚠️ - Конфиг без шифрования трафика.\n🏴 - Конфиг с неизвестным выходным трафиком."),
-            Announcement("rjsxrd", "t.me/rjsxrd · 475 configs · last update: 14:27 05/10/2026"),
-        ),
     )
     val connected = VpnState.Connected(nodes[0], System.currentTimeMillis() - 754_000)
     val traffic = Traffic(upBps = 18_400, downBps = 1_240_000, upTotal = 4_200_000, downTotal = 96_000_000, today = 1_380_000_000)

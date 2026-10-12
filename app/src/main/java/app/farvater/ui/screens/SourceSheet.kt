@@ -125,7 +125,8 @@ fun SourceSheet(
                 if (source.community) {
                     IosDivider(start = 59.dp)
                     IosRow(
-                        title = "Страница проекта",
+                        title = if (source.homepage.startsWith("https://t.me/")) "Телеграм-канал" else "Страница проекта",
+                        subtitle = source.homepage.removePrefix("https://"),
                         titleColor = c.tint,
                         icon = Icons.AutoMirrored.Rounded.OpenInNew,
                         iconTint = c.blue,
