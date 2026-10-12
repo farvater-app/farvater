@@ -1,0 +1,6 @@
+- Home screen widget: turn the VPN on and off with one tap
+- Traffic, expiry date and provider message under your subscriptions
+- New public subscriptions: KfWL and Bunker Kota
+- Android Auto can bypass the VPN
+- Subscription messages now live only in Sources
+- Removed the broken igareck subscriptions
