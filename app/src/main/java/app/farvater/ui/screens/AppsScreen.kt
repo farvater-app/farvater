@@ -132,11 +132,16 @@ private fun AppIcon(pkg: String, pm: PackageManager, cache: HashMap<String, Imag
     }
 }
 
+private val SystemApps = listOf("com.google.android.projection.gearhead")
+
 @Suppress("DEPRECATION")
 private fun loadApps(pm: PackageManager, self: String, selected: Set<String>): List<InstalledApp> =
-    pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
+    (
+        pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
+            .map { it.activityInfo.packageName to it.loadLabel(pm).toString() } +
+            SystemApps.mapNotNull { pkg -> runCatching { pkg to pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrNull() }
+        )
         .asSequence()
-        .map { it.activityInfo.packageName to it.loadLabel(pm).toString() }
         .filter { it.first != self }
         .distinctBy { it.first }
         .map { InstalledApp(it.first, it.second) }
