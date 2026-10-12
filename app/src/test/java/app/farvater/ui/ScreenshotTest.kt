@@ -19,6 +19,7 @@ import app.farvater.core.model.NetMode
 import app.farvater.core.model.Protocol
 import app.farvater.core.model.ProxyNode
 import app.farvater.core.model.SourceMode
+import app.farvater.core.parser.Usage
 import app.farvater.data.AppSettings
 import app.farvater.data.UiStyle
 import app.farvater.engine.TestMethod
@@ -309,6 +310,8 @@ private object Fake {
             homepage = "https://sub.example.net/abc", description = "https://sub.example.net/abc", community = false,
             enabled = true, nodeCount = 12, updatedAt = System.currentTimeMillis() - 3 * 3_600_000, error = null, loading = false,
             intervalHours = 3,
+            usage = Usage(used = 25_876_000_000, total = 0, expire = 1_792_584_000),
+            announce = "Если узел не работает, выберите другую локацию.\n🐌 нескоростной, 🟩 для торрентов",
         ),
     )
     val state = UiState(

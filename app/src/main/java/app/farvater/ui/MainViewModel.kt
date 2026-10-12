@@ -13,6 +13,7 @@ import app.farvater.core.model.ProxyNode
 import app.farvater.core.model.SourceMode
 import app.farvater.core.model.onePerEndpoint
 import app.farvater.core.parser.SubscriptionParser
+import app.farvater.core.parser.Usage
 import app.farvater.data.AppSettings
 import app.farvater.data.LEGAL_VERSION
 import app.farvater.data.SourceConfig
@@ -61,6 +62,8 @@ data class SourceUi(
     val intervalHours: Int? = null,
     val ownIntervalHours: Int? = null,
     val inMode: Boolean = true,
+    val usage: Usage? = null,
+    val announce: String? = null,
 )
 
 data class TestProgress(val done: Int, val total: Int, val alive: Int)
@@ -686,6 +689,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 mode = configs[u.id]?.mode ?: SourceMode.ANY,
                 intervalHours = configs[u.id]?.intervalHours,
                 ownIntervalHours = snap?.intervalHours,
+                usage = snap?.usage,
+                announce = snap?.announce,
             )
         }
         val sources = (community + own).map { it.copy(inMode = it.mode.fits(mode)) }

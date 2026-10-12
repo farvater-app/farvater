@@ -2,6 +2,8 @@ package app.farvater.core.parser
 
 import app.farvater.core.model.ProxyNode
 
+data class Usage(val used: Long, val total: Long, val expire: Long)
+
 data class ParsedSubscription(
     val title: String?,
     val updateIntervalHours: Int?,
@@ -9,6 +11,7 @@ data class ParsedSubscription(
     val nodes: List<ProxyNode>,
     val notices: List<String>,
     val skipped: Map<String, Int> = emptyMap(),
+    val usage: Usage? = null,
 )
 
 object SubscriptionParser {
@@ -61,7 +64,17 @@ object SubscriptionParser {
             nodes = nodes.values.toList(),
             notices = notices,
             skipped = skipped,
+            usage = usage(meta["subscription-userinfo"]),
         )
+    }
+
+    private fun usage(value: String?): Usage? {
+        val parts = value.orEmpty().split(';').mapNotNull { part ->
+            val key = part.substringBefore('=', "").trim().lowercase()
+            part.substringAfter('=').trim().substringBefore('.').toLongOrNull()?.takeIf { key.isNotEmpty() }?.let { key to it }
+        }.toMap()
+        val usage = Usage((parts["upload"] ?: 0) + (parts["download"] ?: 0), parts["total"] ?: 0, parts["expire"] ?: 0)
+        return usage.takeIf { it.used > 0 || it.total > 0 || it.expire > 0 }
     }
 
     private fun maybeBase64(value: String): String =
