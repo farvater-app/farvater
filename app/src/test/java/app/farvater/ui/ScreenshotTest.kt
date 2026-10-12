@@ -270,7 +270,7 @@ private object Fake {
 
     private val reality = mapOf("security" to "reality", "type" to "tcp")
     val nodes = listOf(
-        node("a1", "🇷🇺 Москва, VK Cloud", Protocol.VLESS, reality, "igareck-mobile"),
+        node("a1", "🇷🇺 Москва, VK Cloud", Protocol.VLESS, reality, "kfwl-wl"),
         node("b22", "🇷🇺 Санкт-Петербург, Selectel", Protocol.VLESS, reality + ("type" to "xhttp"), "zieng2-universal"),
         node("c333", "🇫🇮 Хельсинки", Protocol.VLESS, mapOf("security" to "tls", "type" to "ws"), "rjsxrd-bypass"),
         node("d4444", "🇳🇱 Амстердам", Protocol.TROJAN, mapOf("security" to "tls"), "rkp-wl"),
@@ -299,15 +299,16 @@ private object Fake {
         )
     val sources = listOf(
         source("zieng2-universal", "WL Universal", "zieng2", "не указана", 85),
-        source("igareck-mobile", "Белые списки, мобильные", "igareck", "GPL-3.0", 20),
-        source("igareck-cidr", "Белые списки, проверенные подсети", "igareck", "GPL-3.0", 0, "в подписке сейчас нет серверов"),
-        source("igareck-black-mobile", "Чёрные списки, мобильные", "igareck", "GPL-3.0", 140, mode = SourceMode.BLACK),
         source("rjsxrd-bypass", "rjsxrd", "whoahaow", "MIT", 475, announce = "t.me/rjsxrd · 475 configs · last update: 14:27 05/10/2026"),
         source(
             "rkp-wl", "РКП: белые списки", "RKP", "не указана", 64,
             announce = "⚠️ - Конфиг без шифрования трафика.\n🏴 - Конфиг с неизвестным выходным трафиком.",
         ),
         source("rkp-bl", "РКП: чёрные списки", "RKP", "не указана", 112, mode = SourceMode.BLACK),
+        source("kfwl-wl", "KfWL: белые списки", "@qkfwl", "не указана", 20),
+        source("kfwl-bl", "KfWL: чёрные списки", "@qkfwl", "не указана", 94, mode = SourceMode.BLACK, announce = "тг: @kfwlrus | BlackList"),
+        source("bunker-wl", "Бункер Кота: белые списки", "@K0TLUX", "не указана", 36),
+        source("bunker-bl", "Бункер Кота: чёрные списки", "@K0TLUX", "не указана", 140, mode = SourceMode.BLACK),
         SourceUi(
             id = "user-1", title = "sub.example.net", author = "ваша подписка", license = "",
             homepage = "https://sub.example.net/abc", description = "https://sub.example.net/abc", community = false,
