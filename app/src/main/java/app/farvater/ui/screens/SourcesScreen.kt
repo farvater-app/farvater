@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ContentPaste
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Refresh
@@ -32,10 +33,12 @@ import androidx.compose.ui.unit.dp
 import app.farvater.core.model.NetMode
 import app.farvater.core.model.NetModeChoice
 import app.farvater.core.model.SourceMode
+import app.farvater.core.parser.Usage
 import app.farvater.ui.LocalBottomInset
 import app.farvater.ui.SourceUi
 import app.farvater.ui.UiState
 import app.farvater.ui.formatAgo
+import app.farvater.ui.formatBytes
 import app.farvater.ui.ios.AlertAction
 import app.farvater.ui.ios.AlertRole
 import app.farvater.ui.ios.IosAlert
@@ -52,6 +55,9 @@ import app.farvater.ui.ios.IosSpinner
 import app.farvater.ui.ios.IosSwitch
 import app.farvater.ui.ios.IosTextField
 import app.farvater.ui.theme.Ios
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Suppress("DEPRECATION")
@@ -139,7 +145,7 @@ fun SourcesScreen(
                                 title = source.title,
                                 subtitle = statusText(source),
                                 subtitleColor = statusColor(source),
-                                subtitleLines = 4,
+                                subtitleLines = 5,
                                 icon = Icons.Rounded.Link,
                                 iconTint = c.indigo,
                                 modifier = Modifier.graphicsLayer { this.alpha = alpha },
@@ -147,6 +153,17 @@ fun SourcesScreen(
                                 onClick = { menuFor = source },
                                 trailing = { if (source.loading) IosSpinner() },
                             )
+                            source.announce?.let { text ->
+                                IosDivider(start = 59.dp)
+                                IosRow(
+                                    title = "Сообщение подписки",
+                                    subtitle = text,
+                                    subtitleLines = 8,
+                                    icon = Icons.Rounded.Info,
+                                    iconTint = c.gray,
+                                    modifier = Modifier.graphicsLayer { this.alpha = alpha },
+                                )
+                            }
                         }
                     }
                 }
@@ -278,7 +295,14 @@ private fun statusText(source: SourceUi): String = "${modeShort(source.mode)} ·
     source.error != null -> source.error.replaceFirstChar { it.uppercase() }
     source.updatedAt > 0 -> "${source.nodeCount} узлов, ${formatAgo(source.updatedAt).removePrefix("обновлён ")}"
     else -> formatAgo(0).replaceFirstChar { it.uppercase() }
-} + (source.hidden?.let { "\nСкрыто: $it" } ?: "")
+} + (source.hidden?.let { "\nСкрыто: $it" } ?: "") + (source.usage?.let { "\n" + usageText(it) } ?: "")
+
+private fun usageText(usage: Usage): String {
+    val traffic = formatBytes(usage.used) + " из " + if (usage.total > 0) formatBytes(usage.total) else "∞"
+    if (usage.expire <= 0) return "Трафик: $traffic"
+    val date = SimpleDateFormat("dd.MM.yyyy", Locale.forLanguageTag("ru")).format(Date(usage.expire * 1000))
+    return "Трафик: $traffic · " + if (usage.expire * 1000 < System.currentTimeMillis()) "истекла $date" else "до $date"
+}
 
 @Composable
 private fun statusColor(source: SourceUi): Color? {

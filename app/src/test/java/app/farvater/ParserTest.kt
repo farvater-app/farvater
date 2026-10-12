@@ -4,6 +4,7 @@ import app.farvater.core.model.Protocol
 import app.farvater.core.model.onePerEndpoint
 import app.farvater.core.parser.LinkParser
 import app.farvater.core.parser.SubscriptionParser
+import app.farvater.core.parser.Usage
 import app.farvater.core.xray.XrayConfigBuilder
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
@@ -236,5 +237,12 @@ class ParserTest {
         val manual = SubscriptionParser.parse(nodes.joinToString("\n") { it.raw } + "\n" + vless, "manual").nodes
         assertEquals(nodes.map { it.id } + LinkParser.parse(vless)!!.id, manual.map { it.id })
         assertEquals(nodes.map { it.name }, manual.take(3).map { it.name })
+    }
+
+    @Test fun subscriptionUserinfo() {
+        val s = SubscriptionParser.parse(vless, "src", mapOf("Subscription-Userinfo" to "upload=100; download=900; total=0; expire=1792584000"))
+        assertEquals(Usage(used = 1000, total = 0, expire = 1792584000), s.usage)
+        assertNull(SubscriptionParser.parse(vless, "src").usage)
+        assertNull(SubscriptionParser.parse(vless, "src", mapOf("subscription-userinfo" to "upload=0; download=0; total=0; expire=0")).usage)
     }
 }
