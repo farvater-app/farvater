@@ -68,6 +68,25 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <activity
+            android:name=".vpn.ToggleActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Farvater.Toggle" />
+
+        <receiver
+            android:name=".vpn.VpnWidget"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/vpn_widget" />
+        </receiver>
+
         <service
             android:name=".vpn.QsTileService"
             android:exported="true"

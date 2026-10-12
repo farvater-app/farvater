@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Фарватер</string>
+    <string name="widget_description">Включает и выключает VPN одним нажатием</string>
 </resources>
