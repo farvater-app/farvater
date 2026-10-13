@@ -211,9 +211,19 @@ fun SumieHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modif
             if (stamp.value > 0.01f) sealStamp(stamp.value, pal, measurer)
             water(pal.ink, t, still)
             if (light > 0.01f) reflection(t, still, pal.seal, light)
-            val rough = painting || mode == ConnectMode.Error
-            val bob = if (still) 0f else if (rough) 2.4f * sin(t * 3.6f) else 1.4f * sin(t * 1.9f)
-            val tilt = if (still) 0f else if (rough) 1.2f * sin(t * 3.6f + 0.6f) else 0.6f * sin(t * 1.9f + 0.6f)
+            val stormy = mode == ConnectMode.Error
+            val bob = when {
+                still -> 0f
+                stormy -> 2.4f * sin(t * 3.6f)
+                painting -> 1.6f * sin(t * 2.2f - 0.8f)
+                else -> 1.4f * sin(t * 1.9f)
+            }
+            val tilt = when {
+                still -> 0f
+                stormy -> 1.2f * sin(t * 3.6f + 0.6f)
+                painting -> 0.7f * sin(t * 2.2f - 0.2f)
+                else -> 0.6f * sin(t * 1.9f + 0.6f)
+            }
             translate(0f, bob) {
                 rotate(tilt, Offset(296f, 196f)) {
                     if (row > 0.01f) faded(row) { rowingCat(t, still, pal) }
@@ -729,24 +739,35 @@ private fun DrawScope.sittingCat(t: Float, still: Boolean, cx: Float, by: Float,
 }
 
 private fun DrawScope.rowingCat(t: Float, still: Boolean, pal: Palette) {
-    val cx = 268f
+    val cx = 300f
     val by = 196f
-    val push = if (still) 0f else 3.5f * sin(t * 3.6f)
-    val top = Offset(cx + 20f, by - 72f)
-    val bottom = Offset(cx + 4f, by + 26f)
+    val stroke = if (still) 0f else (1f - cos(t * 2.2f)) / 2f
+    val push = 5f * stroke
+    val lean = 3.5f * stroke
+    val top = Offset(cx + 17f, by - 74f)
+    val bottom = Offset(cx - 32f, by + 30f)
     val axis = (bottom - top) / (bottom - top).getDistance()
-    drawLine(pal.ink, top + axis * push, bottom + axis * push, 2.2f, StrokeCap.Round)
-    tail(cx - 10f, by - 2f, if (still) 0f else 8f * sin(t * 3.6f + 1f), false, pal)
-    translate(cx, by) { fur(sitBody, pal) }
-    scarf(cx, by - 30f, if (still) 0f else 8f * sin(t * 4.4f), true, pal)
-    head(cx, by - 40f, Eyes.Open, false, !still && blinking(t), 1f, true, pal)
-    val paw = Offset(cx + 12.6f, by - 24f) + axis * (push * 0.4f)
-    fur(oval(paw.x - 3.4f, paw.y - 3f, paw.x + 3.4f, paw.y + 3f), pal)
+    fun onPole(y: Float): Offset {
+        val k = (y - top.y) / (bottom.y - top.y)
+        return top + (bottom - top) * k + axis * push
+    }
+    tail(cx - 11f, by - 3f, if (still) 0f else 5f * sin(t * 2.2f + 1f), false, pal)
+    rotate(lean, Offset(cx, by)) {
+        translate(cx, by) { fur(sitBody, pal) }
+        scarf(cx, by - 30f, if (still) 0f else 6f * sin(t * 2.2f + 0.6f), true, pal)
+        head(cx, by - 40f, Eyes.Open, false, !still && blinking(t), 1f, true, pal)
+    }
+    drawLine(pal.ink, top + axis * push, bottom + axis * push, 2.4f, StrokeCap.Round)
+    for (y in floatArrayOf(by - 31f, by - 17f)) {
+        val paw = onPole(y)
+        fur(oval(paw.x - 3.6f, paw.y - 3.1f, paw.x + 3.6f, paw.y + 3.1f), pal)
+    }
     if (!still) {
+        val water = onPole(212f)
         for (i in 0..1) {
-            val phase = (t * 0.9f + i * 0.5f) % 1f
-            val r = 4f + 12f * phase
-            drawOval(pal.ink, Offset(277f - r, 213f - r * 0.25f), Size(r * 2, r * 0.5f), alpha = 0.35f * (1f - phase), style = Stroke(0.8f))
+            val phase = (t * 0.35f + i * 0.5f) % 1f
+            val r = 4f + 13f * phase
+            drawOval(pal.ink, Offset(water.x - r, 213f - r * 0.25f), Size(r * 2, r * 0.5f), alpha = 0.3f * (1f - phase), style = Stroke(0.8f))
         }
     }
 }
