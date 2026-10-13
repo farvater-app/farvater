@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
   - name: Уязвимость
-    url: https://github.com/lutzashl290788-cell/farvater/blob/main/SECURITY.md
+    url: https://github.com/farvater-app/farvater/blob/main/SECURITY.md
     about: Об уязвимостях пишите на почту, не в открытые issues.

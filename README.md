@@ -7,9 +7,9 @@
 </h1>
 
 <p align="center">
-  <a href="https://github.com/lutzashl290788-cell/farvater/releases/latest"><img alt="Последняя версия" src="https://img.shields.io/github/v/release/lutzashl290788-cell/farvater?style=flat-square&label=%D0%B2%D0%B5%D1%80%D1%81%D0%B8%D1%8F&color=24292f&labelColor=57606a"></a>
-  <a href="https://github.com/lutzashl290788-cell/farvater/releases"><img alt="Загрузки" src="https://img.shields.io/github/downloads/lutzashl290788-cell/farvater/total?style=flat-square&label=%D0%B7%D0%B0%D0%B3%D1%80%D1%83%D0%B7%D0%BA%D0%B8&color=24292f&labelColor=57606a"></a>
-  <a href="https://github.com/lutzashl290788-cell/farvater/actions/workflows/build.yml"><img alt="Сборка" src="https://img.shields.io/github/actions/workflow/status/lutzashl290788-cell/farvater/build.yml?branch=main&style=flat-square&label=%D1%81%D0%B1%D0%BE%D1%80%D0%BA%D0%B0&labelColor=57606a"></a>
+  <a href="https://github.com/farvater-app/farvater/releases/latest"><img alt="Последняя версия" src="https://img.shields.io/github/v/release/farvater-app/farvater?style=flat-square&label=%D0%B2%D0%B5%D1%80%D1%81%D0%B8%D1%8F&color=24292f&labelColor=57606a"></a>
+  <a href="https://github.com/farvater-app/farvater/releases"><img alt="Загрузки" src="https://img.shields.io/github/downloads/farvater-app/farvater/total?style=flat-square&label=%D0%B7%D0%B0%D0%B3%D1%80%D1%83%D0%B7%D0%BA%D0%B8&color=24292f&labelColor=57606a"></a>
+  <a href="https://github.com/farvater-app/farvater/actions/workflows/build.yml"><img alt="Сборка" src="https://img.shields.io/github/actions/workflow/status/farvater-app/farvater/build.yml?branch=main&style=flat-square&label=%D1%81%D0%B1%D0%BE%D1%80%D0%BA%D0%B0&labelColor=57606a"></a>
   <a href="LICENSE"><img alt="Лицензия GPL-3.0" src="https://img.shields.io/badge/%D0%BB%D0%B8%D1%86%D0%B5%D0%BD%D0%B7%D0%B8%D1%8F-GPL--3.0-24292f?style=flat-square&labelColor=57606a"></a>
   <img alt="Android 8.0 и новее" src="https://img.shields.io/badge/Android-8.0%2B-24292f?style=flat-square&labelColor=57606a">
 </p>
@@ -20,8 +20,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/lutzashl290788-cell/farvater/releases/latest"><img alt="Скачать с GitHub" src="https://raw.githubusercontent.com/machiav3lli/oandbackupx/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" height="64"></a>
-  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium%3A%2F%2Fadd%2Fhttps%3A%2F%2Fgithub.com%2Flutzashl290788-cell%2Ffarvater"><img alt="Установить через Obtainium" src="https://raw.githubusercontent.com/ImranR98/Obtainium/af286fa8d31d7406d6db167e2314d376d74f7696/assets/graphics/badge_obtainium.png" height="64"></a>
+  <a href="https://github.com/farvater-app/farvater/releases/latest"><img alt="Скачать с GitHub" src="https://raw.githubusercontent.com/machiav3lli/oandbackupx/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" height="64"></a>
+  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium%3A%2F%2Fadd%2Fhttps%3A%2F%2Fgithub.com%2Ffarvater-app%2Ffarvater"><img alt="Установить через Obtainium" src="https://raw.githubusercontent.com/ImranR98/Obtainium/af286fa8d31d7406d6db167e2314d376d74f7696/assets/graphics/badge_obtainium.png" height="64"></a>
 </p>
 
 <p align="center">
@@ -248,9 +248,9 @@
 ## Установка
 
 > [!WARNING]
-> Фарватер распространяется только через [релизы на GitHub](https://github.com/lutzashl290788-cell/farvater/releases). В Google Play и других магазинах его нет, а копии на сторонних сайтах могут быть изменены.
+> Фарватер распространяется только через [релизы на GitHub](https://github.com/farvater-app/farvater/releases). В Google Play и других магазинах его нет, а копии на сторонних сайтах могут быть изменены.
 
-1. Откройте [последний релиз](https://github.com/lutzashl290788-cell/farvater/releases/latest) с телефона.
+1. Откройте [последний релиз](https://github.com/farvater-app/farvater/releases/latest) с телефона.
 2. Скачайте `Farvater-X.Y.Z-arm64-v8a.apk`. Он подходит почти всем телефонам.
 3. Откройте скачанный файл. Если Android попросит разрешить установку из браузера или файлового менеджера, разрешите.
 4. Запустите Фарватер и примите условия использования.
@@ -557,7 +557,7 @@ flowchart LR
 | Xray-core (AndroidLibXrayLite) | 26.9.30 | `app/libs/libv2ray.aar` |
 | hev-socks5-tunnel | 2.18.0 | собирается из исходников через NDK |
 | Kotlin | 2.2.0 | |
-| Jetpack Compose BOM | 2025.07.00 | |
+| Jetpack Compose BOM | 2025.12.00 | |
 | Android Gradle Plugin | 8.11.1 | |
 
 <details>
@@ -586,7 +586,7 @@ scripts/            загрузка ядра, сборка TUN-моста, upda
 Понадобятся JDK 17, Android SDK с платформой 36, Android NDK 27.2.12479018, Gradle 8.14 и [GitHub CLI](https://cli.github.com) для загрузки ядра Xray.
 
 ```sh
-git clone https://github.com/lutzashl290788-cell/farvater.git
+git clone https://github.com/farvater-app/farvater.git
 cd farvater
 
 export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/27.2.12479018"
@@ -620,7 +620,7 @@ Workflow [release.yml](.github/workflows/release.yml) соберёт и подп
 
 ### Участие в разработке
 
-Об ошибках и идеях пишите в [issues](https://github.com/lutzashl290788-cell/farvater/issues). Перед pull request прочитайте [CONTRIBUTING.md](CONTRIBUTING.md): там стиль кода, проверки и требования к изменениям.
+Об ошибках и идеях пишите в [issues](https://github.com/farvater-app/farvater/issues). Перед pull request прочитайте [CONTRIBUTING.md](CONTRIBUTING.md): там стиль кода, проверки и требования к изменениям.
 
 ## Благодарности
 

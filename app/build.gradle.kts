@@ -26,7 +26,7 @@ android {
         val tagVersion = (findProperty("farvaterVersion") as String?)?.removePrefix("v")
         versionName = tagVersion ?: "1.0.0"
         versionCode = tagVersion?.split('.', '-')?.let { p -> p[0].toInt() * 10000 + p[1].toInt() * 100 + p[2].toInt() - if (p.size > 3) 1 else 0 } ?: 1
-        buildConfigField("String", "UPDATE_REPO", "\"${findProperty("farvaterUpdateRepo") ?: "lutzashl290788-cell/farvater"}\"")
+        buildConfigField("String", "UPDATE_REPO", "\"${findProperty("farvaterUpdateRepo") ?: "farvater-app/farvater"}\"")
     }
 
     signingConfigs {
