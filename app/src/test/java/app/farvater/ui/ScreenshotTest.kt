@@ -120,6 +120,26 @@ class ScreenshotTest {
         act = { rule.onNodeWithText("Оформление").performClick() },
     ) { Settings(Fake.state.settings.copy(uiStyle = UiStyle.SUMIE)) }
 
+    @Test fun nothingIdleLight() = shot("41_nothing_home_idle_light", dark = false, nothing = true) { Home(VpnState.Idle) }
+    @Test fun nothingIdleDark() = shot("41_nothing_home_idle_dark", dark = true, nothing = true) { Home(VpnState.Idle) }
+    @Test fun nothingConnectedDark() = shot("42_nothing_home_connected_dark", dark = true, nothing = true) { Home(Fake.connected) }
+    @Test fun nothingConnectedLight() = shot("42_nothing_home_connected_light", dark = false, nothing = true) { Home(Fake.connected) }
+    @Test fun nothingSearchingDark() = shot("43_nothing_home_searching_dark", dark = true, nothing = true) {
+        Home(VpnState.Idle, Fake.state.copy(progress = TestProgress(37, 120, 9)))
+    }
+    @Test fun nothingErrorDark() = shot("44_nothing_home_error_dark", dark = true, nothing = true) {
+        Home(VpnState.Failed("Узел не ответил", Fake.state.nodes.first()))
+    }
+    @Test fun nothingServersDark() = shot("45_nothing_servers_dark", dark = true, nothing = true) { Servers() }
+    @Test fun nothingServersLight() = shot("45_nothing_servers_light", dark = false, nothing = true) { Servers() }
+    @Test fun nothingSourcesLight() = shot("46_nothing_sources_light", dark = false, nothing = true) { Sources() }
+    @Test fun nothingSettingsDark() = shot("47_nothing_settings_dark", dark = true, nothing = true) { Settings() }
+    @Test fun nothingAppearanceLight() = shot(
+        "48_nothing_appearance_light", dark = false, nothing = true,
+        act = { rule.onNodeWithText("Оформление").performClick() },
+    ) { Settings(Fake.state.settings.copy(uiStyle = UiStyle.NOTHING)) }
+    @Test fun nothingAlertDark() = shot("49_nothing_alert_dark", dark = true, screen = true, nothing = true) { Alert() }
+
     @Test fun appsDark() {
         installApps(
             "ru.sberbankmobile" to "СберБанк", "com.idamob.tinkoff.android" to "Т-Банк", "ru.rostel" to "Госуслуги",
@@ -200,6 +220,7 @@ class ScreenshotTest {
         material: Boolean = false,
         rkp: Boolean = false,
         sumie: Boolean = false,
+        nothing: Boolean = false,
         act: (() -> Unit)? = null,
         content: @Composable () -> Unit,
     ) {
@@ -210,6 +231,7 @@ class ScreenshotTest {
                 style = when {
                     rkp -> UiStyle.ROSKOMPOZOR
                     sumie -> UiStyle.SUMIE
+                    nothing -> UiStyle.NOTHING
                     material -> UiStyle.MATERIAL
                     else -> UiStyle.IOS
                 },

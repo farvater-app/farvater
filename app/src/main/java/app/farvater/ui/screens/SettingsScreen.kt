@@ -39,6 +39,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.AccountBalance
+import androidx.compose.material.icons.rounded.Adjust
 import androidx.compose.material.icons.rounded.Android
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.BatteryChargingFull
@@ -123,6 +124,7 @@ import app.farvater.ui.ios.SheetCorner
 import app.farvater.R
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.IosType
+import app.farvater.ui.theme.NothingRed
 import app.farvater.ui.theme.RkpBlue
 import app.farvater.ui.theme.SumieSeal
 import kotlinx.coroutines.launch
@@ -263,6 +265,7 @@ private fun SettingsRoot(
                         UiStyle.MATERIAL -> "Material You"
                         UiStyle.ROSKOMPOZOR -> "#РосКомПозор"
                         UiStyle.SUMIE -> "Сумиэ"
+                        UiStyle.NOTHING -> "Nothing"
                     },
                     chevron = true,
                     onClick = { onOpen(SettingsPage.Appearance) },
@@ -408,6 +411,15 @@ private fun AppearancePage(settings: AppSettings, onChange: ((AppSettings) -> Ap
             icon = Icons.Rounded.Brush,
             iconTint = SumieSeal,
             onClick = { onChange { it.copy(uiStyle = UiStyle.SUMIE) } },
+        )
+        IosDivider(start = divider)
+        IosChoiceRow(
+            title = "Nothing",
+            subtitle = "Точки, монохром и красный акцент, как в Nothing OS",
+            selected = settings.uiStyle == UiStyle.NOTHING,
+            icon = Icons.Rounded.Adjust,
+            iconTint = NothingRed,
+            onClick = { onChange { it.copy(uiStyle = UiStyle.NOTHING) } },
         )
     }
 

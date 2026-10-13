@@ -29,10 +29,12 @@ import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.farvater.R
 import app.farvater.data.UiStyle
 
 @Immutable
@@ -138,6 +140,9 @@ object Ios {
 
     val material: Boolean
         @Composable @ReadOnlyComposable get() = LocalUiStyle.current != UiStyle.IOS
+
+    val nothing: Boolean
+        @Composable @ReadOnlyComposable get() = LocalUiStyle.current == UiStyle.NOTHING
 }
 
 private val OrangeLight = lightColorScheme(
@@ -250,6 +255,68 @@ private val SumieDark = darkColorScheme(
     surfaceContainerHighest = Color(0xFF35322D),
 )
 
+val NothingRed = Color(0xFFD71921)
+val NothingRedNight = Color(0xFFE8333C)
+
+val NothingDot = FontFamily(Font(R.font.farvater_dot))
+
+private val NothingDark = darkColorScheme(
+    primary = Color(0xFFF2F2F2), onPrimary = Color.Black,
+    primaryContainer = Color(0xFF1C1C1C), onPrimaryContainer = Color(0xFFF2F2F2),
+    secondary = Color(0xFFBDBDBD), onSecondary = Color.Black,
+    secondaryContainer = Color(0xFFF2F2F2), onSecondaryContainer = Color.Black,
+    tertiary = NothingRedNight, onTertiary = Color.White,
+    tertiaryContainer = Color(0xFF3A0A0D), onTertiaryContainer = Color(0xFFFFDAD8),
+    error = NothingRedNight, onError = Color.White,
+    errorContainer = Color(0xFF3A0A0D), onErrorContainer = Color(0xFFFFDAD8),
+    background = Color.Black, onBackground = Color(0xFFF2F2F2),
+    surface = Color.Black, onSurface = Color(0xFFF2F2F2),
+    surfaceVariant = Color(0xFF1C1C1C), onSurfaceVariant = Color(0xFF8C8C8C),
+    outline = Color(0xFF5C5C5C), outlineVariant = Color(0xFF262626),
+    inverseSurface = Color(0xFFF2F2F2), inverseOnSurface = Color.Black, inversePrimary = Color.Black,
+    surfaceTint = Color.Transparent, scrim = Color.Black,
+    surfaceDim = Color.Black, surfaceBright = Color(0xFF262626),
+    surfaceContainerLowest = Color.Black, surfaceContainerLow = Color(0xFF0A0A0A),
+    surfaceContainer = Color(0xFF0E0E0E), surfaceContainerHigh = Color(0xFF141414),
+    surfaceContainerHighest = Color(0xFF242424),
+)
+
+private val NothingLight = lightColorScheme(
+    primary = Color(0xFF0E0E0E), onPrimary = Color.White,
+    primaryContainer = Color(0xFFE6E6E6), onPrimaryContainer = Color(0xFF0E0E0E),
+    secondary = Color(0xFF4A4A4A), onSecondary = Color.White,
+    secondaryContainer = Color(0xFF0E0E0E), onSecondaryContainer = Color.White,
+    tertiary = NothingRed, onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFFFDAD8), onTertiaryContainer = Color(0xFF410004),
+    error = NothingRed, onError = Color.White,
+    errorContainer = Color(0xFFFFDAD8), onErrorContainer = Color(0xFF410004),
+    background = Color(0xFFF2F2F2), onBackground = Color(0xFF0E0E0E),
+    surface = Color(0xFFF2F2F2), onSurface = Color(0xFF0E0E0E),
+    surfaceVariant = Color(0xFFE6E6E6), onSurfaceVariant = Color(0xFF7A7A7A),
+    outline = Color(0xFF9E9E9E), outlineVariant = Color(0xFFDDDDDD),
+    inverseSurface = Color(0xFF0E0E0E), inverseOnSurface = Color.White, inversePrimary = Color.White,
+    surfaceTint = Color.Transparent, scrim = Color.Black,
+    surfaceDim = Color(0xFFE2E2E2), surfaceBright = Color.White,
+    surfaceContainerLowest = Color.White, surfaceContainerLow = Color(0xFFF7F7F7),
+    surfaceContainer = Color(0xFFF2F2F2), surfaceContainerHigh = Color(0xFFEAEAEA),
+    surfaceContainerHighest = Color(0xFFE0E0E0),
+)
+
+private fun nothingColors(s: ColorScheme, dark: Boolean): IosColors = materialColors(s, dark).copy(
+    cell = if (dark) Color(0xFF111111) else Color.White,
+    highlight = if (dark) Color(0xFF1E1E1E) else Color(0xFFEDEDED),
+    tint = s.onSurface,
+    green = s.onSurface,
+    red = if (dark) NothingRedNight else NothingRed,
+    blue = s.onSurface,
+    teal = s.onSurface,
+    indigo = s.onSurface,
+    purple = s.onSurface,
+    yellow = s.onSurface,
+    pink = s.onSurface,
+    gray = s.onSurfaceVariant,
+)
+
 private fun sumieColors(s: ColorScheme, dark: Boolean): IosColors = materialColors(s, dark).copy(
     green = if (dark) Color(0xFF8FC29C) else Color(0xFF3F6A4E),
     red = if (dark) Color(0xFFE0705F) else Color(0xFFA9322A),
@@ -358,6 +425,25 @@ private val SumieType = MaterialType.copy(
     headlineMedium = MaterialType.headlineMedium.copy(fontFamily = FontFamily.Serif, fontWeight = FontWeight.SemiBold),
     headlineSmall = MaterialType.headlineSmall.copy(fontFamily = FontFamily.Serif, fontWeight = FontWeight.Medium),
     titleLarge = MaterialType.titleLarge.copy(fontFamily = FontFamily.Serif, fontWeight = FontWeight.SemiBold),
+)
+
+val NothingLabel = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 1.4.sp)
+
+private val NothingType = MaterialType.copy(
+    displaySmall = TextStyle(fontFamily = NothingDot, fontSize = 40.sp, lineHeight = 44.sp),
+    headlineLarge = TextStyle(fontFamily = NothingDot, fontSize = 38.sp, lineHeight = 44.sp, letterSpacing = 0.5.sp),
+    headlineMedium = TextStyle(fontFamily = NothingDot, fontSize = 32.sp, lineHeight = 38.sp, letterSpacing = 0.5.sp),
+    headlineSmall = TextStyle(fontFamily = NothingDot, fontSize = 27.sp, lineHeight = 32.sp, letterSpacing = 0.5.sp),
+    titleLarge = TextStyle(fontFamily = NothingDot, fontSize = 24.sp, lineHeight = 30.sp, letterSpacing = 0.5.sp),
+    titleSmall = NothingLabel,
+)
+
+private val NothingShapes = Shapes(
+    extraSmall = RoundedCornerShape(10.dp),
+    small = RoundedCornerShape(14.dp),
+    medium = RoundedCornerShape(18.dp),
+    large = RoundedCornerShape(22.dp),
+    extraLarge = RoundedCornerShape(28.dp),
 )
 
 private val SumieShapes = Shapes(
@@ -473,6 +559,8 @@ fun FarvaterTheme(
             RkpDark
         } else if (style == UiStyle.SUMIE) {
             if (dark) SumieDark else SumieLight
+        } else if (style == UiStyle.NOTHING) {
+            if (dark) NothingDark else NothingLight
         } else if (!material) {
             scheme(if (dark) IosDark else IosLight)
         } else if (dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -486,6 +574,7 @@ fun FarvaterTheme(
     val targetIos = remember(targetScheme, dark, style) {
         when {
             style == UiStyle.SUMIE -> sumieColors(targetScheme, dark)
+            style == UiStyle.NOTHING -> nothingColors(targetScheme, dark)
             material -> materialColors(targetScheme, dark)
             dark -> IosDark
             else -> IosLight
@@ -498,11 +587,13 @@ fun FarvaterTheme(
             colorScheme = colorScheme,
             typography = when {
                 style == UiStyle.SUMIE -> SumieType
+                style == UiStyle.NOTHING -> NothingType
                 material -> MaterialType
                 else -> Type
             },
             shapes = when {
                 style == UiStyle.SUMIE -> SumieShapes
+                style == UiStyle.NOTHING -> NothingShapes
                 material -> M3Shapes
                 else -> IosShapes
             },

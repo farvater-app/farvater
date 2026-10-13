@@ -6,6 +6,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
@@ -48,6 +51,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.farvater.core.model.NetMode
@@ -78,6 +83,7 @@ import app.farvater.ui.ios.SectionCorner
 import app.farvater.ui.splitFlag
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.IosType
+import app.farvater.ui.theme.NothingLabel
 
 private val Filters = listOf("Все", "Живые", "Reality", "XHTTP")
 
@@ -295,10 +301,14 @@ private fun GroupHeader(title: String, count: Int, alive: Int, collapsed: Boolea
             .padding(start = 32.dp, end = 24.dp, top = 18.dp, bottom = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val material = Ios.material
+        val material = Ios.material && !Ios.nothing
         Text(
             if (material) title else title.uppercase(),
-            style = if (material) MaterialTheme.typography.titleSmall else IosType.footnote,
+            style = when {
+                Ios.nothing -> NothingLabel
+                material -> MaterialTheme.typography.titleSmall
+                else -> IosType.footnote
+            },
             color = if (material) c.tint else c.secondaryLabel,
             maxLines = 1,
             modifier = Modifier.weight(1f),
@@ -329,10 +339,18 @@ private fun NodeRow(node: ProxyNode, result: TestResult?, selected: Boolean, onC
         onLongClick = onLongClick,
         trailing = {
             DelayLabel(result)
-            AnimatedVisibility(visible = selected, enter = fadeIn(), exit = fadeOut()) {
-                Row {
+            AnimatedVisibility(
+                visible = selected,
+                enter = fadeIn() + scaleIn(spring(dampingRatio = 0.5f, stiffness = 600f), initialScale = 0.4f),
+                exit = fadeOut() + scaleOut(targetScale = 0.6f),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Spacer(Modifier.width(8.dp))
-                    Icon(Icons.Rounded.Check, contentDescription = "Выбран", tint = c.tint, modifier = Modifier.size(20.dp))
+                    if (Ios.nothing) {
+                        Box(Modifier.size(8.dp).background(c.red, CircleShape).semantics { contentDescription = "Выбран" })
+                    } else {
+                        Icon(Icons.Rounded.Check, contentDescription = "Выбран", tint = c.tint, modifier = Modifier.size(20.dp))
+                    }
                 }
             }
         },

@@ -62,10 +62,13 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.ripple
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -107,6 +110,7 @@ import androidx.compose.ui.window.DialogWindowProvider
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.IosMotion
 import app.farvater.ui.theme.IosType
+import app.farvater.ui.theme.NothingLabel
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -257,6 +261,12 @@ fun IosSection(
     val material = Ios.material
     Column(modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         when {
+            header != null && Ios.nothing -> Text(
+                header.uppercase(),
+                style = NothingLabel,
+                color = c.secondaryLabel,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
+            )
             header != null && material -> Text(
                 header,
                 style = MaterialTheme.typography.titleSmall,
@@ -399,12 +409,13 @@ fun IosChoiceRow(
     iconTint: Color = Ios.colors.tint,
 ) {
     val c = Ios.colors
+    val radio = if (Ios.nothing) RadioButtonDefaults.colors(selectedColor = c.red) else RadioButtonDefaults.colors()
     if (Ios.material && icon == null) {
         IosRow(
             title = title,
             subtitle = subtitle,
             onClick = onClick,
-            leading = { RadioButton(selected = selected, onClick = null) },
+            leading = { RadioButton(selected = selected, onClick = null, colors = radio) },
         )
     } else {
         IosRow(
@@ -415,7 +426,7 @@ fun IosChoiceRow(
             iconTint = iconTint,
             trailing = {
                 when {
-                    Ios.material -> RadioButton(selected = selected, onClick = null)
+                    Ios.material -> RadioButton(selected = selected, onClick = null, colors = radio)
                     selected -> Icon(Icons.Rounded.Check, contentDescription = "Выбрано", tint = c.tint, modifier = Modifier.size(22.dp))
                 }
             },
@@ -435,6 +446,18 @@ fun IosSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Mo
                 onCheckedChange(it)
             },
             modifier = modifier,
+            colors = if (Ios.nothing) {
+                SwitchDefaults.colors(
+                    checkedTrackColor = c.red,
+                    checkedThumbColor = Color.White,
+                    checkedBorderColor = c.red,
+                    uncheckedTrackColor = Color.Transparent,
+                    uncheckedThumbColor = c.secondaryLabel,
+                    uncheckedBorderColor = c.secondaryLabel,
+                )
+            } else {
+                SwitchDefaults.colors()
+            },
         )
         return
     }
@@ -495,14 +518,21 @@ fun IosSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, 
         }
     }
     if (Ios.material) {
+        val nothing = Ios.nothing
         SingleChoiceSegmentedButtonRow(modifier.fillMaxWidth()) {
             options.forEachIndexed { i, label ->
                 SegmentedButton(
                     selected = i == selected,
                     onClick = { pick(i) },
                     shape = SegmentedButtonDefaults.itemShape(index = i, count = options.size),
-                    icon = { if (options.size <= 3) SegmentedButtonDefaults.Icon(i == selected) },
-                    label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    icon = { if (options.size <= 3 && !nothing) SegmentedButtonDefaults.Icon(i == selected) },
+                    label = {
+                        if (nothing) {
+                            Text(label.uppercase(), style = NothingLabel.copy(fontSize = 10.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        } else {
+                            Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    },
                 )
             }
         }
@@ -639,23 +669,34 @@ fun IosButton(
     if (Ios.material) {
         val scheme = MaterialTheme.colorScheme
         val brand = color == c.tint
-        val bg = when (style) {
-            IosButtonStyle.Filled -> if (brand) scheme.primary else color
-            IosButtonStyle.Tinted -> if (brand) scheme.secondaryContainer else color.copy(alpha = 0.16f)
-            IosButtonStyle.Plain -> Color.Transparent
+        val outlined = Ios.nothing && style == IosButtonStyle.Tinted
+        val bg = when {
+            outlined -> Color.Transparent
+            style == IosButtonStyle.Filled -> if (brand) scheme.primary else color
+            style == IosButtonStyle.Tinted -> if (brand) scheme.secondaryContainer else color.copy(alpha = 0.16f)
+            else -> Color.Transparent
         }
-        val fg = when (style) {
-            IosButtonStyle.Filled -> if (brand) scheme.onPrimary else Color.White
-            IosButtonStyle.Tinted -> if (brand) scheme.onSecondaryContainer else color
-            IosButtonStyle.Plain -> color
+        val fg = when {
+            outlined -> color
+            style == IosButtonStyle.Filled -> if (brand) scheme.onPrimary else Color.White
+            style == IosButtonStyle.Tinted -> if (brand) scheme.onSecondaryContainer else color
+            else -> color
         }
+        val press = remember { MutableInteractionSource() }
+        val pressed by press.collectIsPressedAsState()
+        val scale by animateFloatAsState(if (pressed) 0.96f else 1f, spring(dampingRatio = 0.6f, stiffness = 600f), label = "press")
         Row(
             modifier
                 .heightIn(min = 48.dp)
-                .graphicsLayer { alpha = if (enabled) 1f else 0.38f }
+                .graphicsLayer {
+                    alpha = if (enabled) 1f else 0.38f
+                    scaleX = scale
+                    scaleY = scale
+                }
                 .clip(CircleShape)
                 .background(bg)
-                .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+                .then(if (outlined) Modifier.border(1.5.dp, color, CircleShape) else Modifier)
+                .clickable(interactionSource = press, indication = ripple(), enabled = enabled, role = Role.Button, onClick = onClick)
                 .padding(horizontal = 24.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
@@ -664,7 +705,11 @@ fun IosButton(
                 Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
             }
-            Text(text, style = MaterialTheme.typography.labelLarge.copy(fontSize = 15.sp), color = fg, maxLines = 1)
+            if (Ios.nothing) {
+                Text(text.uppercase(), style = NothingLabel.copy(fontSize = 13.sp, letterSpacing = 1.6.sp), color = fg, maxLines = 1)
+            } else {
+                Text(text, style = MaterialTheme.typography.labelLarge.copy(fontSize = 15.sp), color = fg, maxLines = 1)
+            }
         }
         return
     }
@@ -703,6 +748,19 @@ fun IosButton(
 @Composable
 fun IosCircleButton(icon: ImageVector, description: String, onClick: () -> Unit, tint: Color = Ios.colors.tint) {
     val c = Ios.colors
+    if (Ios.nothing) {
+        Box(
+            Modifier
+                .size(40.dp)
+                .iosPress(scaleTo = 0.9f, onClick = onClick)
+                .clip(CircleShape)
+                .border(1.dp, c.separator, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = description, tint = tint, modifier = Modifier.size(21.dp))
+        }
+        return
+    }
     if (Ios.material) {
         val scheme = MaterialTheme.colorScheme
         Box(
@@ -925,6 +983,29 @@ private fun MaterialSheetHeader(title: String, onClose: () -> Unit) {
 
 @Composable
 fun IosSpinner(modifier: Modifier = Modifier, size: Dp = 20.dp, color: Color = Ios.colors.secondaryLabel) {
+    if (Ios.nothing) {
+        val fg = Ios.colors.label
+        val head by rememberInfiniteTransition(label = "dots").animateFloat(
+            initialValue = 0f,
+            targetValue = 8f,
+            animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing)),
+            label = "head",
+        )
+        Canvas(modifier.size(size)) {
+            val r = this.size.minDimension / 2
+            val dot = r * 0.2f
+            for (i in 0 until 8) {
+                val behind = ((head - i) % 8f + 8f) % 8f
+                val angle = Math.toRadians(i * 45.0 - 90)
+                drawCircle(
+                    color = fg.copy(alpha = (1f - behind / 8f).coerceIn(0.15f, 1f)),
+                    radius = dot,
+                    center = Offset(center.x + kotlin.math.cos(angle).toFloat() * (r - dot), center.y + kotlin.math.sin(angle).toFloat() * (r - dot)),
+                )
+            }
+        }
+        return
+    }
     if (Ios.material) {
         CircularProgressIndicator(
             modifier = modifier.size(size),
@@ -962,6 +1043,27 @@ fun IosProgressBar(fraction: Float, modifier: Modifier = Modifier, color: Color 
     val c = Ios.colors
     val material = Ios.material
     val animated by animateFloatAsState(fraction.coerceIn(0f, 1f), spring(stiffness = 200f), label = "progress")
+    if (Ios.nothing) {
+        val lit = c.label
+        val off = c.separator
+        val accent = c.red
+        Canvas(modifier.fillMaxWidth().height(6.dp)) {
+            val step = 9.dp.toPx()
+            val count = (size.width / step).toInt().coerceAtLeast(1)
+            val gap = (size.width - step * (count - 1)) / 2
+            val litCount = animated * count
+            for (i in 0 until count) {
+                val on = (litCount - i).coerceIn(0f, 1f)
+                val head = on > 0f && i + 1 >= litCount && animated < 1f
+                drawCircle(
+                    color = if (head) accent else lerp(off, lit, on),
+                    radius = size.height / 2,
+                    center = Offset(gap + i * step, size.height / 2),
+                )
+            }
+        }
+        return
+    }
     Box(
         modifier
             .fillMaxWidth()

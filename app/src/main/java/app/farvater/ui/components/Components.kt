@@ -3,7 +3,11 @@ package app.farvater.ui.components
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -19,6 +23,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -28,11 +33,18 @@ import app.farvater.engine.TestMethod
 import app.farvater.engine.TestResult
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.IosType
+import app.farvater.ui.theme.NothingDot
+import app.farvater.ui.theme.NothingLabel
 import app.farvater.ui.theme.Numeric
 
 @Composable
 fun delayColor(result: TestResult?): Color {
     val c = Ios.colors
+    if (Ios.nothing) return when {
+        result == null -> c.tertiaryLabel
+        !result.alive -> c.red
+        else -> c.label
+    }
     return when {
         result == null -> c.tertiaryLabel
         !result.alive -> c.red
@@ -52,9 +64,14 @@ fun delayText(result: TestResult?): String = when {
 @Composable
 fun DelayLabel(result: TestResult?, modifier: Modifier = Modifier) {
     val color by animateColorAsState(delayColor(result), label = "delay")
+    val dots = Ios.nothing && result?.alive == true
     Text(
         delayText(result),
-        style = IosType.subheadline.merge(Numeric).copy(fontWeight = FontWeight.Medium),
+        style = when {
+            dots -> TextStyle(fontFamily = NothingDot, fontSize = 18.sp, lineHeight = 22.sp)
+            Ios.nothing -> NothingLabel.copy(fontSize = 10.sp)
+            else -> IosType.subheadline.merge(Numeric).copy(fontWeight = FontWeight.Medium)
+        },
         color = color,
         maxLines = 1,
         modifier = modifier,
@@ -112,7 +129,22 @@ fun Sparkline(values: List<Long>, color: Color, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun Badge(text: String, color: Color, modifier: Modifier = Modifier) {
+fun Badge(text: String, color: Color, modifier: Modifier = Modifier, active: Boolean = false) {
+    if (Ios.nothing) {
+        val c = Ios.colors
+        val lit by animateColorAsState(if (active) c.red else c.secondaryLabel, label = "badge")
+        Row(
+            modifier
+                .border(1.dp, c.separator, CircleShape)
+                .padding(horizontal = 10.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(6.dp).background(lit, CircleShape))
+            Spacer(Modifier.width(6.dp))
+            Text(text.uppercase(), style = NothingLabel.copy(fontSize = 10.sp), color = c.label)
+        }
+        return
+    }
     Text(
         text,
         style = IosType.caption1.copy(fontWeight = FontWeight.SemiBold),

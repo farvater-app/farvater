@@ -65,7 +65,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.farvater.data.UiStyle
+import app.farvater.ui.components.dotGrid
 import app.farvater.ui.components.paperGrain
 import app.farvater.ui.ios.GlassBackdrop
 import app.farvater.ui.ios.GlassStyles
@@ -75,6 +77,7 @@ import app.farvater.ui.ios.rememberGlassBackdrop
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.IosType
 import app.farvater.ui.theme.LocalUiStyle
+import app.farvater.ui.theme.NothingLabel
 
 internal enum class Tab(val title: String, val icon: ImageVector, val iconIdle: ImageVector) {
     Home("Фарватер", Icons.Rounded.Home, Icons.Outlined.Home),
@@ -95,7 +98,89 @@ internal fun FarvaterFrame(
     snackbar: SnackbarHostState = remember { SnackbarHostState() },
     content: @Composable (PaddingValues) -> Unit,
 ) {
-    if (Ios.material) MaterialFrame(tab, onTab, snackbar, content) else GlassFrame(tab, onTab, snackbar, content)
+    when {
+        Ios.nothing -> NothingFrame(tab, onTab, snackbar, content)
+        Ios.material -> MaterialFrame(tab, onTab, snackbar, content)
+        else -> GlassFrame(tab, onTab, snackbar, content)
+    }
+}
+
+@Composable
+private fun NothingFrame(
+    tab: Tab,
+    onTab: (Tab) -> Unit,
+    snackbar: SnackbarHostState,
+    content: @Composable (PaddingValues) -> Unit,
+) {
+    val c = Ios.colors
+    val haptics = LocalHapticFeedback.current
+    val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val bottomInset: Dp = navInset + 66.dp
+    Surface(color = c.background, contentColor = c.label, modifier = Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().dotGrid(c.label)) {
+            CompositionLocalProvider(LocalBottomInset provides bottomInset) {
+                content(WindowInsets.statusBars.asPaddingValues())
+            }
+            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset + 10.dp)) { data ->
+                Box(
+                    Modifier
+                        .padding(horizontal = 16.dp)
+                        .background(c.label, RoundedCornerShape(18.dp)),
+                ) {
+                    Text(
+                        data.visuals.message,
+                        style = IosType.subheadline,
+                        color = c.background,
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 13.dp),
+                    )
+                }
+            }
+            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(c.background)) {
+                Box(Modifier.fillMaxWidth().height(1.dp).background(c.separator))
+                Row(Modifier.fillMaxWidth().height(65.dp).padding(horizontal = 6.dp)) {
+                    Tab.entries.forEach { t ->
+                        NothingTab(t, selected = t == tab, modifier = Modifier.weight(1f)) {
+                            if (t != tab) {
+                                haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                                onTab(t)
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(navInset))
+            }
+        }
+    }
+}
+
+@Composable
+private fun NothingTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val c = Ios.colors
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val dot by animateFloatAsState(if (selected) 1f else 0f, spring(dampingRatio = 0.5f, stiffness = 520f), label = "dot")
+    val tint by animateColorAsState(if (selected) c.label else c.secondaryLabel, spring(stiffness = 500f), label = "tint")
+    val scale by animateFloatAsState(if (pressed) 0.9f else 1f, spring(dampingRatio = 0.5f, stiffness = 600f), label = "scale")
+    Column(
+        modifier
+            .fillMaxHeight()
+            .clickable(interactionSource = interaction, indication = null, role = Role.Tab, onClick = onClick)
+            .semantics { this.selected = selected }
+            .graphicsLayer { scaleX = scale; scaleY = scale },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+    ) {
+        Box(
+            Modifier
+                .size(5.dp)
+                .graphicsLayer { scaleX = dot; scaleY = dot; alpha = dot }
+                .background(c.red, CircleShape),
+        )
+        Spacer(Modifier.height(5.dp))
+        Icon(tab.iconIdle, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.height(4.dp))
+        Text(tab.title.uppercase(), style = NothingLabel.copy(fontSize = 9.sp, letterSpacing = 1.sp), color = tint, maxLines = 1)
+    }
 }
 
 @Composable
