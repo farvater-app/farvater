@@ -744,8 +744,8 @@ private fun DrawScope.rowingCat(t: Float, still: Boolean, pal: Palette) {
     val stroke = if (still) 0f else (1f - cos(t * 2.2f)) / 2f
     val push = 5f * stroke
     val lean = 3.5f * stroke
-    val top = Offset(cx + 17f, by - 74f)
-    val bottom = Offset(cx - 32f, by + 30f)
+    val top = Offset(cx + 28f, by - 72f)
+    val bottom = Offset(cx + 6f, by + 32f)
     val axis = (bottom - top) / (bottom - top).getDistance()
     fun onPole(y: Float): Offset {
         val k = (y - top.y) / (bottom.y - top.y)
