@@ -52,6 +52,7 @@ class FarvaterVpnService : VpnService() {
         const val CHANNEL = "vpn"
         private const val NOTIFICATION_ID = 7
         private const val PROBE_EVERY = 60
+        private val EARLY_PROBES = setOf(5, 15, 30)
         private const val UPDATE_GAP_MS = 15 * 60 * 1000L
 
         fun start(context: Context, node: ProxyNode, restart: Boolean = false) {
@@ -219,7 +220,7 @@ class FarvaterVpnService : VpnService() {
                     )
                 }
             }
-            if (tick % PROBE_EVERY == 0) {
+            if (tick in EARLY_PROBES || tick % PROBE_EVERY == 0) {
                 val ok = probe()
                 if (!currentCoroutineContext().isActive) return
                 failures = if (ok) 0 else failures + 1
