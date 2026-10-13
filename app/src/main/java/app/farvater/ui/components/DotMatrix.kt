@@ -99,16 +99,23 @@ fun DotConnectButton(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier 
     val haptics = LocalHapticFeedback.current
     val still = rememberReduceMotion()
 
+    val shake = remember { Animatable(0f) }
     var previous by remember { mutableStateOf(mode) }
     LaunchedEffect(mode) {
-        if (previous != mode) {
-            when (mode) {
-                ConnectMode.Connected -> haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                ConnectMode.Error -> haptics.performHapticFeedback(HapticFeedbackType.Reject)
-                else -> Unit
-            }
-        }
+        val changed = previous != mode
         previous = mode
+        if (!changed) return@LaunchedEffect
+        when (mode) {
+            ConnectMode.Connected -> haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+            ConnectMode.Error -> {
+                haptics.performHapticFeedback(HapticFeedbackType.Reject)
+                if (!still) {
+                    shake.snapTo(10f)
+                    shake.animateTo(0f, spring(dampingRatio = 0.22f, stiffness = 900f))
+                }
+            }
+            else -> Unit
+        }
     }
 
     val busy = mode == ConnectMode.Searching || mode == ConnectMode.Connecting
@@ -164,7 +171,11 @@ fun DotConnectButton(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier 
     Box(
         modifier
             .size(size)
-            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                translationX = shake.value.dp.toPx()
+            }
             .clip(CircleShape)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .semantics {

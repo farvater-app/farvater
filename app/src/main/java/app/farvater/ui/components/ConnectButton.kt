@@ -1,6 +1,7 @@
 package app.farvater.ui.components
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -87,16 +88,31 @@ fun ConnectButton(
     val dark = c.dark
     val rim = glassRim(dark)
 
+    val still = rememberReduceMotion()
+    val burst = remember { Animatable(1f) }
+    val shake = remember { Animatable(0f) }
     var previous by remember { mutableStateOf(mode) }
     LaunchedEffect(mode) {
-        if (previous != mode) {
-            when (mode) {
-                ConnectMode.Connected -> haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                ConnectMode.Error -> haptics.performHapticFeedback(HapticFeedbackType.Reject)
-                else -> Unit
-            }
-        }
+        val changed = previous != mode
         previous = mode
+        if (!changed) return@LaunchedEffect
+        when (mode) {
+            ConnectMode.Connected -> {
+                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                if (!still) {
+                    burst.snapTo(0f)
+                    burst.animateTo(1f, tween(950, easing = FastOutSlowInEasing))
+                }
+            }
+            ConnectMode.Error -> {
+                haptics.performHapticFeedback(HapticFeedbackType.Reject)
+                if (!still) {
+                    shake.snapTo(12f)
+                    shake.animateTo(0f, spring(dampingRatio = 0.22f, stiffness = 900f))
+                }
+            }
+            else -> Unit
+        }
     }
 
     val lamp by animateColorAsState(
@@ -164,7 +180,11 @@ fun ConnectButton(
     Box(
         modifier = modifier
             .size(size)
-            .graphicsLayer { scaleX = scale; scaleY = scale },
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                translationX = shake.value.dp.toPx()
+            },
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.size(size)) {
@@ -178,6 +198,15 @@ fun ConnectButton(
                 ),
                 radius = radius,
             )
+
+            if (burst.value < 1f) {
+                val p = burst.value
+                drawCircle(
+                    color = lamp.copy(alpha = (1f - p) * 0.55f),
+                    radius = lampRadius + (radius - lampRadius) * p,
+                    style = Stroke(width = (4f - 2.5f * p).dp.toPx()),
+                )
+            }
 
             if (ringStrength > 0f) {
                 for (i in 0..1) {

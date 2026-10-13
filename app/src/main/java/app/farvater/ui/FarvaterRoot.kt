@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
@@ -51,7 +52,10 @@ fun FarvaterRoot(vm: MainViewModel) {
         AnimatedContent(
             targetState = tab,
             modifier = Modifier.padding(padding).consumeWindowInsets(padding),
-            transitionSpec = { fadeIn(tween(180, easing = EaseOutQuint)) togetherWith fadeOut(tween(120)) },
+            transitionSpec = {
+                (fadeIn(tween(220, delayMillis = 40, easing = EaseOutQuint)) + scaleIn(tween(260, delayMillis = 40, easing = EaseOutQuint), initialScale = 0.97f)) togetherWith
+                    fadeOut(tween(110))
+            },
             label = "tabs",
         ) { current ->
             when (current) {
