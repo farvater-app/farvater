@@ -34,6 +34,7 @@ import app.farvater.ui.screens.SettingsScreen
 import app.farvater.ui.screens.SourceSheet
 import app.farvater.ui.screens.SourcesScreen
 import app.farvater.ui.theme.FarvaterTheme
+import app.farvater.ui.theme.LocalUiStyle
 import app.farvater.vpn.Traffic
 import app.farvater.vpn.VpnState
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
@@ -281,7 +282,7 @@ class ScreenshotTest {
     @Composable
     private fun Settings(settings: AppSettings = Fake.state.settings) = FarvaterFrame(tab = Tab.Settings, onTab = {}) { p ->
         androidx.compose.foundation.layout.Box(Modifier.padding(p)) {
-            SettingsScreen(settings = settings, onChange = {}, onOpenDocument = {})
+            SettingsScreen(settings = settings.copy(uiStyle = LocalUiStyle.current), onChange = {}, onOpenDocument = {})
         }
     }
 }
