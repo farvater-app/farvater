@@ -14,7 +14,7 @@ import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 
 object XrayConfigBuilder {
-    const val SOCKS_PORT = 10808
+    val SOCKS_PORT: Int get() = LocalProxyAuth.port
 
     private val DIRECT_DOMAINS = listOf(
         "gosuslugi.ru", "gov.ru", "mos.ru", "nalog.ru",
