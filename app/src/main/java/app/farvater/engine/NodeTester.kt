@@ -13,6 +13,7 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.Serializable
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
 @Serializable
@@ -39,21 +40,33 @@ object NodeTester {
     private const val TCP_CONCURRENCY = 48
     private const val TCP_TIMEOUT_MS = 2500
 
+    private const val PER_HOST = 3
+    private const val PER_SNI = 2
+
     fun testAll(nodes: List<ProxyNode>, url: String, concurrency: Int): Flow<TestResult> = channelFlow {
         val real = XrayEngine.isAvailable
         val tcpGate = Semaphore(TCP_CONCURRENCY)
         val realGate = Semaphore(concurrency.coerceIn(1, 32))
+        val hostGates = ConcurrentHashMap<String, Semaphore>()
+        val sniGates = ConcurrentHashMap<String, Semaphore>()
         nodes.forEach { node ->
             launch(workers) {
                 val coreOnly = node.protocol == Protocol.HYSTERIA2 || node.isJson
-                val tcp = if (coreOnly) 0L else tcpGate.withPermit { tcping(node) }
+                val host = hostGates.getOrPut(node.address.lowercase()) { Semaphore(PER_HOST) }
+                val tcp = if (coreOnly) 0L else host.withPermit { tcpGate.withPermit { tcping(node) } }
                 if (tcp < 0 || !real) {
                     send(TestResult(node.id, if (coreOnly) -1L else tcp, TestMethod.TCP))
                     return@launch
                 }
-                send(realGate.withPermit { test(node, url) })
+                val sni = sniGates.getOrPut(handshakeKey(node)) { Semaphore(PER_SNI) }
+                send(sni.withPermit { realGate.withPermit { test(node, url) } })
             }
         }
+    }
+
+    private fun handshakeKey(node: ProxyNode): String {
+        val p = node.params
+        return (p["sni"] ?: p["peer"] ?: p["host"])?.takeIf { it.isNotBlank() }?.lowercase() ?: node.address.lowercase()
     }
 
     fun test(node: ProxyNode, url: String): TestResult = when {
