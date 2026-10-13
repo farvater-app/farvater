@@ -213,7 +213,7 @@ object XrayConfigBuilder {
         when (security) {
             "tls" -> putJsonObject("tlsSettings") {
                 sni?.let { put("serverName", it) }
-                if (!hysteria) p["fp"].nb()?.let { put("fingerprint", it) }
+                if (!hysteria) put("fingerprint", p["fp"].nb() ?: "chrome")
                 (p["alpn"].nb() ?: "h3".takeIf { hysteria })?.let { alpn ->
                     putJsonArray("alpn") { alpn.split(',').forEach { add(it.trim()) } }
                 }

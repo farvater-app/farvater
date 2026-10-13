@@ -149,6 +149,16 @@ class ParserTest {
         assertEquals(listOf("salamander", "udphop"), masks)
     }
 
+    @Test fun tlsWithoutFingerprintLooksLikeBrowser() {
+        val cfg = Json.parseToJsonElement(
+            XrayConfigBuilder.build(LinkParser.parse("trojan://p@1.2.3.4:443?sni=a.example.com#x")!!, directRuServices = false),
+        ).jsonObject
+        val tls = cfg["outbounds"]!!.jsonArray[0].jsonObject["streamSettings"]!!.jsonObject["tlsSettings"]!!.jsonObject
+        assertEquals("chrome", tls["fingerprint"]!!.jsonPrimitive.content)
+        val own = XrayConfigBuilder.build(LinkParser.parse("trojan://p@1.2.3.4:443?sni=a.example.com&fp=firefox#x")!!, directRuServices = false)
+        assertTrue(own.contains("\"fingerprint\":\"firefox\""))
+    }
+
     @Test fun insecureFlagNeverReachesXray() {
         val cfg = XrayConfigBuilder.build(LinkParser.parse("trojan://p@1.2.3.4:443?allowInsecure=1#x")!!, directRuServices = false)
         assertTrue("allowInsecure" !in cfg)
