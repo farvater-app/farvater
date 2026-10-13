@@ -251,7 +251,7 @@ private fun DrawScope.glyph(rows: List<String>, cell: Float, lit: Color, off: Co
         val glow = if (scan >= 0f) (1f - abs(scan * (height + 2) - 1 - y) / 1.6f).coerceAtLeast(0f) else 0f
         row.forEachIndexed { x, ch ->
             val on = ch == '#'
-            val color = if (on) lit.copy(alpha = alpha * (0.82f + 0.18f * glow)) else off.copy(alpha = alpha * (0.45f + 0.35f * glow))
+            val color = if (on) lit.copy(alpha = alpha * (0.82f + 0.18f * glow)) else off.copy(alpha = alpha * (0.28f + 0.4f * glow))
             drawCircle(color, radius = cell * if (on) 0.34f else 0.24f, center = Offset(left + x * cell, top + y * cell))
         }
     }

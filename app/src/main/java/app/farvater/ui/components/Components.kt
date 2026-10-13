@@ -68,7 +68,7 @@ fun DelayLabel(result: TestResult?, modifier: Modifier = Modifier) {
     Text(
         delayText(result),
         style = when {
-            dots -> TextStyle(fontFamily = NothingDot, fontSize = 18.sp, lineHeight = 22.sp)
+            dots -> TextStyle(fontFamily = NothingDot, fontSize = 21.sp, lineHeight = 24.sp)
             Ios.nothing -> NothingLabel.copy(fontSize = 10.sp)
             else -> IosType.subheadline.merge(Numeric).copy(fontWeight = FontWeight.Medium)
         },
