@@ -417,7 +417,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             val parsed = SubscriptionParser.parse(trimmed, ProxyNode.MANUAL_SOURCE)
             if (parsed.nodes.isEmpty()) {
-                toast("Не нашёл ссылок vless://, vmess://, trojan:// или ss://")
+                toast("Не нашёл ссылок vless://, vmess://, trojan://, ss:// или hysteria2://")
                 return@launch
             }
             val added = repo.appendManual(parsed.nodes)
