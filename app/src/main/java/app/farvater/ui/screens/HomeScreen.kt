@@ -301,7 +301,7 @@ private fun headline(mode: ConnectMode): String = when (mode) {
 
 private fun supporting(mode: ConnectMode, vpn: VpnState, state: UiState, sumie: Boolean): String = when (mode) {
     ConnectMode.Idle -> if (sumie) "Нажмите на круг, чтобы подключиться" else "Нажмите кнопку, чтобы подключиться"
-    ConnectMode.Searching -> state.pathfinding?.let { "Проверяю, идут ли данные через «${splitFlag(it).second}»" }
+    ConnectMode.Searching -> state.pathfinding?.let { "Галс: проверяю, идут ли данные через «${splitFlag(it).second}»" }
         ?: state.progress?.let { "Отвечают ${it.alive}" }.orEmpty()
     ConnectMode.Connecting -> (vpn as? VpnState.Connecting)?.node?.let { splitFlag(it.name).second }.orEmpty()
     ConnectMode.Connected -> "Трафик идёт через выбранный узел"

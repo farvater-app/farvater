@@ -535,7 +535,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 val target = chosen ?: candidates.first()
                 if (chosen == null) {
-                    toast("Узлы отвечают, но данные через них не идут: похоже, провайдер замораживает соединения. Подключаюсь к самому быстрому.")
+                    toast("Галс не нашёл узла, через который идут данные: похоже, провайдер замораживает соединения. Подключаюсь к самому быстрому.")
                 }
                 setSelected(target)
                 connect(target)
