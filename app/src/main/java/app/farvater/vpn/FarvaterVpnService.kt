@@ -137,7 +137,12 @@ class FarvaterVpnService : VpnService() {
             fail(message, node)
         }
 
-        val config = XrayConfigBuilder.build(node, settings.directRuServices, encryptedDns = settings.encryptedDns)
+        val config = XrayConfigBuilder.build(
+            node,
+            settings.directRuServices,
+            encryptedDns = settings.encryptedDns,
+            profile = App.prefs.profileFor(node.id),
+        )
         XrayEngine.start(config).onFailure { return abort("Ядро не запустилось: ${it.message}") }
 
         val builder = Builder()

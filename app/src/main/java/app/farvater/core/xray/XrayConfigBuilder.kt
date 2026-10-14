@@ -1,6 +1,9 @@
 package app.farvater.core.xray
 
+import app.farvater.core.model.NodeProfile
 import app.farvater.core.model.Protocol
+import app.farvater.core.model.canFragment
+import app.farvater.core.model.canMux
 import app.farvater.core.model.ProxyNode
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -28,9 +31,18 @@ object XrayConfigBuilder {
 
     private val ENCRYPTED_DNS = listOf("https://1.1.1.1/dns-query", "https://8.8.8.8/dns-query")
 
-    fun build(node: ProxyNode, directRuServices: Boolean, forTest: Boolean = false, encryptedDns: Boolean = true): String {
+    fun build(
+        node: ProxyNode,
+        directRuServices: Boolean,
+        forTest: Boolean = false,
+        encryptedDns: Boolean = true,
+        profile: NodeProfile? = null,
+        socksPort: Int = SOCKS_PORT,
+    ): String {
         val provider = if (node.isJson) Json.parseToJsonElement(node.raw).jsonObject else null
-        val proxies = provider?.get("outbounds")?.jsonArray ?: listOf(outbound(node))
+        val tuned = profile?.takeIf { provider == null }
+        val fragment = tuned?.fragment == true && node.canFragment
+        val proxies = provider?.get("outbounds")?.jsonArray ?: listOf(outbound(node, tuned, fragment))
         val balancers = provider?.get("routing")?.jsonObject?.get("balancers")?.jsonArray
         return buildJsonObject {
             putJsonObject("log") { put("loglevel", "warning") }
@@ -39,7 +51,7 @@ object XrayConfigBuilder {
                     addJsonObject {
                         put("tag", "socks")
                         put("listen", "127.0.0.1")
-                        put("port", SOCKS_PORT)
+                        put("port", socksPort)
                         put("protocol", "socks")
                         putJsonObject("settings") {
                             put("auth", "password")
@@ -67,6 +79,17 @@ object XrayConfigBuilder {
             }
             putJsonArray("outbounds") {
                 proxies.forEach { add(it) }
+                if (fragment) addJsonObject {
+                    put("tag", FRAGMENT_TAG)
+                    put("protocol", "freedom")
+                    putJsonObject("settings") {
+                        putJsonObject("fragment") {
+                            put("packets", "tlshello")
+                            put("length", "100-200")
+                            put("interval", "10-20")
+                        }
+                    }
+                }
                 addJsonObject { put("tag", "direct"); put("protocol", "freedom") }
                 addJsonObject { put("tag", "block"); put("protocol", "blackhole") }
                 if (!forTest && encryptedDns) addJsonObject { put("tag", "dns-out"); put("protocol", "dns") }
@@ -107,7 +130,21 @@ object XrayConfigBuilder {
         }.toString()
     }
 
-    private fun outbound(n: ProxyNode): JsonObject = when (n.protocol) {
+    private const val FRAGMENT_TAG = "fragment"
+
+    private fun outbound(n: ProxyNode, profile: NodeProfile?, fragment: Boolean): JsonObject =
+        withTuning(baseOutbound(n, profile?.fingerprint, fragment), profile?.mux == true && n.canMux)
+
+    private fun withTuning(outbound: JsonObject, mux: Boolean): JsonObject = if (!mux) outbound else JsonObject(
+        outbound + ("mux" to buildJsonObject {
+            put("enabled", true)
+            put("concurrency", 8)
+            put("xudpConcurrency", 8)
+            put("xudpProxyUDP443", "reject")
+        }),
+    )
+
+    private fun baseOutbound(n: ProxyNode, fingerprint: String?, fragment: Boolean): JsonObject = when (n.protocol) {
         Protocol.VLESS -> buildJsonObject {
             put("tag", "proxy")
             put("protocol", "vless")
@@ -126,7 +163,7 @@ object XrayConfigBuilder {
                     }
                 }
             }
-            put("streamSettings", stream(n))
+            put("streamSettings", stream(n, fingerprint, fragment))
         }
 
         Protocol.VMESS -> buildJsonObject {
@@ -147,7 +184,7 @@ object XrayConfigBuilder {
                     }
                 }
             }
-            put("streamSettings", stream(n))
+            put("streamSettings", stream(n, fingerprint, fragment))
         }
 
         Protocol.TROJAN -> buildJsonObject {
@@ -162,7 +199,7 @@ object XrayConfigBuilder {
                     }
                 }
             }
-            put("streamSettings", stream(n))
+            put("streamSettings", stream(n, fingerprint, fragment))
         }
 
         Protocol.SHADOWSOCKS -> buildJsonObject {
@@ -189,11 +226,11 @@ object XrayConfigBuilder {
                 put("address", n.address)
                 put("port", n.port)
             }
-            put("streamSettings", stream(n))
+            put("streamSettings", stream(n, fingerprint, fragment))
         }
     }
 
-    private fun stream(n: ProxyNode): JsonObject = buildJsonObject {
+    private fun stream(n: ProxyNode, fingerprint: String?, fragment: Boolean): JsonObject = buildJsonObject {
         val p = n.params
         val hysteria = n.protocol == Protocol.HYSTERIA2
         val network = if (hysteria) "hysteria" else n.transport
@@ -209,11 +246,12 @@ object XrayConfigBuilder {
 
         put("network", network)
         put("security", security)
+        if (fragment) putJsonObject("sockopt") { put("dialerProxy", FRAGMENT_TAG) }
 
         when (security) {
             "tls" -> putJsonObject("tlsSettings") {
                 sni?.let { put("serverName", it) }
-                if (!hysteria) put("fingerprint", p["fp"].nb() ?: "chrome")
+                if (!hysteria) put("fingerprint", fingerprint ?: p["fp"].nb() ?: "chrome")
                 (p["alpn"].nb() ?: "h3".takeIf { hysteria })?.let { alpn ->
                     putJsonArray("alpn") { alpn.split(',').forEach { add(it.trim()) } }
                 }
@@ -221,7 +259,7 @@ object XrayConfigBuilder {
             }
             "reality" -> putJsonObject("realitySettings") {
                 put("serverName", sni.orEmpty())
-                put("fingerprint", p["fp"].nb() ?: "chrome")
+                put("fingerprint", fingerprint ?: p["fp"].nb() ?: "chrome")
                 put("publicKey", p["pbk"].orEmpty())
                 put("shortId", p["sid"].orEmpty())
                 p["spx"].nb()?.let { put("spiderX", it) }

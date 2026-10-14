@@ -1,5 +1,6 @@
 package app.farvater
 
+import app.farvater.core.model.NodeProfile
 import app.farvater.core.model.Protocol
 import app.farvater.core.model.onePerEndpoint
 import app.farvater.core.parser.LinkParser
@@ -157,6 +158,31 @@ class ParserTest {
         assertEquals("chrome", tls["fingerprint"]!!.jsonPrimitive.content)
         val own = XrayConfigBuilder.build(LinkParser.parse("trojan://p@1.2.3.4:443?sni=a.example.com&fp=firefox#x")!!, directRuServices = false)
         assertTrue(own.contains("\"fingerprint\":\"firefox\""))
+    }
+
+    @Test fun nodeProfileTunesConnection() {
+        val trojan = LinkParser.parse("trojan://p@1.2.3.4:443?sni=a.example.com#x")!!
+        fun proxy(cfg: String) = Json.parseToJsonElement(cfg).jsonObject["outbounds"]!!.jsonArray[0].jsonObject
+        val muxed = proxy(XrayConfigBuilder.build(trojan, directRuServices = false, profile = NodeProfile(mux = true)))
+        assertEquals("true", muxed["mux"]!!.jsonObject["enabled"]!!.jsonPrimitive.content)
+        val firefox = proxy(XrayConfigBuilder.build(trojan, directRuServices = false, profile = NodeProfile(fingerprint = "firefox")))
+        assertEquals("firefox", firefox["streamSettings"]!!.jsonObject["tlsSettings"]!!.jsonObject["fingerprint"]!!.jsonPrimitive.content)
+        val fragmented = XrayConfigBuilder.build(trojan, directRuServices = false, profile = NodeProfile(fragment = true))
+        assertEquals("fragment", proxy(fragmented)["streamSettings"]!!.jsonObject["sockopt"]!!.jsonObject["dialerProxy"]!!.jsonPrimitive.content)
+        assertTrue(tags(fragmented).contains("fragment"))
+        val vision = LinkParser.parse("vless://u@1.2.3.4:443?security=reality&sni=ok.ru&pbk=k&flow=xtls-rprx-vision#v")!!
+        assertTrue("mux" !in proxy(XrayConfigBuilder.build(vision, directRuServices = false, profile = NodeProfile(mux = true))))
+        val plain = XrayConfigBuilder.build(trojan, directRuServices = false)
+        assertTrue("mux" !in proxy(plain) && "sockopt" !in plain)
+    }
+
+    @Test fun pathfinderTriesSavedProfileFirst() {
+        val reality = LinkParser.parse(vless)!!
+        val saved = NodeProfile(fingerprint = "edge")
+        val variants = app.farvater.engine.Pathfinder.variants(reality, saved, ordinaryBlocking = true)
+        assertEquals(saved, variants.first())
+        assertTrue(variants.any { it.fragment })
+        assertTrue(app.farvater.engine.Pathfinder.variants(reality, null, ordinaryBlocking = false).none { it.fragment })
     }
 
     @Test fun insecureFlagNeverReachesXray() {

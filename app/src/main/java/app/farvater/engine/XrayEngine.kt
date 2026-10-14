@@ -46,6 +46,21 @@ object XrayEngine {
         ready.await()
         check(isAvailable) { "ядро Xray не встроено — добавьте libv2ray.aar в app/libs" }
         stop()
+        controller = launch(config)
+        lastError = null
+    }.onFailure { lastError = (it.cause ?: it).message }
+
+    fun startProbe(config: String): Any? = runCatching {
+        ready.await()
+        if (!isAvailable) null else launch(config)
+    }.getOrNull()
+
+    fun stopProbe(probe: Any?) {
+        val c = probe ?: return
+        runCatching { c.javaClass.methods.first { it.name == "stopLoop" }.invoke(c) }
+    }
+
+    private fun launch(config: String): Any {
         val handlerClass = Class.forName(CALLBACK)
         val handler = Proxy.newProxyInstance(handlerClass.classLoader, arrayOf(handlerClass)) { proxy, method, args ->
             when (method.name) {
@@ -68,9 +83,8 @@ object XrayEngine {
             2 -> startLoop.invoke(ctrl, config, 0)
             else -> error("неизвестная сигнатура startLoop")
         }
-        controller = ctrl
-        lastError = null
-    }.onFailure { lastError = (it.cause ?: it).message }
+        return ctrl
+    }
 
     @Synchronized
     fun stop() {

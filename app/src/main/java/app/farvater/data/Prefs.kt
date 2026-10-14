@@ -3,6 +3,7 @@ package app.farvater.data
 import android.content.Context
 import app.farvater.core.catalog.BuiltInCatalog
 import app.farvater.core.model.NetModeChoice
+import app.farvater.core.model.NodeProfile
 import app.farvater.core.model.ProxyNode
 import app.farvater.core.model.SourceMode
 import kotlinx.serialization.Serializable
@@ -133,6 +134,22 @@ class Prefs(context: Context) {
         lastNode = node
     }
 
+    @Volatile private var cachedProfiles: Map<String, NodeProfile>? = null
+
+    var nodeProfiles: Map<String, NodeProfile>
+        get() = cachedProfiles ?: (read<Map<String, NodeProfile>>("node_profiles") ?: emptyMap()).also { cachedProfiles = it }
+        set(value) {
+            val trimmed = if (value.size > MAX_PROFILES) value.entries.toList().takeLast(MAX_PROFILES).associate { it.key to it.value } else value
+            cachedProfiles = trimmed
+            write("node_profiles", trimmed)
+        }
+
+    fun profileFor(nodeId: String): NodeProfile? = nodeProfiles[nodeId]
+
+    fun rememberProfile(nodeId: String, profile: NodeProfile) {
+        nodeProfiles = (nodeProfiles - nodeId) + (nodeId to profile)
+    }
+
     var dayTraffic: DayTraffic
         get() = read<DayTraffic>("day_traffic") ?: DayTraffic()
         set(value) = write("day_traffic", value)
@@ -143,6 +160,7 @@ class Prefs(context: Context) {
     }
 
     private companion object {
+        const val MAX_PROFILES = 300
         val OLD_CATALOG = setOf(
             "zieng2-universal", "igareck-mobile", "igareck-cidr", "rjsxrd-bypass", "rkp-whitelist", "byewhitelists2",
         )

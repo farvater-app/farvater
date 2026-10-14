@@ -22,6 +22,7 @@ import app.farvater.data.UpdateInfo
 import app.farvater.data.UserSource
 import app.farvater.engine.NetModeDetector
 import app.farvater.engine.NodeTester
+import app.farvater.engine.Pathfinder
 import app.farvater.engine.TestMethod
 import app.farvater.engine.TestResult
 import app.farvater.net.SafeHttp
@@ -87,6 +88,7 @@ data class UiState(
     val detectedMode: NetMode? = null,
     val detecting: Boolean = false,
     val savedNode: ProxyNode? = null,
+    val pathfinding: String? = null,
 ) {
     val selectedNode: ProxyNode?
         get() = nodes.firstOrNull { it.id == selectedId } ?: savedNode?.takeIf { it.id == selectedId }
@@ -121,6 +123,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             selectedId = prefs.selectedNodeId,
             savedNode = savedSelection(),
             progress = null,
+            pathfinding = null,
             refreshing = false,
             message = null,
             pendingImport = null,
@@ -496,8 +499,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun cancelTest() {
         testJob?.cancel()
-        _state.update { it.copy(progress = null) }
+        pathJob?.cancel()
+        _state.update { it.copy(progress = null, pathfinding = null) }
     }
+
+    private var pathJob: Job? = null
 
     fun findWorking() {
         viewModelScope.launch {
@@ -508,12 +514,31 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun findWorkingNow() {
         testAll {
-            val best = bestNode()
-            if (best == null) {
+            val candidates = _state.value.nodes.filter { results.value[it.id]?.alive == true }.take(PATH_CANDIDATES)
+            if (candidates.isEmpty()) {
                 toast("Рабочих узлов не нашлось. Обновите источники через Wi-Fi или добавьте свою подписку.")
-            } else {
-                setSelected(best)
-                connect(best)
+                return@testAll
+            }
+            pathJob = viewModelScope.launch {
+                val ordinaryBlocking = effectiveMode(prefs.settings) == NetMode.BLACK
+                var chosen: ProxyNode? = null
+                try {
+                    for (node in candidates) {
+                        _state.update { it.copy(pathfinding = node.name) }
+                        val profile = Pathfinder.find(node, prefs.profileFor(node.id), ordinaryBlocking) ?: continue
+                        prefs.rememberProfile(node.id, profile)
+                        chosen = node
+                        break
+                    }
+                } finally {
+                    _state.update { it.copy(pathfinding = null) }
+                }
+                val target = chosen ?: candidates.first()
+                if (chosen == null) {
+                    toast("Узлы отвечают, но данные через них не идут: похоже, провайдер замораживает соединения. Подключаюсь к самому быстрому.")
+                }
+                setSelected(target)
+                connect(target)
             }
         }
     }
@@ -758,6 +783,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         private const val REBUILD_GAP_MS = 150L
         private const val FLUSH_MS = 300L
         private const val RECONNECT_DELAY_MS = 1200L
+        private const val PATH_CANDIDATES = 5
 
         private val cachedSnapshots = MutableStateFlow<Map<String, SourceSnapshot>>(emptyMap())
         private val cachedResults = MutableStateFlow<Map<String, TestResult>>(emptyMap())
