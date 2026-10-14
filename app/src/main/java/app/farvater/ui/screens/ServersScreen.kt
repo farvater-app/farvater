@@ -1,5 +1,6 @@
 package app.farvater.ui.screens
 
+import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -50,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -79,6 +81,7 @@ import app.farvater.ui.ios.IosRow
 import app.farvater.ui.ios.IosSearchField
 import app.farvater.ui.ios.IosSection
 import app.farvater.ui.ios.IosSegmented
+import app.farvater.ui.ios.IosSpinner
 import app.farvater.ui.ios.SectionCorner
 import app.farvater.ui.splitFlag
 import app.farvater.ui.theme.Ios
@@ -97,12 +100,14 @@ fun ServersScreen(
     onDeleteManual: (ProxyNode) -> Unit,
     onCopied: () -> Unit,
     onDuplicates: (Boolean) -> Unit = {},
+    onTestNode: (ProxyNode) -> Unit = {},
 ) {
     val c = Ios.colors
     var filter by rememberSaveable { mutableIntStateOf(0) }
     var query by rememberSaveable { mutableStateOf("") }
     var menuFor by remember { mutableStateOf<ProxyNode?>(null) }
     val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
     val list = rememberLazyListState()
     val collapsed by remember { derivedStateOf { list.firstVisibleItemIndex > 0 || list.firstVisibleItemScrollOffset > 70 } }
 
@@ -253,6 +258,7 @@ fun ServersScreen(
                                     node = node,
                                     result = state.results[node.id],
                                     selected = node.id == state.selectedId,
+                                    checking = node.id in state.checking,
                                     onClick = { onSelect(node) },
                                     onLongClick = { menuFor = node },
                                 )
@@ -268,6 +274,15 @@ fun ServersScreen(
 
     menuFor?.let { node ->
         val actions = buildList {
+            add(AlertAction("Проверить", AlertRole.Preferred) {
+                menuFor = null
+                onTestNode(node)
+            })
+            add(AlertAction("Поделиться") {
+                menuFor = null
+                val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, node.raw)
+                runCatching { context.startActivity(Intent.createChooser(send, "Поделиться узлом")) }
+            })
             add(AlertAction(if (node.isJson) "Скопировать конфиг" else "Скопировать ссылку") {
                 clipboard.setText(AnnotatedString(node.raw))
                 menuFor = null
@@ -325,7 +340,14 @@ private fun GroupHeader(title: String, count: Int, alive: Int, collapsed: Boolea
 }
 
 @Composable
-private fun NodeRow(node: ProxyNode, result: TestResult?, selected: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun NodeRow(
+    node: ProxyNode,
+    result: TestResult?,
+    selected: Boolean,
+    checking: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
     val c = Ios.colors
     val (flag, title) = remember(node.name) { splitFlag(node.name) }
     val subtitle = remember(node) { (if (node.isInsecure) "Без шифрования · " else "") + nodeSummary(node) }
@@ -338,7 +360,7 @@ private fun NodeRow(node: ProxyNode, result: TestResult?, selected: Boolean, onC
         onClick = onClick,
         onLongClick = onLongClick,
         trailing = {
-            DelayLabel(result)
+            if (checking) IosSpinner(size = 16.dp) else DelayLabel(result)
             AnimatedVisibility(
                 visible = selected,
                 enter = fadeIn() + scaleIn(spring(dampingRatio = 0.5f, stiffness = 600f), initialScale = 0.4f),

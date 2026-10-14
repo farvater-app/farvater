@@ -38,6 +38,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -89,6 +90,7 @@ data class UiState(
     val detecting: Boolean = false,
     val savedNode: ProxyNode? = null,
     val pathfinding: String? = null,
+    val checking: Set<String> = emptySet(),
 ) {
     val selectedNode: ProxyNode?
         get() = nodes.firstOrNull { it.id == selectedId } ?: savedNode?.takeIf { it.id == selectedId }
@@ -124,6 +126,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             savedNode = savedSelection(),
             progress = null,
             pathfinding = null,
+            checking = emptySet(),
             refreshing = false,
             message = null,
             pendingImport = null,
@@ -494,6 +497,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             rebuildNow()
             _state.update { it.copy(progress = null) }
             onFinished?.invoke()
+        }
+    }
+
+    fun testNode(node: ProxyNode) {
+        if (node.id in _state.value.checking) return
+        _state.update { it.copy(checking = it.checking + node.id) }
+        viewModelScope.launch {
+            try {
+                val r = NodeTester.testAll(listOf(node), prefs.settings.testUrl, 1).first()
+                results.update { it + (r.nodeId to r) }
+                _state.update { it.copy(results = results.value) }
+                val name = splitFlag(node.name).second
+                toast(if (r.alive) "«$name» отвечает: ${r.delayMs} мс" else "«$name» не отвечает")
+            } finally {
+                _state.update { it.copy(checking = it.checking - node.id) }
+            }
         }
     }
 
