@@ -30,9 +30,13 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.Icon
@@ -65,9 +69,7 @@ import app.farvater.ui.UiState
 import app.farvater.ui.components.DelayLabel
 import app.farvater.ui.components.NodeAvatar
 import app.farvater.ui.components.nodeSummary
-import app.farvater.ui.ios.AlertAction
-import app.farvater.ui.ios.AlertRole
-import app.farvater.ui.ios.IosAlert
+import app.farvater.ui.ios.IosActionPanel
 import app.farvater.ui.ios.IosButton
 import app.farvater.ui.ios.IosButtonStyle
 import app.farvater.ui.ios.IosCircleButton
@@ -273,35 +275,58 @@ fun ServersScreen(
     }
 
     menuFor?.let { node ->
-        val actions = buildList {
-            add(AlertAction("Проверить", AlertRole.Preferred) {
-                menuFor = null
-                onTestNode(node)
-            })
-            add(AlertAction("Поделиться") {
-                menuFor = null
-                val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, node.raw)
-                runCatching { context.startActivity(Intent.createChooser(send, "Поделиться узлом")) }
-            })
-            add(AlertAction(if (node.isJson) "Скопировать конфиг" else "Скопировать ссылку") {
-                clipboard.setText(AnnotatedString(node.raw))
-                menuFor = null
-                onCopied()
-            })
-            if (node.sourceId == ProxyNode.MANUAL_SOURCE) {
-                add(AlertAction("Удалить", AlertRole.Destructive) {
-                    onDeleteManual(node)
-                    menuFor = null
-                })
-            }
-            add(AlertAction("Отмена", AlertRole.Cancel) { menuFor = null })
-        }
-        IosAlert(
+        IosActionPanel(
             title = splitFlag(node.name).second,
-            message = "${node.protocol.title}, ${node.address}:${node.port}\nИсточник: ${state.sourceTitle(node.sourceId)}",
+            subtitle = "${node.protocol.title}, ${node.address}:${node.port} · ${state.sourceTitle(node.sourceId)}",
             onDismiss = { menuFor = null },
-            actions = actions,
-        )
+        ) { close ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                IosButton(
+                    "Проверить",
+                    onClick = { close { onTestNode(node) } },
+                    icon = Icons.Rounded.Bolt,
+                    enabled = node.id !in state.checking,
+                    modifier = Modifier.weight(1f),
+                )
+                IosButton(
+                    "Поделиться",
+                    onClick = {
+                        close {
+                            val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, node.raw)
+                            runCatching { context.startActivity(Intent.createChooser(send, "Поделиться узлом")) }
+                        }
+                    },
+                    style = IosButtonStyle.Tinted,
+                    icon = Icons.Rounded.Share,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                IosButton(
+                    "Скопировать",
+                    onClick = {
+                        close {
+                            clipboard.setText(AnnotatedString(node.raw))
+                            onCopied()
+                        }
+                    },
+                    style = IosButtonStyle.Plain,
+                    icon = Icons.Rounded.ContentCopy,
+                    modifier = Modifier.weight(1f),
+                )
+                if (node.sourceId == ProxyNode.MANUAL_SOURCE) {
+                    IosButton(
+                        "Удалить",
+                        onClick = { close { onDeleteManual(node) } },
+                        style = IosButtonStyle.Plain,
+                        color = c.red,
+                        icon = Icons.Rounded.Delete,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
     }
 }
 

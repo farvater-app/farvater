@@ -12,7 +12,9 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.farvater.core.model.NetMode
@@ -71,6 +73,7 @@ class ScreenshotTest {
     }
 
     @Test fun alertDark() = shot("08_alert_dark", dark = true, screen = true) { Alert() }
+    @Test fun nodeActionsDark() = shot("10_node_actions_dark", dark = true, screen = true, act = ::longPressNode) { Servers() }
     @Test fun sheetLight() = shot("09_sheet_light", dark = false, screen = true) { Sheet() }
     @Test fun materialAlertLight() = shot("18_material_alert_light", dark = false, screen = true, material = true) { Alert() }
     @Test fun materialSheetDark() = shot("19_material_sheet_dark", dark = true, screen = true, material = true) { Sheet() }
@@ -80,6 +83,9 @@ class ScreenshotTest {
     @Test fun materialServersLight() = shot("14_material_servers_light", dark = false, material = true) { Servers() }
     @Test fun materialServersDark() = shot("14_material_servers_dark", dark = true, material = true) { Servers() }
     @Test fun materialSourcesLight() = shot("15_material_sources_light", dark = false, material = true) { Sources() }
+    @Test fun materialNodeActionsLight() = shot(
+        "17_material_node_actions_light", dark = false, screen = true, material = true, act = ::longPressNode,
+    ) { Servers() }
     @Test fun materialSettingsLight() = shot("16_material_settings_light", dark = false, material = true) { Settings() }
     @Test fun materialSettingsDark() = shot("16_material_settings_dark", dark = true, material = true) { Settings() }
 
@@ -139,6 +145,9 @@ class ScreenshotTest {
         "48_nothing_appearance_light", dark = false, nothing = true,
         act = { rule.onNodeWithText("Оформление").performClick() },
     ) { Settings(Fake.state.settings.copy(uiStyle = UiStyle.NOTHING)) }
+    @Test fun nothingNodeActionsDark() = shot(
+        "50_nothing_node_actions_dark", dark = true, screen = true, nothing = true, act = ::longPressNode,
+    ) { Servers() }
     @Test fun nothingAlertDark() = shot("49_nothing_alert_dark", dark = true, screen = true, nothing = true) { Alert() }
 
     @Test fun appsDark() {
@@ -247,6 +256,10 @@ class ScreenshotTest {
         }
         val path = "build/outputs/roborazzi/$name.png"
         if (screen) captureScreenRoboImage(path) else rule.onRoot().captureRoboImage(path)
+    }
+
+    private fun longPressNode() {
+        rule.onAllNodesWithText("Москва, VK Cloud")[0].performTouchInput { longClick() }
     }
 
     @Composable
