@@ -220,7 +220,6 @@ fun SettingsScreen(
 
 private const val Divider = 59
 private const val ChannelUrl = "https://t.me/farvater_app"
-private val TelegramBlue = Color(0xFF2AABEE)
 
 @Composable
 private fun SettingsRoot(
@@ -353,7 +352,7 @@ private fun SettingsRoot(
                 IosRow(
                     title = "Телеграм-канал",
                     icon = ImageVector.vectorResource(R.drawable.ic_telegram),
-                    iconTint = TelegramBlue,
+                    iconTint = c.blue,
                     value = "@farvater_app",
                     chevron = true,
                     onClick = { runCatching { uri.openUri(ChannelUrl) } },
@@ -781,7 +780,7 @@ private fun AboutPage() {
         IosRow(
             "Телеграм-канал",
             icon = ImageVector.vectorResource(R.drawable.ic_telegram),
-            iconTint = TelegramBlue,
+            iconTint = c.blue,
             value = "@farvater_app",
             chevron = true,
             onClick = { runCatching { uri.openUri(ChannelUrl) } },
