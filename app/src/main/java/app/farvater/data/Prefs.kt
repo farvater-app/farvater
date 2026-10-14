@@ -95,6 +95,10 @@ class Prefs(context: Context) {
             write("source_configs", value)
         }
 
+    var collapsedGroups: Set<String>
+        get() = sp.getStringSet("collapsed_groups", null)?.toSet() ?: emptySet()
+        set(value) = sp.edit().putStringSet("collapsed_groups", value).apply()
+
     var lastNetMode: String?
         get() = sp.getString("last_net_mode", null)
         set(value) = sp.edit().putString("last_net_mode", value).apply()

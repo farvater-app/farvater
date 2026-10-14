@@ -103,6 +103,7 @@ fun ServersScreen(
     onCopied: () -> Unit,
     onDuplicates: (Boolean) -> Unit = {},
     onTestNode: (ProxyNode) -> Unit = {},
+    onToggleGroup: (String) -> Unit = {},
 ) {
     val c = Ios.colors
     var filter by rememberSaveable { mutableIntStateOf(0) }
@@ -136,7 +137,6 @@ fun ServersScreen(
             .sortedBy { order[it.key] ?: Int.MAX_VALUE }
             .map { it.key to it.value }
     }
-    var collapsedIds by rememberSaveable { mutableStateOf(listOf<String>()) }
     val searching = query.isNotBlank()
 
     val backdrop = rememberGlassBackdrop()
@@ -228,16 +228,14 @@ fun ServersScreen(
                 item(key = "empty") { EmptyState(state.nodes.isEmpty()) }
             } else {
                 groups.forEach { (sourceId, nodes) ->
-                    val collapsed = !searching && sourceId in collapsedIds
+                    val collapsed = !searching && sourceId in state.collapsedGroups
                     item(key = "group:$sourceId", contentType = "group") {
                         GroupHeader(
                             title = state.sourceTitle(sourceId),
                             count = nodes.size,
                             alive = nodes.count { state.results[it.id]?.alive == true },
                             collapsed = collapsed,
-                            onClick = {
-                                collapsedIds = if (sourceId in collapsedIds) collapsedIds - sourceId else collapsedIds + sourceId
-                            },
+                            onClick = { onToggleGroup(sourceId) },
                             modifier = Modifier.animateItem(),
                         )
                     }

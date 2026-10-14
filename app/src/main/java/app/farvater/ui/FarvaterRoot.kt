@@ -82,6 +82,7 @@ fun FarvaterRoot(vm: MainViewModel) {
                     onSelect = vm::select,
                     onTestAll = { vm.testAll() },
                     onTestNode = vm::testNode,
+                    onToggleGroup = vm::toggleGroup,
                     onCancelTest = vm::cancelTest,
                     onDeleteManual = vm::deleteManualNode,
                     onCopied = { vm.showMessage("Ссылка скопирована") },

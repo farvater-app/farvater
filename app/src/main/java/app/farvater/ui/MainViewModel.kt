@@ -91,6 +91,7 @@ data class UiState(
     val savedNode: ProxyNode? = null,
     val pathfinding: String? = null,
     val checking: Set<String> = emptySet(),
+    val collapsedGroups: Set<String> = emptySet(),
 ) {
     val selectedNode: ProxyNode?
         get() = nodes.firstOrNull { it.id == selectedId } ?: savedNode?.takeIf { it.id == selectedId }
@@ -127,12 +128,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             progress = null,
             pathfinding = null,
             checking = emptySet(),
+            collapsedGroups = prefs.collapsedGroups,
             refreshing = false,
             message = null,
             pendingImport = null,
             updateStage = UpdateStage.Idle,
             showUpdate = false,
-        ) ?: UiState(settings = prefs.settings, selectedId = prefs.selectedNodeId, savedNode = savedSelection()),
+        ) ?: UiState(
+            settings = prefs.settings,
+            selectedId = prefs.selectedNodeId,
+            savedNode = savedSelection(),
+            collapsedGroups = prefs.collapsedGroups,
+        ),
     )
     val state: StateFlow<UiState> = _state.asStateFlow()
 
@@ -498,6 +505,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(progress = null) }
             onFinished?.invoke()
         }
+    }
+
+    fun toggleGroup(sourceId: String) {
+        val groups = _state.value.collapsedGroups
+        val next = if (sourceId in groups) groups - sourceId else groups + sourceId
+        prefs.collapsedGroups = next
+        _state.update { it.copy(collapsedGroups = next) }
     }
 
     fun testNode(node: ProxyNode) {
