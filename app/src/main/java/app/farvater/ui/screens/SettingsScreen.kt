@@ -219,6 +219,8 @@ fun SettingsScreen(
 }
 
 private const val Divider = 59
+private const val ChannelUrl = "https://t.me/farvater_app"
+private val TelegramBlue = Color(0xFF2AABEE)
 
 @Composable
 private fun SettingsRoot(
@@ -229,6 +231,7 @@ private fun SettingsRoot(
 ) {
     val c = Ios.colors
     val context = LocalContext.current
+    val uri = LocalUriHandler.current
     val scroll = rememberScrollState()
     val collapsed by remember { derivedStateOf { scroll.value > 70 } }
     val divider = Divider.dp
@@ -343,6 +346,17 @@ private fun SettingsRoot(
                     iconTint = c.indigo,
                     chevron = true,
                     onClick = onChangelog,
+                )
+            }
+
+            IosSection {
+                IosRow(
+                    title = "Телеграм-канал",
+                    icon = ImageVector.vectorResource(R.drawable.ic_telegram),
+                    iconTint = TelegramBlue,
+                    value = "@farvater_app",
+                    chevron = true,
+                    onClick = { runCatching { uri.openUri(ChannelUrl) } },
                 )
             }
 
@@ -762,6 +776,15 @@ private fun AboutPage() {
             iconTint = c.gray,
             chevron = true,
             onClick = { runCatching { uri.openUri("https://github.com/${BuildConfig.UPDATE_REPO}") } },
+        )
+        IosDivider(start = divider)
+        IosRow(
+            "Телеграм-канал",
+            icon = ImageVector.vectorResource(R.drawable.ic_telegram),
+            iconTint = TelegramBlue,
+            value = "@farvater_app",
+            chevron = true,
+            onClick = { runCatching { uri.openUri(ChannelUrl) } },
         )
         IosDivider(start = divider)
         IosRow(
