@@ -259,7 +259,7 @@ class ScreenshotTest {
     }
 
     private fun longPressNode() {
-        rule.onAllNodesWithText("Москва, VK Cloud")[0].performTouchInput { longClick() }
+        rule.onAllNodesWithText("Санкт-Петербург, Selectel")[0].performTouchInput { longClick() }
     }
 
     @Composable
