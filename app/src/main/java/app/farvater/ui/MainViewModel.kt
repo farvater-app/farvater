@@ -93,6 +93,8 @@ data class UiState(
     val detecting: Boolean = false,
     val savedNode: ProxyNode? = null,
     val pathfinding: GalsStep? = null,
+    val sensing: Boolean = false,
+    val galsNet: NetMode? = null,
     val checking: Set<String> = emptySet(),
     val collapsedGroups: Set<String> = emptySet(),
 ) {
@@ -130,6 +132,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             savedNode = savedSelection(),
             progress = null,
             pathfinding = null,
+            sensing = false,
+            galsNet = null,
             checking = emptySet(),
             collapsedGroups = prefs.collapsedGroups,
             refreshing = false,
@@ -536,27 +540,52 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun cancelTest() {
         testJob?.cancel()
         pathJob?.cancel()
-        _state.update { it.copy(progress = null, pathfinding = null) }
+        _state.update { it.copy(progress = null, pathfinding = null, sensing = false, galsNet = null) }
     }
 
     private var pathJob: Job? = null
 
     fun findWorking() {
-        viewModelScope.launch {
-            detectNetMode(force = true)?.join()
+        if (pathJob?.isActive == true || testJob?.isActive == true) return
+        pathJob = viewModelScope.launch {
+            _state.update { it.copy(sensing = true) }
+            val net = try {
+                senseNetwork()
+            } finally {
+                _state.update { it.copy(sensing = false) }
+            }
+            _state.update { it.copy(galsNet = net) }
             findWorkingNow()
         }
+    }
+
+    private suspend fun senseNetwork(): NetMode? {
+        val net = NetModeDetector.detect() ?: return null
+        val choice = prefs.settings.netMode
+        if (choice == NetModeChoice.AUTO) {
+            detected = net
+            prefs.lastNetMode = net.name
+            lastDetect = System.currentTimeMillis()
+            rebuildNow()
+        } else if (choice.name != net.name) {
+            toast(
+                if (net == NetMode.WHITE) "Галс: похоже, сейчас белые списки, а в «Источниках» выбран режим ЧС. Поставьте «Авто», и Фарватер будет переключаться сам."
+                else "Галс: похоже, сейчас обычные блокировки, а в «Источниках» выбран режим БС. Поставьте «Авто», и Фарватер будет переключаться сам."
+            )
+        }
+        return net
     }
 
     private fun findWorkingNow() {
         testAll {
             val candidates = _state.value.nodes.filter { results.value[it.id]?.alive == true }.take(PATH_CANDIDATES)
             if (candidates.isEmpty()) {
+                _state.update { it.copy(galsNet = null) }
                 toast("Рабочих узлов не нашлось. Обновите источники через Wi-Fi или добавьте свою подписку.")
                 return@testAll
             }
             pathJob = viewModelScope.launch {
-                val ordinaryBlocking = effectiveMode(prefs.settings) == NetMode.BLACK
+                val ordinaryBlocking = (_state.value.galsNet ?: effectiveMode(prefs.settings)) == NetMode.BLACK
                 var chosen: ProxyNode? = null
                 try {
                     for (node in candidates) {
@@ -568,7 +597,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         break
                     }
                 } finally {
-                    _state.update { it.copy(pathfinding = null) }
+                    _state.update { it.copy(pathfinding = null, galsNet = null) }
                 }
                 val target = chosen ?: candidates.first()
                 if (chosen == null) {

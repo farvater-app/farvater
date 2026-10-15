@@ -53,6 +53,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.farvater.core.model.NetMode
 import app.farvater.core.model.NodeProfile
 import app.farvater.core.model.Protocol
 import app.farvater.core.model.ProxyNode
@@ -107,7 +108,7 @@ fun HomeScreen(
 ) {
     val c = Ios.colors
     val mode = when {
-        state.progress != null || state.pathfinding != null -> ConnectMode.Searching
+        state.sensing || state.progress != null || state.pathfinding != null -> ConnectMode.Searching
         vpn is VpnState.Connecting -> ConnectMode.Connecting
         vpn is VpnState.Connected -> ConnectMode.Connected
         vpn is VpnState.Failed -> ConnectMode.Error
@@ -177,7 +178,7 @@ fun HomeScreen(
             ) { m ->
                 Column(Modifier.fillMaxWidth().padding(horizontal = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        headline(m, state.pathfinding != null).let { if (nothing) it.uppercase() else it },
+                        headline(m, state).let { if (nothing) it.uppercase() else it },
                         style = if (Ios.material) MaterialTheme.typography.headlineSmall else IosType.title2,
                         color = statusColor(m),
                         textAlign = TextAlign.Center,
@@ -257,7 +258,7 @@ fun HomeScreen(
                 }
             }
 
-            AnimatedVisibility(visible = progress == null && state.pathfinding == null, enter = fadeIn(), exit = fadeOut()) {
+            AnimatedVisibility(visible = progress == null && state.pathfinding == null && !state.sensing, enter = fadeIn(), exit = fadeOut()) {
                 IosButton(
                     "Найти рабочий узел",
                     onClick = onFindWorking,
@@ -298,9 +299,13 @@ private fun profileLabel(profile: NodeProfile): String = listOfNotNull(
     "дробление TLS".takeIf { profile.fragment },
 ).joinToString(" + ").let { if (it.isEmpty()) "обычный профиль" else "профиль $it" }
 
-private fun headline(mode: ConnectMode, gals: Boolean): String = when (mode) {
+private fun headline(mode: ConnectMode, state: UiState): String = when (mode) {
     ConnectMode.Idle -> "Не подключено"
-    ConnectMode.Searching -> if (gals) "Галс проверяет узлы" else "Ищу рабочий узел"
+    ConnectMode.Searching -> when {
+        state.sensing -> "Галс проверяет сеть"
+        state.pathfinding != null -> "Галс проверяет узлы"
+        else -> "Ищу рабочий узел"
+    }
     ConnectMode.Connecting -> "Подключаюсь"
     ConnectMode.Connected -> "Подключено"
     ConnectMode.Error -> "Не удалось подключиться"
@@ -308,8 +313,17 @@ private fun headline(mode: ConnectMode, gals: Boolean): String = when (mode) {
 
 private fun supporting(mode: ConnectMode, vpn: VpnState, state: UiState, sumie: Boolean): String = when (mode) {
     ConnectMode.Idle -> if (sumie) "Нажмите на круг, чтобы подключиться" else "Нажмите кнопку, чтобы подключиться"
-    ConnectMode.Searching -> state.pathfinding?.let { "«${splitFlag(it.node).second}», ${profileLabel(it.profile)}" }
-        ?: state.progress?.let { "Отвечают ${it.alive}" }.orEmpty()
+    ConnectMode.Searching -> when {
+        state.sensing -> "Белые списки или обычные блокировки"
+        state.pathfinding != null -> state.pathfinding.let { "«${splitFlag(it.node).second}», ${profileLabel(it.profile)}" }
+        else -> state.progress?.let { p ->
+            when (state.galsNet) {
+                NetMode.WHITE -> "Белые списки, отвечают ${p.alive}"
+                NetMode.BLACK -> "Обычные блокировки, отвечают ${p.alive}"
+                null -> "Отвечают ${p.alive}"
+            }
+        }.orEmpty()
+    }
     ConnectMode.Connecting -> (vpn as? VpnState.Connecting)?.node?.let { splitFlag(it.name).second }.orEmpty()
     ConnectMode.Connected -> "Трафик идёт через выбранный узел"
     ConnectMode.Error -> (vpn as? VpnState.Failed)?.message ?: "Попробуйте другой узел"
