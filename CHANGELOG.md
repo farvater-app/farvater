@@ -4,6 +4,12 @@
 
 ## [Не выпущено]
 
+## [1.0.26] — 2026-10-15
+
+### Исправлено
+
+- На Android 9 и 10 обновление внутри приложения писало «APK подписан чужим ключом» и не устанавливалось. Эти версии Android отдают подпись скачанного файла по-другому, и Фарватер её не находил.
+
 ## [1.0.25] — 2026-10-15
 
 ### Добавлено
@@ -346,7 +352,8 @@
 - Интерфейс в стиле iOS, светлая и тёмная темы.
 - Импорт подписки по ссылке `farvater://import`.
 
-[Не выпущено]: https://github.com/lutzashl290788-cell/farvater/compare/v1.0.25...HEAD
+[Не выпущено]: https://github.com/lutzashl290788-cell/farvater/compare/v1.0.26...HEAD
+[1.0.26]: https://github.com/lutzashl290788-cell/farvater/compare/v1.0.25...v1.0.26
 [1.0.25]: https://github.com/lutzashl290788-cell/farvater/compare/v1.0.24...v1.0.25
 [1.0.24]: https://github.com/lutzashl290788-cell/farvater/compare/v1.0.23...v1.0.24
 [1.0.23]: https://github.com/lutzashl290788-cell/farvater/compare/v1.0.22...v1.0.23

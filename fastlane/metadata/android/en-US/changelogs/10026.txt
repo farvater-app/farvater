@@ -1,0 +1,1 @@
+- In-app updates now work on Android 9 and 10
