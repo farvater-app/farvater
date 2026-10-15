@@ -4,6 +4,8 @@ import android.content.Context
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 object XrayEngine {
@@ -22,6 +24,12 @@ object XrayEngine {
     }
 
     private val measureMethod: Method? by lazy { libMethod("measureOutboundDelay") }
+
+    private const val MEASURE_TIMEOUT_MS = 8000L
+
+    private val measurers = Executors.newCachedThreadPool { task ->
+        Thread(task, "farvater-measure").apply { isDaemon = true }
+    }
 
     private fun libMethod(name: String): Method? =
         runCatching { Class.forName(LIB).methods.firstOrNull { it.name == name } }.getOrNull()
@@ -95,9 +103,12 @@ object XrayEngine {
 
     fun measureDelay(config: String, url: String): Long {
         val m = measureMethod ?: return -1
-        return runCatching {
+        val task = measurers.submit<Long> {
             ready.await()
             (m.invoke(null, config, url) as Number).toLong()
-        }.getOrDefault(-1L)
+        }
+        return runCatching { task.get(MEASURE_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
+            .onFailure { task.cancel(true) }
+            .getOrDefault(-1L)
     }
 }

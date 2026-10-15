@@ -41,7 +41,7 @@ object NodeTester {
     private const val TCP_TIMEOUT_MS = 2500
 
     private const val PER_HOST = 3
-    private const val PER_SNI = 2
+    private const val PER_SNI = 6
 
     fun testAll(nodes: List<ProxyNode>, url: String, concurrency: Int): Flow<TestResult> = channelFlow {
         val real = XrayEngine.isAvailable
