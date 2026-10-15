@@ -278,13 +278,13 @@ fun ServersScreen(
             subtitle = "${node.protocol.title}, ${node.address}:${node.port} · ${state.sourceTitle(node.sourceId)}",
             onDismiss = { menuFor = null },
         ) { close ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 IosButton(
                     "Проверить",
                     onClick = { close { onTestNode(node) } },
                     icon = Icons.Rounded.Bolt,
                     enabled = node.id !in state.checking,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 IosButton(
                     "Поделиться",
@@ -296,11 +296,8 @@ fun ServersScreen(
                     },
                     style = IosButtonStyle.Tinted,
                     icon = Icons.Rounded.Share,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                 )
-            }
-            Spacer(Modifier.height(6.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 IosButton(
                     "Скопировать",
                     onClick = {
@@ -311,16 +308,16 @@ fun ServersScreen(
                     },
                     style = IosButtonStyle.Plain,
                     icon = Icons.Rounded.ContentCopy,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 if (node.sourceId == ProxyNode.MANUAL_SOURCE) {
                     IosButton(
                         "Удалить",
                         onClick = { close { onDeleteManual(node) } },
                         style = IosButtonStyle.Plain,
-                        color = c.red,
+                        color = Ios.colors.red,
                         icon = Icons.Rounded.Delete,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }
