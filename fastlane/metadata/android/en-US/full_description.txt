@@ -24,7 +24,7 @@ Farvater connects your phone to your own server or to one from a subscription an
 
 <b>Appearance</b>
 <ul>
-<li>Four styles to choose from: iOS 26 with Liquid Glass, Material You with wallpaper colors, #RosKomPozor in #RKP colors, or Sumi-e: ink on rice paper and a cat in a boat.</li>
+<li>Five styles to choose from: iOS 26 with Liquid Glass, Material You with wallpaper colors, #RosKomPozor in #RKP colors, Sumi-e: ink on rice paper and a cat in a boat, or Nothing: dots and monochrome.</li>
 <li>Light, dark or system theme.</li>
 </ul>
 

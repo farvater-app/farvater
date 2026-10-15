@@ -1,0 +1,7 @@
+- Gals: Find a working node checks that data actually gets through
+- Gals detects whitelists or ordinary blocking by itself
+- New Nothing style
+- Long-press a node: check, share, copy
+- Node groups stay collapsed
+- Xray core 26.10.10 and a random internal port
+- Node checks no longer get stuck
