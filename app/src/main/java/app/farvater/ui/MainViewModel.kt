@@ -9,6 +9,7 @@ import app.farvater.App
 import app.farvater.core.catalog.BuiltInCatalog
 import app.farvater.core.model.NetMode
 import app.farvater.core.model.NetModeChoice
+import app.farvater.core.model.NodeProfile
 import app.farvater.core.model.ProxyNode
 import app.farvater.core.model.SourceMode
 import app.farvater.core.model.onePerEndpoint
@@ -70,6 +71,8 @@ data class SourceUi(
 
 data class TestProgress(val done: Int, val total: Int, val alive: Int)
 
+data class GalsStep(val node: String, val profile: NodeProfile)
+
 data class UiState(
     val settings: AppSettings = AppSettings(),
     val sources: List<SourceUi> = emptyList(),
@@ -89,7 +92,7 @@ data class UiState(
     val detectedMode: NetMode? = null,
     val detecting: Boolean = false,
     val savedNode: ProxyNode? = null,
-    val pathfinding: String? = null,
+    val pathfinding: GalsStep? = null,
     val checking: Set<String> = emptySet(),
     val collapsedGroups: Set<String> = emptySet(),
 ) {
@@ -557,8 +560,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 var chosen: ProxyNode? = null
                 try {
                     for (node in candidates) {
-                        _state.update { it.copy(pathfinding = node.name) }
-                        val profile = Pathfinder.find(node, prefs.profileFor(node.id), ordinaryBlocking) ?: continue
+                        val profile = Pathfinder.find(node, prefs.profileFor(node.id), ordinaryBlocking) { tried ->
+                            _state.update { it.copy(pathfinding = GalsStep(node.name, tried)) }
+                        } ?: continue
                         prefs.rememberProfile(node.id, profile)
                         chosen = node
                         break

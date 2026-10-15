@@ -53,6 +53,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.farvater.core.model.NodeProfile
 import app.farvater.core.model.Protocol
 import app.farvater.core.model.ProxyNode
 import app.farvater.data.UiStyle
@@ -176,7 +177,7 @@ fun HomeScreen(
             ) { m ->
                 Column(Modifier.fillMaxWidth().padding(horizontal = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        if (nothing) headline(m).uppercase() else headline(m),
+                        headline(m, state.pathfinding != null).let { if (nothing) it.uppercase() else it },
                         style = if (Ios.material) MaterialTheme.typography.headlineSmall else IosType.title2,
                         color = statusColor(m),
                         textAlign = TextAlign.Center,
@@ -291,9 +292,15 @@ private fun shortStatus(mode: ConnectMode): String = when (mode) {
     ConnectMode.Error -> "Ошибка"
 }
 
-private fun headline(mode: ConnectMode): String = when (mode) {
+private fun profileLabel(profile: NodeProfile): String = listOfNotNull(
+    profile.fingerprint?.replaceFirstChar { it.uppercase() },
+    "mux".takeIf { profile.mux },
+    "дробление TLS".takeIf { profile.fragment },
+).joinToString(" + ").let { if (it.isEmpty()) "обычный профиль" else "профиль $it" }
+
+private fun headline(mode: ConnectMode, gals: Boolean): String = when (mode) {
     ConnectMode.Idle -> "Не подключено"
-    ConnectMode.Searching -> "Ищу рабочий узел"
+    ConnectMode.Searching -> if (gals) "Галс проверяет узлы" else "Ищу рабочий узел"
     ConnectMode.Connecting -> "Подключаюсь"
     ConnectMode.Connected -> "Подключено"
     ConnectMode.Error -> "Не удалось подключиться"
@@ -301,7 +308,7 @@ private fun headline(mode: ConnectMode): String = when (mode) {
 
 private fun supporting(mode: ConnectMode, vpn: VpnState, state: UiState, sumie: Boolean): String = when (mode) {
     ConnectMode.Idle -> if (sumie) "Нажмите на круг, чтобы подключиться" else "Нажмите кнопку, чтобы подключиться"
-    ConnectMode.Searching -> state.pathfinding?.let { "Галс: проверяю, идут ли данные через «${splitFlag(it).second}»" }
+    ConnectMode.Searching -> state.pathfinding?.let { "«${splitFlag(it.node).second}», ${profileLabel(it.profile)}" }
         ?: state.progress?.let { "Отвечают ${it.alive}" }.orEmpty()
     ConnectMode.Connecting -> (vpn as? VpnState.Connecting)?.node?.let { splitFlag(it.name).second }.orEmpty()
     ConnectMode.Connected -> "Трафик идёт через выбранный узел"

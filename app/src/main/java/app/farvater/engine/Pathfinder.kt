@@ -35,8 +35,17 @@ object Pathfinder {
         if (ordinaryBlocking && node.canFragment) add(NodeProfile(fragment = true))
     }.distinct()
 
-    suspend fun find(node: ProxyNode, saved: NodeProfile?, ordinaryBlocking: Boolean, limit: Int = 4): NodeProfile? =
-        variants(node, saved, ordinaryBlocking).take(limit).firstOrNull { passes(node, it) }
+    suspend fun find(
+        node: ProxyNode,
+        saved: NodeProfile?,
+        ordinaryBlocking: Boolean,
+        limit: Int = 4,
+        onTry: (NodeProfile) -> Unit = {},
+    ): NodeProfile? =
+        variants(node, saved, ordinaryBlocking).take(limit).firstOrNull {
+            onTry(it)
+            passes(node, it)
+        }
 
     suspend fun passes(node: ProxyNode, profile: NodeProfile): Boolean = withContext(Dispatchers.IO) {
         val port = freePort() ?: return@withContext false
