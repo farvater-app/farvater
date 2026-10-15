@@ -124,7 +124,11 @@ class UpdateRepository(private val context: Context) {
     @Suppress("DEPRECATION")
     private fun verifyApk(apk: File, info: UpdateInfo) {
         val pm = context.packageManager
-        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            PackageManager.GET_SIGNING_CERTIFICATES or PackageManager.GET_SIGNATURES
+        } else {
+            PackageManager.GET_SIGNATURES
+        }
         val archive = pm.getPackageArchiveInfo(apk.path, flags) ?: error("скачанный файл не является APK")
         if (archive.packageName != context.packageName) error("APK от другого приложения")
         if (archive.longVersionCode != info.versionCode.toLong()) error("версия APK не совпадает с объявленной")
@@ -136,7 +140,7 @@ class UpdateRepository(private val context: Context) {
     @Suppress("DEPRECATION")
     private fun signers(info: PackageInfo): Set<String> {
         val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            info.signingInfo?.apkContentsSigners
+            info.signingInfo?.apkContentsSigners ?: info.signatures
         } else {
             info.signatures
         }
