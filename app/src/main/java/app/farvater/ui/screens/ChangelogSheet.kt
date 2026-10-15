@@ -183,6 +183,12 @@ private fun ReleaseCard(release: ChangelogRelease) {
 @Composable
 private fun groupColor(title: String): Color {
     val c = Ios.colors
+    if (Ios.nothing) return when (title) {
+        "Добавлено" -> if (c.dark) Color(0xFF4CD07D) else Color(0xFF1B8A4B)
+        "Изменено" -> if (c.dark) Color(0xFF5B9BFF) else Color(0xFF1D5FD1)
+        "Удалено" -> c.red
+        else -> c.label
+    }
     return when (title) {
         "Добавлено" -> c.green
         "Исправлено" -> c.blue
