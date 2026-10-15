@@ -93,6 +93,7 @@ data class UiState(
     val detecting: Boolean = false,
     val savedNode: ProxyNode? = null,
     val pathfinding: GalsStep? = null,
+    val gals: Boolean = false,
     val sensing: Boolean = false,
     val galsNet: NetMode? = null,
     val checking: Set<String> = emptySet(),
@@ -132,6 +133,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             savedNode = savedSelection(),
             progress = null,
             pathfinding = null,
+            gals = false,
             sensing = false,
             galsNet = null,
             checking = emptySet(),
@@ -540,7 +542,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun cancelTest() {
         testJob?.cancel()
         pathJob?.cancel()
-        _state.update { it.copy(progress = null, pathfinding = null, sensing = false, galsNet = null) }
+        _state.update { it.copy(progress = null, pathfinding = null, gals = false, sensing = false, galsNet = null) }
     }
 
     private var pathJob: Job? = null
@@ -548,7 +550,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun findWorking() {
         if (pathJob?.isActive == true || testJob?.isActive == true) return
         pathJob = viewModelScope.launch {
-            _state.update { it.copy(sensing = true) }
+            _state.update { it.copy(gals = true, sensing = true) }
             val net = try {
                 senseNetwork()
             } finally {
@@ -577,10 +579,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun findWorkingNow() {
+        if (_state.value.nodes.isEmpty()) _state.update { it.copy(gals = false, galsNet = null) }
         testAll {
             val candidates = _state.value.nodes.filter { results.value[it.id]?.alive == true }.take(PATH_CANDIDATES)
             if (candidates.isEmpty()) {
-                _state.update { it.copy(galsNet = null) }
+                _state.update { it.copy(gals = false, galsNet = null) }
                 toast("Рабочих узлов не нашлось. Обновите источники через Wi-Fi или добавьте свою подписку.")
                 return@testAll
             }
@@ -597,7 +600,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         break
                     }
                 } finally {
-                    _state.update { it.copy(pathfinding = null, galsNet = null) }
+                    _state.update { it.copy(pathfinding = null, gals = false, galsNet = null) }
                 }
                 val target = chosen ?: candidates.first()
                 if (chosen == null) {

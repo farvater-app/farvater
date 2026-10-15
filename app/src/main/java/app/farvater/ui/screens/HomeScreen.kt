@@ -108,7 +108,7 @@ fun HomeScreen(
 ) {
     val c = Ios.colors
     val mode = when {
-        state.sensing || state.progress != null || state.pathfinding != null -> ConnectMode.Searching
+        state.gals || state.progress != null || state.pathfinding != null -> ConnectMode.Searching
         vpn is VpnState.Connecting -> ConnectMode.Connecting
         vpn is VpnState.Connected -> ConnectMode.Connected
         vpn is VpnState.Failed -> ConnectMode.Error
@@ -258,7 +258,7 @@ fun HomeScreen(
                 }
             }
 
-            AnimatedVisibility(visible = progress == null && state.pathfinding == null && !state.sensing, enter = fadeIn(), exit = fadeOut()) {
+            AnimatedVisibility(visible = progress == null && state.pathfinding == null && !state.gals, enter = fadeIn(), exit = fadeOut()) {
                 IosButton(
                     "Найти рабочий узел",
                     onClick = onFindWorking,
@@ -296,15 +296,16 @@ private fun shortStatus(mode: ConnectMode): String = when (mode) {
 private fun profileLabel(profile: NodeProfile): String = listOfNotNull(
     profile.fingerprint?.replaceFirstChar { it.uppercase() },
     "mux".takeIf { profile.mux },
-    "дробление TLS".takeIf { profile.fragment },
-).joinToString(" + ").let { if (it.isEmpty()) "обычный профиль" else "профиль $it" }
+    "дробление пакетов".takeIf { profile.fragment },
+).joinToString(" + ").ifEmpty { "обычный" }.let { "профиль: $it" }
 
 private fun headline(mode: ConnectMode, state: UiState): String = when (mode) {
     ConnectMode.Idle -> "Не подключено"
     ConnectMode.Searching -> when {
         state.sensing -> "Галс проверяет сеть"
-        state.pathfinding != null -> "Галс проверяет узлы"
-        else -> "Ищу рабочий узел"
+        state.pathfinding != null -> "Галс ищет рабочие профили"
+        state.gals -> "Галс ищет рабочие узлы"
+        else -> "Проверяю узлы"
     }
     ConnectMode.Connecting -> "Подключаюсь"
     ConnectMode.Connected -> "Подключено"
