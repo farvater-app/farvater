@@ -48,7 +48,7 @@ object BuiltInCatalog {
         CatalogSource(
             id = "rkp-wl",
             title = "РКП: белые списки",
-            author = "@ardnik",
+            author = "@RKP_channel",
             homepage = "https://t.me/RKP_channel",
             license = "не указана",
             description = "Подписка Анти-РосКомПозор для режима белых списков.",
@@ -59,7 +59,7 @@ object BuiltInCatalog {
         CatalogSource(
             id = "rkp-bl",
             title = "РКП: чёрные списки",
-            author = "@ardnik",
+            author = "@RKP_channel",
             homepage = "https://t.me/RKP_channel",
             license = "не указана",
             description = "Подписка Анти-РосКомПозор для обычных блокировок.",

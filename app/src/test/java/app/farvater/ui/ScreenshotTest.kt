@@ -351,10 +351,10 @@ private object Fake {
         source("zieng2-universal", "WL Universal", "zieng2", "не указана", 85),
         source("rjsxrd-bypass", "rjsxrd", "whoahaow", "MIT", 475, announce = "t.me/rjsxrd · 475 configs · last update: 14:27 05/10/2026"),
         source(
-            "rkp-wl", "РКП: белые списки", "@ardnik", "не указана", 64,
+            "rkp-wl", "РКП: белые списки", "@RKP_channel", "не указана", 64,
             announce = "⚠️ - Конфиг без шифрования трафика.\n🏴 - Конфиг с неизвестным выходным трафиком.",
         ),
-        source("rkp-bl", "РКП: чёрные списки", "@ardnik", "не указана", 112, mode = SourceMode.BLACK),
+        source("rkp-bl", "РКП: чёрные списки", "@RKP_channel", "не указана", 112, mode = SourceMode.BLACK),
         source("kfwl-wl", "KfWL: белые списки", "@qkfwl", "не указана", 20),
         source("kfwl-bl", "KfWL: чёрные списки", "@qkfwl", "не указана", 94, mode = SourceMode.BLACK, announce = "тг: @kfwlrus | BlackList"),
         source("bunker-wl", "Бункер Кота: белые списки", "@K0TLUX", "не указана", 36),
