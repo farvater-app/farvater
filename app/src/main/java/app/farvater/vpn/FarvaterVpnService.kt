@@ -15,7 +15,7 @@ import android.os.ParcelFileDescriptor
 import android.os.PowerManager
 import androidx.core.content.ContextCompat
 import app.farvater.App
-import app.farvater.MainActivity
+import app.farvater.FarvaterActivity
 import app.farvater.R
 import app.farvater.core.catalog.RuApps
 import app.farvater.core.model.ProxyNode
@@ -287,7 +287,7 @@ class FarvaterVpnService : VpnService() {
 
     private fun notification(title: String, text: String, sub: String? = null, details: String? = null): Notification {
         val open = PendingIntent.getActivity(
-            this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE,
+            this, 0, Intent(this, FarvaterActivity::class.java), PendingIntent.FLAG_IMMUTABLE,
         )
         val stop = PendingIntent.getService(
             this, 1, Intent(this, FarvaterVpnService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE,

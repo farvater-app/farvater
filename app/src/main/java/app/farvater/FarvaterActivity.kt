@@ -21,6 +21,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import app.farvater.data.AppIcons
 import app.farvater.data.ThemeMode
 import app.farvater.data.UiStyle
 import app.farvater.data.UpdateWorker
@@ -33,7 +34,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-class MainActivity : ComponentActivity() {
+class FarvaterActivity : ComponentActivity() {
     private val vm: MainViewModel by viewModels()
 
     private val vpnPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -91,6 +92,11 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         vm.onForeground()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (!isChangingConfigurations) AppIcons.applyPending(this)
     }
 
     override fun onNewIntent(intent: Intent) {

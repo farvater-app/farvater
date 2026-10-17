@@ -15,6 +15,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.farvater.core.model.NetMode
@@ -149,6 +150,19 @@ class ScreenshotTest {
         "50_nothing_node_actions_dark", dark = true, screen = true, nothing = true, act = ::longPressNode,
     ) { Servers() }
     @Test fun nothingAlertDark() = shot("49_nothing_alert_dark", dark = true, screen = true, nothing = true) { Alert() }
+    @Test fun appIconsLight() = shot("51_app_icons_light", dark = false, act = ::openAppIcons) { Settings() }
+    @Test fun nothingAppIconsDark() = shot("52_nothing_app_icons_dark", dark = true, nothing = true, act = ::openAppIcons) {
+        Settings(Fake.state.settings.copy(uiStyle = UiStyle.NOTHING))
+    }
+
+    private fun openAppIcons() {
+        rule.onNodeWithText("Оформление").performClick()
+        rule.mainClock.advanceTimeBy(1_500)
+        repeat(3) {
+            rule.onRoot().performTouchInput { swipeUp() }
+            rule.mainClock.advanceTimeBy(1_000)
+        }
+    }
 
     @Test fun appsDark() {
         installApps(

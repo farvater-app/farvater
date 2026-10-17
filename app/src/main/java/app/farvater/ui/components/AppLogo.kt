@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import app.farvater.R
+import app.farvater.data.AppIcon
 
 private val LogoGradient = Brush.linearGradient(listOf(Color(0xFF173A6B), Color(0xFF081628)))
 
@@ -29,5 +30,13 @@ fun AppLogo(size: Dp, modifier: Modifier = Modifier) {
             contentDescription = null,
             modifier = Modifier.requiredSize(size * 1.5f),
         )
+    }
+}
+
+@Composable
+fun AppIconImage(icon: AppIcon, size: Dp, modifier: Modifier = Modifier) {
+    Box(modifier.size(size).clip(RoundedCornerShape(size * 0.235f)), contentAlignment = Alignment.Center) {
+        Image(painterResource(icon.background), contentDescription = null, modifier = Modifier.requiredSize(size * 1.5f))
+        Image(painterResource(icon.foreground), contentDescription = null, modifier = Modifier.requiredSize(size * 1.5f))
     }
 }

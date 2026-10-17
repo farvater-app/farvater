@@ -13,7 +13,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import app.farvater.App
-import app.farvater.MainActivity
+import app.farvater.FarvaterActivity
 import app.farvater.R
 import app.farvater.vpn.VpnBus
 import app.farvater.vpn.VpnState
@@ -55,7 +55,7 @@ class UpdateWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         fun notify(context: Context, info: UpdateInfo) {
             val open = PendingIntent.getActivity(
                 context, 3,
-                Intent(context, MainActivity::class.java).putExtra(EXTRA_OPEN_UPDATE, true)
+                Intent(context, FarvaterActivity::class.java).putExtra(EXTRA_OPEN_UPDATE, true)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )

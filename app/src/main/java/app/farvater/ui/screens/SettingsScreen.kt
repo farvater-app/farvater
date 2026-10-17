@@ -16,6 +16,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,6 +34,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -89,9 +91,11 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -99,12 +103,15 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.farvater.BuildConfig
 import app.farvater.core.catalog.RuApps
+import app.farvater.data.AppIcon
+import app.farvater.data.AppIcons
 import app.farvater.data.AppSettings
 import app.farvater.data.ThemeMode
 import app.farvater.data.UiStyle
 import app.farvater.engine.TunBridge
 import app.farvater.engine.XrayEngine
 import app.farvater.ui.LocalBottomInset
+import app.farvater.ui.components.AppIconImage
 import app.farvater.ui.components.AppLogo
 import app.farvater.ui.ios.EdgeHaptics
 import app.farvater.ui.ios.IosButton
@@ -164,6 +171,8 @@ fun SettingsScreen(
     duplicates: Int = 0,
 ) {
     var page by rememberSaveable { mutableStateOf<SettingsPage?>(null) }
+    val context = LocalContext.current
+    var appIcon by remember { mutableStateOf(AppIcons.selected(context)) }
     var showApps by remember { mutableStateOf(false) }
     var showChangelog by remember { mutableStateOf(false) }
     BackHandler(enabled = page != null) { page = null }
@@ -186,13 +195,17 @@ fun SettingsScreen(
         when (current) {
             null -> SettingsRoot(
                 settings = settings,
+                appIcon = appIcon,
                 updateVersion = updateVersion,
                 onOpen = { page = it },
                 onChangelog = { showChangelog = true },
             )
             else -> IosPushedPage(title = current.title, backTitle = "Настройки", onBack = { page = null }) {
                 when (current) {
-                    SettingsPage.Appearance -> AppearancePage(settings, onChange)
+                    SettingsPage.Appearance -> AppearancePage(settings, onChange, appIcon) { icon ->
+                        AppIcons.choose(context, icon)
+                        appIcon = icon
+                    }
                     SettingsPage.Connection -> ConnectionPage(settings, onChange) { showApps = true }
                     SettingsPage.Security -> SecurityPage(settings, onChange)
                     SettingsPage.Subscriptions -> SubscriptionsPage(settings, onChange, hwid, onCopied)
@@ -225,6 +238,7 @@ private const val ChannelUrl = "https://t.me/farvater_app"
 @Composable
 private fun SettingsRoot(
     settings: AppSettings,
+    appIcon: AppIcon,
     updateVersion: String?,
     onOpen: (SettingsPage) -> Unit,
     onChangelog: () -> Unit,
@@ -252,7 +266,7 @@ private fun SettingsRoot(
                 IosRow(
                     title = "Фарватер",
                     subtitle = "Версия ${BuildConfig.VERSION_NAME}" + (XrayEngine.version?.let { " · Xray $it" } ?: ""),
-                    leading = { AppLogo(58.dp) },
+                    leading = { AppIconImage(appIcon, 58.dp) },
                     chevron = true,
                     onClick = { onOpen(SettingsPage.About) },
                     modifier = Modifier.padding(vertical = 6.dp),
@@ -385,7 +399,60 @@ private fun SettingsRoot(
 }
 
 @Composable
-private fun AppearancePage(settings: AppSettings, onChange: ((AppSettings) -> AppSettings) -> Unit) {
+private fun AppIconSection(selected: AppIcon, onSelect: (AppIcon) -> Unit) {
+    IosSection(
+        header = "Значок приложения",
+        footer = "Значок сменится, когда вы выйдете из приложения. На некоторых телефонах ярлык на рабочем столе пропадёт: верните его из списка приложений.",
+    ) {
+        AppIcon.entries.chunked(4).forEach { row ->
+            Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 8.dp)) {
+                row.forEach { icon ->
+                    IconChoice(icon, icon == selected, Modifier.weight(1f)) { onSelect(icon) }
+                }
+                repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun IconChoice(icon: AppIcon, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val c = Ios.colors
+    val ring = RoundedCornerShape(20.dp)
+    Column(
+        modifier
+            .clip(RoundedCornerShape(14.dp))
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .padding(vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier
+                .size(68.dp)
+                .border(2.5.dp, if (selected) c.tint else Color.Transparent, ring)
+                .padding(5.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            AppIconImage(icon, 58.dp)
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            icon.title,
+            style = IosType.caption1,
+            color = if (selected) c.tint else c.secondaryLabel,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun AppearancePage(
+    settings: AppSettings,
+    onChange: ((AppSettings) -> AppSettings) -> Unit,
+    appIcon: AppIcon,
+    onIcon: (AppIcon) -> Unit,
+) {
     val c = Ios.colors
     val divider = Divider.dp
     IosSection(
@@ -463,6 +530,8 @@ private fun AppearancePage(settings: AppSettings, onChange: ((AppSettings) -> Ap
             )
         }
     }
+
+    AppIconSection(appIcon, onIcon)
 }
 
 private val MtuChoices = listOf(8500, 1500, 1480, 1400, 1280)

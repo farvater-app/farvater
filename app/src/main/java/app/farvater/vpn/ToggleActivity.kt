@@ -6,7 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import app.farvater.App
-import app.farvater.MainActivity
+import app.farvater.FarvaterActivity
 
 class ToggleActivity : ComponentActivity() {
     private val consent = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -23,7 +23,7 @@ class ToggleActivity : ComponentActivity() {
                 val node = App.prefs.lastNode
                 val request = VpnService.prepare(this)
                 when {
-                    node == null -> startActivity(Intent(this, MainActivity::class.java))
+                    node == null -> startActivity(Intent(this, FarvaterActivity::class.java))
                     request != null -> return consent.launch(request)
                     else -> FarvaterVpnService.start(this, node)
                 }
