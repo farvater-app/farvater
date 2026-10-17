@@ -630,7 +630,7 @@ private fun TestingPage(settings: AppSettings, onChange: ((AppSettings) -> AppSe
             )
         }
     }
-    IosSection(header = "Скорость проверки", footer = "Быстрая проверка нагружает сеть: оператор может начать сбрасывать соединения.") {
+    IosSection(header = "Скорость проверки", footer = "Быстрая проверка нагружает сеть: оператор может начать сбрасывать соединения. На слабом мобильном интернете она может ошибаться и показывать рабочие узлы как неработающие.") {
         val current = ConcurrencyOptions.minBy { kotlin.math.abs(it.first - settings.concurrency) }.first
         IosSegmented(
             options = ConcurrencyOptions.map { it.second },
