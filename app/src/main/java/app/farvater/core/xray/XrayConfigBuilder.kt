@@ -29,7 +29,13 @@ object XrayConfigBuilder {
         "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8", "169.254.0.0/16",
     )
 
-    private val ENCRYPTED_DNS = listOf("https://1.1.1.1/dns-query", "https://8.8.8.8/dns-query")
+    val DNS_SERVERS = linkedMapOf("google" to "8.8.8.8", "cloudflare" to "1.1.1.1", "quad9" to "9.9.9.9")
+
+    private const val DNS_TIMEOUT_MS = 2500
+
+    fun dnsOrder(preferred: String?): List<String> = DNS_SERVERS.keys.sortedBy { if (it == preferred) 0 else 1 }
+
+    fun dohUrl(server: String): String = "https://${DNS_SERVERS.getValue(server)}/dns-query"
 
     fun build(
         node: ProxyNode,
@@ -72,9 +78,16 @@ object XrayConfigBuilder {
                 }
                 putJsonObject("dns") {
                     putJsonArray("servers") {
-                        if (encryptedDns) ENCRYPTED_DNS.forEach { add(it) } else { add("1.1.1.1"); add("8.8.8.8") }
+                        dnsOrder(profile?.dns).forEach { server ->
+                            addJsonObject {
+                                put("address", if (encryptedDns) dohUrl(server) else DNS_SERVERS.getValue(server))
+                                put("timeoutMs", DNS_TIMEOUT_MS)
+                            }
+                        }
                     }
                     put("queryStrategy", "UseIPv4")
+                    put("serveStale", true)
+                    put("serveExpiredTTL", 3600)
                 }
             }
             putJsonArray("outbounds") {

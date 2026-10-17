@@ -8,6 +8,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.net.Proxy
 import java.util.concurrent.TimeUnit
 
 object NetModeDetector {
@@ -15,6 +16,7 @@ object NetModeDetector {
     private const val ENOUGH = 32 * 1024
 
     private val client = OkHttpClient.Builder()
+        .proxy(Proxy.NO_PROXY)
         .connectTimeout(4, TimeUnit.SECONDS)
         .readTimeout(4, TimeUnit.SECONDS)
         .callTimeout(8, TimeUnit.SECONDS)

@@ -7,6 +7,7 @@ data class NodeProfile(
     val fingerprint: String? = null,
     val mux: Boolean = false,
     val fragment: Boolean = false,
+    val dns: String? = null,
 )
 
 val ProxyNode.canMux: Boolean

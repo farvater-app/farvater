@@ -16,10 +16,12 @@ import java.net.Proxy
 import java.net.ServerSocket
 import java.util.concurrent.TimeUnit
 
-data class PathResult(val profile: NodeProfile?, val telegramBlocked: Boolean = false)
+data class PathResult(val profile: NodeProfile?, val telegramBlocked: Boolean = false, val dnsBlocked: Boolean = false)
 
 object Pathfinder {
-    private enum class Verdict { OK, NO_DATA, NO_TELEGRAM }
+    private enum class Verdict { OK, NO_DATA, NO_TELEGRAM, NO_DNS }
+
+    private class Check(val verdict: Verdict, val dns: String? = null)
 
     private const val PAYLOAD = 256 * 1024
     private const val ENOUGH = 200 * 1024
@@ -30,7 +32,7 @@ object Pathfinder {
     )
 
     fun variants(node: ProxyNode, saved: NodeProfile?, ordinaryBlocking: Boolean): List<NodeProfile> = buildList {
-        saved?.let(::add)
+        saved?.copy(dns = null)?.let(::add)
         add(NodeProfile())
         if (node.usesFingerprint) {
             add(NodeProfile(fingerprint = "firefox"))
@@ -44,24 +46,28 @@ object Pathfinder {
         node: ProxyNode,
         saved: NodeProfile?,
         ordinaryBlocking: Boolean,
+        checkDns: Boolean = true,
         limit: Int = 4,
         onTry: (NodeProfile) -> Unit = {},
     ): PathResult {
+        val dns = if (checkDns) XrayConfigBuilder.dnsOrder(saved?.dns) else null
         for (profile in variants(node, saved, ordinaryBlocking).take(limit)) {
             onTry(profile)
-            when (check(node, profile)) {
-                Verdict.OK -> return PathResult(profile)
+            val result = check(node, profile, dns)
+            when (result.verdict) {
+                Verdict.OK -> return PathResult(profile.copy(dns = result.dns))
                 Verdict.NO_TELEGRAM -> return PathResult(null, telegramBlocked = true)
+                Verdict.NO_DNS -> return PathResult(null, dnsBlocked = true)
                 Verdict.NO_DATA -> Unit
             }
         }
         return PathResult(null)
     }
 
-    private suspend fun check(node: ProxyNode, profile: NodeProfile): Verdict = withContext(Dispatchers.IO) {
-        val port = freePort() ?: return@withContext Verdict.NO_DATA
+    private suspend fun check(node: ProxyNode, profile: NodeProfile, dns: List<String>?): Check = withContext(Dispatchers.IO) {
+        val port = freePort() ?: return@withContext Check(Verdict.NO_DATA)
         val config = XrayConfigBuilder.build(node, directRuServices = false, encryptedDns = false, profile = profile, socksPort = port)
-        val probe = XrayEngine.startProbe(config) ?: return@withContext Verdict.NO_DATA
+        val probe = XrayEngine.startProbe(config) ?: return@withContext Check(Verdict.NO_DATA)
         try {
             val client = OkHttpClient.Builder()
                 .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port)))
@@ -70,9 +76,10 @@ object Pathfinder {
                 .callTimeout(15, TimeUnit.SECONDS)
                 .build()
             when {
-                urls.none { url -> download(client, url) >= ENOUGH } -> Verdict.NO_DATA
-                !reachable(client, TELEGRAM) -> Verdict.NO_TELEGRAM
-                else -> Verdict.OK
+                urls.none { url -> download(client, url) >= ENOUGH } -> Check(Verdict.NO_DATA)
+                !reachable(client, TELEGRAM) -> Check(Verdict.NO_TELEGRAM)
+                dns == null -> Check(Verdict.OK)
+                else -> DohProbe.firstAnswering(client, dns)?.let { Check(Verdict.OK, it) } ?: Check(Verdict.NO_DNS)
             }
         } finally {
             XrayEngine.stopProbe(probe)
