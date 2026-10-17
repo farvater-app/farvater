@@ -610,20 +610,23 @@ private fun ConnectionPage(settings: AppSettings, onChange: ((AppSettings) -> Ap
     }
     IosSection(
         header = "Автозапуск",
-        footer = "Фарватер подключится к последнему узлу, когда телефон включится, а после обновления — если VPN был включён. " +
-            "На Xiaomi, Huawei, Honor, OPPO и vivo разрешите ещё автозапуск в «Работе в фоне».",
+        footer = "Если VPN был включён, Фарватер подключится сам и после своего обновления. " +
+            "На Xiaomi, Huawei, Honor, OPPO и vivo для автозапуска нужно ещё разрешение системы: оно описано в «Работе в фоне». " +
+            "На некоторых телефонах пункт «Постоянная VPN» называется немного иначе.",
     ) {
         IosRow(
-            title = "Подключаться при включении телефона",
+            title = "Автоподключение",
+            subtitle = "Подключаться к последнему узлу, когда телефон включится",
             icon = Icons.Rounded.PowerSettingsNew,
             iconTint = c.green,
             trailing = { IosSwitch(settings.autoStart, { v -> onChange { it.copy(autoStart = v) } }) },
         )
         IosDivider(start = Divider.dp)
         IosRow(
-            title = "Постоянный VPN Android",
-            subtitle = "Самый надёжный способ: Android сам держит VPN включённым. Нажмите на шестерёнку у Фарватера и включите «Постоянная VPN»",
-            subtitleLines = 3,
+            title = "Постоянная VPN",
+            subtitle = "Настройка самого Android: он включает VPN после перезагрузки и следит, чтобы VPN не отключался. " +
+                "Нажмите, затем значок настроек рядом с Фарватером и включите «Постоянная VPN»",
+            subtitleLines = 4,
             icon = Icons.Rounded.Lock,
             iconTint = c.blue,
             chevron = true,

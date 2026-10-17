@@ -193,6 +193,20 @@ class ScreenshotTest {
         Settings(Fake.state.settings.copy(uiStyle = UiStyle.HYPER))
     }
 
+    @Test fun connectionDark() = shot("53_connection_dark", dark = true, act = ::openConnection) { Settings() }
+    @Test fun originConnectionLight() = shot("69_origin_connection_light", dark = false, style = UiStyle.ORIGIN, act = ::openConnection) {
+        Settings(Fake.state.settings.copy(uiStyle = UiStyle.ORIGIN))
+    }
+
+    private fun openConnection() {
+        rule.onNodeWithText("Подключение").performClick()
+        rule.mainClock.advanceTimeBy(1_500)
+        repeat(2) {
+            rule.onRoot().performTouchInput { swipeUp() }
+            rule.mainClock.advanceTimeBy(1_000)
+        }
+    }
+
     private fun openAppearance() {
         rule.onNodeWithText("Оформление").performClick()
         rule.mainClock.advanceTimeBy(1_500)
