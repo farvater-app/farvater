@@ -1,5 +1,6 @@
 package app.farvater.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -38,6 +39,7 @@ fun FarvaterRoot(vm: MainViewModel) {
     val state by vm.state.collectAsStateWithLifecycle()
 
     var tab by rememberSaveable { mutableStateOf(Tab.Home) }
+    BackHandler(enabled = tab != Tab.Home) { tab = Tab.Home }
     var reopenOnboarding by remember { mutableStateOf(false) }
     var openDocument by remember { mutableStateOf<String?>(null) }
     val snackbar = remember { SnackbarHostState() }
