@@ -480,7 +480,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             var alive = 0
             var lastFlush = 0L
             val pending = HashMap<String, TestResult>()
-            fun flush() {
+            fun flush(finished: Boolean = false) {
                 if (pending.isNotEmpty()) {
                     val batch = HashMap(pending)
                     pending.clear()
@@ -489,7 +489,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update {
                     it.copy(
                         results = results.value,
-                        progress = TestProgress(done, nodes.size, alive),
+                        progress = if (finished) null else TestProgress(done, nodes.size, alive),
                         nodes = if (settings.liveSort) sortNodes(it.nodes, results.value) else it.nodes,
                     )
                 }
@@ -508,7 +508,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
             } finally {
                 testing = false
-                flush()
+                flush(finished = true)
             }
             rebuildNow()
             _state.update { it.copy(progress = null) }
