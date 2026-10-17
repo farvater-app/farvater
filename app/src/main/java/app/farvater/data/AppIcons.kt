@@ -56,6 +56,16 @@ enum class AppIcon(
         R.drawable.ic_launcher_letter_background, R.drawable.ic_launcher_letter_foreground,
         R.drawable.ic_launcher_letter_monochrome, R.drawable.widget_on_letter,
     ),
+    ORIGIN(
+        "IconOrigin", "Origin",
+        R.drawable.ic_launcher_origin_background, R.drawable.ic_launcher_origin_foreground,
+        R.drawable.ic_launcher_origin_monochrome, R.drawable.widget_on_origin,
+    ),
+    HYPER(
+        "IconHyper", "Hyper",
+        R.drawable.ic_launcher_hyper_background, R.drawable.ic_launcher_hyper_foreground,
+        R.drawable.ic_launcher_hyper_monochrome, R.drawable.widget_on_hyper,
+    ),
 }
 
 object AppIcons {
