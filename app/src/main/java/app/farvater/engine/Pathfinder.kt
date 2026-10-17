@@ -16,9 +16,14 @@ import java.net.Proxy
 import java.net.ServerSocket
 import java.util.concurrent.TimeUnit
 
+data class PathResult(val profile: NodeProfile?, val telegramBlocked: Boolean = false)
+
 object Pathfinder {
+    private enum class Verdict { OK, NO_DATA, NO_TELEGRAM }
+
     private const val PAYLOAD = 256 * 1024
     private const val ENOUGH = 200 * 1024
+    private const val TELEGRAM = "https://api.telegram.org/"
     private val urls = listOf(
         "https://speed.cloudflare.com/__down?bytes=$PAYLOAD",
         "https://proof.ovh.net/files/1Mb.dat",
@@ -41,16 +46,22 @@ object Pathfinder {
         ordinaryBlocking: Boolean,
         limit: Int = 4,
         onTry: (NodeProfile) -> Unit = {},
-    ): NodeProfile? =
-        variants(node, saved, ordinaryBlocking).take(limit).firstOrNull {
-            onTry(it)
-            passes(node, it)
+    ): PathResult {
+        for (profile in variants(node, saved, ordinaryBlocking).take(limit)) {
+            onTry(profile)
+            when (check(node, profile)) {
+                Verdict.OK -> return PathResult(profile)
+                Verdict.NO_TELEGRAM -> return PathResult(null, telegramBlocked = true)
+                Verdict.NO_DATA -> Unit
+            }
         }
+        return PathResult(null)
+    }
 
-    suspend fun passes(node: ProxyNode, profile: NodeProfile): Boolean = withContext(Dispatchers.IO) {
-        val port = freePort() ?: return@withContext false
+    private suspend fun check(node: ProxyNode, profile: NodeProfile): Verdict = withContext(Dispatchers.IO) {
+        val port = freePort() ?: return@withContext Verdict.NO_DATA
         val config = XrayConfigBuilder.build(node, directRuServices = false, encryptedDns = false, profile = profile, socksPort = port)
-        val probe = XrayEngine.startProbe(config) ?: return@withContext false
+        val probe = XrayEngine.startProbe(config) ?: return@withContext Verdict.NO_DATA
         try {
             val client = OkHttpClient.Builder()
                 .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port)))
@@ -58,11 +69,20 @@ object Pathfinder {
                 .readTimeout(5, TimeUnit.SECONDS)
                 .callTimeout(15, TimeUnit.SECONDS)
                 .build()
-            urls.any { url -> download(client, url) >= ENOUGH }
+            when {
+                urls.none { url -> download(client, url) >= ENOUGH } -> Verdict.NO_DATA
+                !reachable(client, TELEGRAM) -> Verdict.NO_TELEGRAM
+                else -> Verdict.OK
+            }
         } finally {
             XrayEngine.stopProbe(probe)
         }
     }
+
+    private fun reachable(client: OkHttpClient, url: String): Boolean = runCatching {
+        client.newBuilder().followRedirects(false).build()
+            .newCall(Request.Builder().url(url).head().build()).execute().use { true }
+    }.getOrDefault(false)
 
     private fun download(client: OkHttpClient, url: String): Int = runCatching {
         client.newCall(Request.Builder().url(url).build()).execute().use { response ->

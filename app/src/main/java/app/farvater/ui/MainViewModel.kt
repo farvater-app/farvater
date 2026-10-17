@@ -609,11 +609,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             pathJob = viewModelScope.launch {
                 val ordinaryBlocking = (_state.value.galsNet ?: effectiveMode(prefs.settings)) == NetMode.BLACK
                 var chosen: ProxyNode? = null
+                var telegramBlocked = false
                 try {
                     for (node in candidates) {
-                        val profile = Pathfinder.find(node, prefs.profileFor(node.id), ordinaryBlocking) { tried ->
+                        val found = Pathfinder.find(node, prefs.profileFor(node.id), ordinaryBlocking) { tried ->
                             _state.update { it.copy(pathfinding = GalsStep(node.name, tried)) }
-                        } ?: continue
+                        }
+                        if (found.telegramBlocked) telegramBlocked = true
+                        val profile = found.profile ?: continue
                         prefs.rememberProfile(node.id, profile)
                         chosen = node
                         break
@@ -623,7 +626,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 val target = chosen ?: candidates.first()
                 if (chosen == null) {
-                    toast("Галс не нашёл узла, через который идут данные: похоже, провайдер замораживает соединения. Подключаюсь к самому быстрому.")
+                    toast(
+                        if (telegramBlocked) "Галс не нашёл узла, через который открывается Telegram: похоже, у проверенных узлов выход в России. Подключаюсь к самому быстрому."
+                        else "Галс не нашёл узла, через который идут данные: похоже, провайдер замораживает соединения. Подключаюсь к самому быстрому."
+                    )
                 }
                 setSelected(target)
                 connect(target)
@@ -927,7 +933,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         private const val REBUILD_GAP_MS = 150L
         private const val FLUSH_MS = 300L
         private const val RECONNECT_DELAY_MS = 1200L
-        private const val PATH_CANDIDATES = 5
+        private const val PATH_CANDIDATES = 8
 
         private val cachedSnapshots = MutableStateFlow<Map<String, SourceSnapshot>>(emptyMap())
         private val cachedResults = MutableStateFlow<Map<String, TestResult>>(emptyMap())
