@@ -148,6 +148,18 @@ fun FarvaterRoot(vm: MainViewModel) {
         UpdateSheet(info = update, stage = state.updateStage, onUpdate = vm::installUpdate, onLater = vm::dismissUpdate)
     }
 
+    state.deadPrompt?.let { node ->
+        IosAlert(
+            title = "«${splitFlag(node.name).second}» не отвечает",
+            message = "Этот узел не ответил на последних проверках. Найти рабочий узел или всё равно подключиться к этому?",
+            onDismiss = vm::dismissDeadPrompt,
+            actions = listOf(
+                AlertAction("Подключиться") { vm.connectAnyway() },
+                AlertAction("Найти рабочий", AlertRole.Preferred) { vm.findWorkingInstead() },
+            ),
+        )
+    }
+
     state.pendingImport?.let { text ->
         IosAlert(
             title = "Добавить из ссылки?",

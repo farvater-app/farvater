@@ -17,6 +17,7 @@ import app.farvater.core.parser.SubscriptionParser
 import app.farvater.core.parser.Usage
 import app.farvater.data.AppSettings
 import app.farvater.data.LEGAL_VERSION
+import app.farvater.data.NodeHealth
 import app.farvater.data.SourceConfig
 import app.farvater.data.SourceSnapshot
 import app.farvater.data.UpdateInfo
@@ -97,6 +98,9 @@ data class UiState(
     val gals: Boolean = false,
     val sensing: Boolean = false,
     val galsNet: NetMode? = null,
+    val dead: Set<String> = emptySet(),
+    val preflight: ProxyNode? = null,
+    val deadPrompt: ProxyNode? = null,
     val checking: Set<String> = emptySet(),
     val collapsedGroups: Set<String> = emptySet(),
 ) {
@@ -137,6 +141,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             gals = false,
             sensing = false,
             galsNet = null,
+            preflight = null,
+            deadPrompt = null,
             checking = emptySet(),
             collapsedGroups = prefs.collapsedGroups,
             refreshing = false,
@@ -172,6 +178,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val attempts = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
     init {
+        if (results.value.isEmpty()) results.value = NodeHealth.results(prefs.nodeHealth, modeKey())
+        _state.update { it.copy(results = results.value, dead = NodeHealth.dead(prefs.nodeHealth, modeKey())) }
         viewModelScope.launch(Dispatchers.Default) {
             for (request in rebuildRequests) {
                 rebuildLocked()
@@ -282,8 +290,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(detecting = true) }
             val mode = NetModeDetector.detect()
             if (mode != null) {
+                val before = modeKey()
                 detected = mode
                 prefs.lastNetMode = mode.name
+                if (modeKey() != before) reloadHealth()
             }
             _state.update { it.copy(detecting = false) }
             rebuildNow()
@@ -291,7 +301,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setNetMode(choice: NetModeChoice) {
+        val before = modeKey()
         updateSettings { it.copy(netMode = choice) }
+        if (modeKey() != before) reloadHealth()
         if (choice == NetModeChoice.AUTO) detectNetMode(force = true)
     }
 
@@ -481,6 +493,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             var alive = 0
             var lastFlush = 0L
             val pending = HashMap<String, TestResult>()
+            val finished = ArrayList<TestResult>()
             fun flush(finished: Boolean = false) {
                 if (pending.isNotEmpty()) {
                     val batch = HashMap(pending)
@@ -501,6 +514,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     done++
                     if (r.alive) alive++
                     pending[r.nodeId] = r
+                    finished += r
                     val now = System.nanoTime() / 1_000_000
                     if (now - lastFlush >= FLUSH_MS) {
                         lastFlush = now
@@ -510,6 +524,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             } finally {
                 testing = false
                 flush(finished = true)
+                recordHealth(finished)
             }
             rebuildNow()
             _state.update { it.copy(progress = null) }
@@ -532,6 +547,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val r = NodeTester.testAll(listOf(node), prefs.settings.testUrl, 1).first()
                 results.update { it + (r.nodeId to r) }
                 _state.update { it.copy(results = results.value) }
+                recordHealth(listOf(r))
                 val name = splitFlag(node.name).second
                 toast(if (r.alive) "«$name» отвечает: ${r.delayMs} мс" else "«$name» не отвечает")
             } finally {
@@ -566,8 +582,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val net = NetModeDetector.detect() ?: return null
         val choice = prefs.settings.netMode
         if (choice == NetModeChoice.AUTO) {
+            val before = modeKey()
             detected = net
             prefs.lastNetMode = net.name
+            if (modeKey() != before) reloadHealth()
             lastDetect = System.currentTimeMillis()
             rebuildNow()
         } else if (choice.name != net.name) {
@@ -614,7 +632,53 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun bestNode(): ProxyNode? =
-        _state.value.nodes.firstOrNull { results.value[it.id]?.alive == true }
+        _state.value.nodes.firstOrNull { results.value[it.id]?.alive == true && it.id !in _state.value.dead }
+
+    private fun modeKey(): String = effectiveMode(prefs.settings)?.name ?: "ANY"
+
+    private fun recordHealth(checked: Collection<TestResult>) {
+        if (checked.isEmpty()) return
+        val history = NodeHealth.record(prefs.nodeHealth, modeKey(), checked)
+        prefs.nodeHealth = history
+        _state.update { it.copy(dead = NodeHealth.dead(history, modeKey())) }
+    }
+
+    private fun reloadHealth() {
+        if (testing) return
+        results.value = NodeHealth.results(prefs.nodeHealth, modeKey())
+        _state.update { it.copy(results = results.value, dead = NodeHealth.dead(prefs.nodeHealth, modeKey())) }
+        rebuild()
+    }
+
+    private var preflightJob: Job? = null
+
+    private fun preflight(node: ProxyNode) {
+        preflightJob = viewModelScope.launch {
+            _state.update { it.copy(preflight = node) }
+            val r = try {
+                NodeTester.testAll(listOf(node), prefs.settings.testUrl, 1).first()
+            } finally {
+                _state.update { it.copy(preflight = null) }
+            }
+            results.update { it + (r.nodeId to r) }
+            _state.update { it.copy(results = results.value) }
+            recordHealth(listOf(r))
+            if (r.alive) connect(node) else _state.update { it.copy(deadPrompt = node) }
+        }
+    }
+
+    fun dismissDeadPrompt() = _state.update { it.copy(deadPrompt = null) }
+
+    fun connectAnyway() {
+        val node = _state.value.deadPrompt ?: return
+        dismissDeadPrompt()
+        connect(node)
+    }
+
+    fun findWorkingInstead() {
+        dismissDeadPrompt()
+        findWorking()
+    }
 
     private fun reportDeadNode() {
         val current = (VpnBus.state.value as? VpnState.Connected)?.node ?: return
@@ -625,9 +689,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         when (VpnBus.state.value) {
             is VpnState.Connected, is VpnState.Connecting -> FarvaterVpnService.stop(getApplication())
             else -> {
+                if (preflightJob?.isActive == true) {
+                    preflightJob?.cancel()
+                    return
+                }
+                val dead = _state.value.dead
                 val node = _state.value.selectedNode
-                    ?: (bestNode() ?: _state.value.nodes.firstOrNull())?.also(::setSelected)
-                if (node == null) toast("Нет узлов. Включите источники или добавьте подписку.") else connect(node)
+                    ?: (bestNode() ?: _state.value.nodes.firstOrNull { it.id !in dead } ?: _state.value.nodes.firstOrNull())
+                        ?.also(::setSelected)
+                when {
+                    node == null -> toast("Нет узлов. Включите источники или добавьте подписку.")
+                    node.id in dead -> preflight(node)
+                    else -> connect(node)
+                }
             }
         }
     }

@@ -110,7 +110,7 @@ fun HomeScreen(
     val c = Ios.colors
     val mode = when {
         state.gals || state.progress != null || state.pathfinding != null -> ConnectMode.Searching
-        vpn is VpnState.Connecting -> ConnectMode.Connecting
+        state.preflight != null || vpn is VpnState.Connecting -> ConnectMode.Connecting
         vpn is VpnState.Connected -> ConnectMode.Connected
         vpn is VpnState.Failed -> ConnectMode.Error
         else -> ConnectMode.Idle
@@ -194,6 +194,14 @@ fun HomeScreen(
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    if (m == ConnectMode.Connected && stalled) {
+                        IosButton(
+                            "Найти рабочий",
+                            onClick = onFindWorking,
+                            style = IosButtonStyle.Plain,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
                 }
             }
 
@@ -327,7 +335,7 @@ private fun supporting(mode: ConnectMode, vpn: VpnState, state: UiState, sumie: 
             }
         }.orEmpty()
     }
-    ConnectMode.Connecting -> (vpn as? VpnState.Connecting)?.node?.let { splitFlag(it.name).second }.orEmpty()
+    ConnectMode.Connecting -> ((vpn as? VpnState.Connecting)?.node ?: state.preflight)?.let { splitFlag(it.name).second }.orEmpty()
     ConnectMode.Connected -> "Трафик идёт через выбранный узел"
     ConnectMode.Error -> (vpn as? VpnState.Failed)?.message ?: "Попробуйте другой узел"
 }

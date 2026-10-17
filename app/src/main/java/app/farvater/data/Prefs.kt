@@ -154,6 +154,15 @@ class Prefs(context: Context) {
         nodeProfiles = (nodeProfiles - nodeId) + (nodeId to profile)
     }
 
+    @Volatile private var cachedHealth: Map<String, NodeCheck>? = null
+
+    var nodeHealth: Map<String, NodeCheck>
+        get() = cachedHealth ?: (read<Map<String, NodeCheck>>("node_health") ?: emptyMap()).also { cachedHealth = it }
+        set(value) {
+            cachedHealth = value
+            write("node_health", value)
+        }
+
     var dayTraffic: DayTraffic
         get() = read<DayTraffic>("day_traffic") ?: DayTraffic()
         set(value) = write("day_traffic", value)

@@ -133,11 +133,13 @@ fun ServersScreen(
         }
     }
     val alive = remember(state.nodes, state.results) { state.nodes.count { state.results[it.id]?.alive == true } }
-    val groups = remember(visible, state.sources) {
+    val groups = remember(visible, state.sources, state.dead) {
         val order = (state.sources.map { it.id } + ProxyNode.MANUAL_SOURCE).withIndex().associate { it.value to it.index }
-        visible.groupBy { it.sourceId }.entries
+        val (dead, rest) = visible.partition { it.id in state.dead }
+        val bySource = rest.groupBy { it.sourceId }.entries
             .sortedBy { order[it.key] ?: Int.MAX_VALUE }
             .map { it.key to it.value }
+        if (dead.isEmpty()) bySource else bySource + (DeadGroup to dead)
     }
     val searching = query.isNotBlank()
 
@@ -230,14 +232,15 @@ fun ServersScreen(
                 item(key = "empty") { EmptyState(state.nodes.isEmpty()) }
             } else {
                 groups.forEach { (sourceId, nodes) ->
-                    val collapsed = !searching && sourceId in state.collapsedGroups
+                    val isDead = sourceId == DeadGroup
+                    val collapsed = !searching && if (isDead) DeadGroupOpen !in state.collapsedGroups else sourceId in state.collapsedGroups
                     item(key = "group:$sourceId", contentType = "group") {
                         GroupHeader(
-                            title = state.sourceTitle(sourceId),
+                            title = if (isDead) "Не отвечают" else state.sourceTitle(sourceId),
                             count = nodes.size,
                             alive = nodes.count { state.results[it.id]?.alive == true },
                             collapsed = collapsed,
-                            onClick = { onToggleGroup(sourceId) },
+                            onClick = { onToggleGroup(if (isDead) DeadGroupOpen else sourceId) },
                             modifier = Modifier.animateItem(),
                         )
                     }
@@ -326,6 +329,9 @@ fun ServersScreen(
         }
     }
 }
+
+private const val DeadGroup = "dead"
+private const val DeadGroupOpen = "dead:open"
 
 @Composable
 private fun GroupHeader(title: String, count: Int, alive: Int, collapsed: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
