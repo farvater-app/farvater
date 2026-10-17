@@ -37,5 +37,12 @@ object RuApps {
         "ru.megafon.mlk",
         "ru.beeline.services",
         "ru.tele2.mytele2",
+        "ru.yandex.uber",
+        "com.apegroup.mcdonaldsrussia",
+        "ru.burgerking",
+        "ru.gosuslugi.goskey",
+        "ru.gosuslugi.culture",
+        "ru.yandex.translate",
+        "com.yandex.bank",
     )
 }
