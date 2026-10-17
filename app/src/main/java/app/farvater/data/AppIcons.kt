@@ -5,21 +5,57 @@ import android.content.Context
 import android.content.pm.PackageManager
 import androidx.annotation.DrawableRes
 import app.farvater.R
+import app.farvater.vpn.VpnBus
+import app.farvater.vpn.VpnWidget
 
 enum class AppIcon(
     val alias: String,
     val title: String,
     @DrawableRes val background: Int,
     @DrawableRes val foreground: Int,
+    @DrawableRes val monochrome: Int,
+    @DrawableRes val widget: Int,
 ) {
-    CLASSIC("MainActivity", "Классический", R.drawable.ic_launcher_background, R.drawable.ic_launcher_foreground),
-    NIGHT("IconNight", "Ночь", R.drawable.ic_launcher_night_background, R.drawable.ic_launcher_night_foreground),
-    DAY("IconDay", "День", R.drawable.ic_launcher_day_background, R.drawable.ic_launcher_day_foreground),
-    ORANGE("IconOrange", "Оранжевый", R.drawable.ic_launcher_orange_background, R.drawable.ic_launcher_orange_foreground),
-    BLUE("IconBlue", "Голубой", R.drawable.ic_launcher_blue_background, R.drawable.ic_launcher_blue_foreground),
-    NOTHING("IconNothing", "Nothing", R.drawable.ic_launcher_nothing_background, R.drawable.ic_launcher_nothing_foreground),
-    SUMIE("IconSumie", "Сумиэ", R.drawable.ic_launcher_sumie_background, R.drawable.ic_launcher_sumie_foreground),
-    LETTER("IconLetter", "Буква F", R.drawable.ic_launcher_letter_background, R.drawable.ic_launcher_letter_foreground),
+    CLASSIC(
+        "MainActivity", "Классический",
+        R.drawable.ic_launcher_background, R.drawable.ic_launcher_foreground,
+        R.drawable.ic_launcher_monochrome, R.drawable.widget_on,
+    ),
+    NIGHT(
+        "IconNight", "Ночь",
+        R.drawable.ic_launcher_night_background, R.drawable.ic_launcher_night_foreground,
+        R.drawable.ic_launcher_night_monochrome, R.drawable.widget_on_night,
+    ),
+    DAY(
+        "IconDay", "День",
+        R.drawable.ic_launcher_day_background, R.drawable.ic_launcher_day_foreground,
+        R.drawable.ic_launcher_day_monochrome, R.drawable.widget_on_day,
+    ),
+    ORANGE(
+        "IconOrange", "Оранжевый",
+        R.drawable.ic_launcher_orange_background, R.drawable.ic_launcher_orange_foreground,
+        R.drawable.ic_launcher_orange_monochrome, R.drawable.widget_on_orange,
+    ),
+    BLUE(
+        "IconBlue", "Голубой",
+        R.drawable.ic_launcher_blue_background, R.drawable.ic_launcher_blue_foreground,
+        R.drawable.ic_launcher_blue_monochrome, R.drawable.widget_on_blue,
+    ),
+    NOTHING(
+        "IconNothing", "Nothing",
+        R.drawable.ic_launcher_nothing_background, R.drawable.ic_launcher_nothing_foreground,
+        R.drawable.ic_launcher_nothing_monochrome, R.drawable.widget_on_nothing,
+    ),
+    SUMIE(
+        "IconSumie", "Сумиэ",
+        R.drawable.ic_launcher_sumie_background, R.drawable.ic_launcher_sumie_foreground,
+        R.drawable.ic_launcher_sumie_monochrome, R.drawable.widget_on_sumie,
+    ),
+    LETTER(
+        "IconLetter", "Буква F",
+        R.drawable.ic_launcher_letter_background, R.drawable.ic_launcher_letter_foreground,
+        R.drawable.ic_launcher_letter_monochrome, R.drawable.widget_on_letter,
+    ),
 }
 
 object AppIcons {
@@ -45,6 +81,7 @@ object AppIcons {
                 pm.setComponentEnabledSetting(component(context, it), stateFor(it, icon), PackageManager.DONT_KILL_APP)
             }
         }
+        VpnWidget.refresh(context, VpnBus.state.value)
     }
 
     private fun stateFor(alias: AppIcon, chosen: AppIcon): Int = when {

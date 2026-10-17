@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.widget.RemoteViews
 import app.farvater.R
+import app.farvater.data.AppIcons
 
 class VpnWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
@@ -31,9 +32,10 @@ class VpnWidget : AppWidgetProvider() {
                 Intent(context, ToggleActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
+            val icon = AppIcons.current(context)
             val views = RemoteViews(context.packageName, R.layout.widget_vpn).apply {
-                setInt(R.id.widget_button, "setBackgroundResource", if (on) R.drawable.widget_on else R.drawable.widget_off)
-                setImageViewResource(R.id.widget_icon, if (on) R.drawable.ic_launcher_foreground else R.drawable.ic_launcher_monochrome)
+                setInt(R.id.widget_button, "setBackgroundResource", if (on) icon.widget else R.drawable.widget_off)
+                setImageViewResource(R.id.widget_icon, if (on) icon.foreground else icon.monochrome)
                 setInt(R.id.widget_icon, "setColorFilter", if (on) 0 else OFF_TINT)
                 setContentDescription(
                     R.id.widget_button,
