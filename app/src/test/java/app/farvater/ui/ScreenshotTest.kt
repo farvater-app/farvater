@@ -193,7 +193,7 @@ class ScreenshotTest {
         Settings(Fake.state.settings.copy(uiStyle = UiStyle.HYPER))
     }
 
-    @Test fun connectionDark() = shot("53_connection_dark", dark = true, act = ::openConnection) { Settings() }
+    @Test fun connectionPageDark() = shot("53_connection_dark", dark = true, act = ::openConnection) { Settings() }
     @Test fun originConnectionLight() = shot("69_origin_connection_light", dark = false, style = UiStyle.ORIGIN, act = ::openConnection) {
         Settings(Fake.state.settings.copy(uiStyle = UiStyle.ORIGIN))
     }
