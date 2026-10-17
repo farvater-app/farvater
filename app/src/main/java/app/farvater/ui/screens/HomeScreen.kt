@@ -73,6 +73,7 @@ import app.farvater.ui.components.nodeSummary
 import app.farvater.ui.formatBytes
 import app.farvater.ui.formatDuration
 import app.farvater.ui.formatSpeed
+import app.farvater.ui.ios.EdgeHaptics
 import app.farvater.ui.ios.IosButton
 import app.farvater.ui.ios.IosButtonStyle
 import app.farvater.ui.ios.IosCompactBar
@@ -117,6 +118,7 @@ fun HomeScreen(
     val sumie = LocalUiStyle.current == UiStyle.SUMIE
     val nothing = Ios.nothing
     val scroll = rememberScrollState()
+    EdgeHaptics(scroll)
     val collapsed by remember { derivedStateOf { scroll.value > 70 } }
 
     val glow by animateColorAsState(

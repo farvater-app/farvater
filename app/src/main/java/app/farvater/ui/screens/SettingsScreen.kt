@@ -106,6 +106,7 @@ import app.farvater.engine.TunBridge
 import app.farvater.engine.XrayEngine
 import app.farvater.ui.LocalBottomInset
 import app.farvater.ui.components.AppLogo
+import app.farvater.ui.ios.EdgeHaptics
 import app.farvater.ui.ios.IosButton
 import app.farvater.ui.ios.IosButtonStyle
 import app.farvater.ui.ios.IosChoiceRow
@@ -232,6 +233,7 @@ private fun SettingsRoot(
     val context = LocalContext.current
     val uri = LocalUriHandler.current
     val scroll = rememberScrollState()
+    EdgeHaptics(scroll)
     val collapsed by remember { derivedStateOf { scroll.value > 70 } }
     val divider = Divider.dp
     var unrestricted by remember { mutableStateOf(context.isBatteryUnrestricted()) }

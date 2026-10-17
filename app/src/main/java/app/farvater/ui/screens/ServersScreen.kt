@@ -69,6 +69,7 @@ import app.farvater.ui.UiState
 import app.farvater.ui.components.DelayLabel
 import app.farvater.ui.components.NodeAvatar
 import app.farvater.ui.components.nodeSummary
+import app.farvater.ui.ios.EdgeHaptics
 import app.farvater.ui.ios.IosActionPanel
 import app.farvater.ui.ios.IosButton
 import app.farvater.ui.ios.IosButtonStyle
@@ -112,6 +113,7 @@ fun ServersScreen(
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val list = rememberLazyListState()
+    EdgeHaptics(list)
     val collapsed by remember { derivedStateOf { list.firstVisibleItemIndex > 0 || list.firstVisibleItemScrollOffset > 70 } }
 
     val visible = remember(state.nodes, state.results, filter, state.settings.hideDead, query) {

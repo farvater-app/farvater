@@ -76,7 +76,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -818,6 +820,7 @@ fun IosPushedPage(
 ) {
     val c = Ios.colors
     val scroll = rememberScrollState()
+    EdgeHaptics(scroll)
     if (Ios.material) {
         Column(modifier.fillMaxSize().background(c.background)) {
             Row(
@@ -1348,4 +1351,20 @@ fun IosGlass(
     content: @Composable () -> Unit,
 ) {
     Box(modifier.liquidGlass(backdrop, shape, GlassStyles.Toast)) { content() }
+}
+
+@Composable
+fun EdgeHaptics(state: ScrollableState) {
+    val haptic = LocalHapticFeedback.current
+    LaunchedEffect(state) {
+        var back = state.canScrollBackward
+        var forward = state.canScrollForward
+        snapshotFlow { state.canScrollBackward to state.canScrollForward }.collect { (b, f) ->
+            if (state.isScrollInProgress && ((back && !b) || (forward && !f))) {
+                haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+            }
+            back = b
+            forward = f
+        }
+    }
 }

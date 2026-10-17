@@ -39,6 +39,7 @@ import app.farvater.ui.SourceUi
 import app.farvater.ui.UiState
 import app.farvater.ui.formatAgo
 import app.farvater.ui.formatBytes
+import app.farvater.ui.ios.EdgeHaptics
 import app.farvater.ui.ios.AlertAction
 import app.farvater.ui.ios.AlertRole
 import app.farvater.ui.ios.IosAlert
@@ -83,6 +84,7 @@ fun SourcesScreen(
     val community = state.sources.filter { it.community }
     val own = state.sources.filterNot { it.community }
     val list = rememberLazyListState()
+    EdgeHaptics(list)
     val collapsed by remember { derivedStateOf { list.firstVisibleItemIndex > 0 || list.firstVisibleItemScrollOffset > 70 } }
 
     val backdrop = rememberGlassBackdrop()
