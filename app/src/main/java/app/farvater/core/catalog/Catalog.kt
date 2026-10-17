@@ -11,6 +11,7 @@ data class CatalogSource(
     val description: String,
     val mirrors: List<String>,
     val mode: SourceMode,
+    val forum: String? = null,
 )
 
 object BuiltInCatalog {
@@ -47,22 +48,24 @@ object BuiltInCatalog {
         CatalogSource(
             id = "rkp-wl",
             title = "РКП: белые списки",
-            author = "RKP",
-            homepage = "https://hub.mos.ru/rkp/sub-roskompozor",
+            author = "@ardnik",
+            homepage = "https://t.me/RKP_channel",
             license = "не указана",
             description = "Подписка Анти-РосКомПозор для режима белых списков.",
             mirrors = listOf("https://hub.mos.ru/rkp/sub-roskompozor/raw/main/wl"),
             mode = SourceMode.WHITE,
+            forum = "https://t.me/urlsources",
         ),
         CatalogSource(
             id = "rkp-bl",
             title = "РКП: чёрные списки",
-            author = "RKP",
-            homepage = "https://hub.mos.ru/rkp/sub-roskompozor",
+            author = "@ardnik",
+            homepage = "https://t.me/RKP_channel",
             license = "не указана",
             description = "Подписка Анти-РосКомПозор для обычных блокировок.",
             mirrors = listOf("https://hub.mos.ru/rkp/sub-roskompozor/raw/main/bl"),
             mode = SourceMode.BLACK,
+            forum = "https://t.me/urlsources",
         ),
         CatalogSource(
             id = "kfwl-wl",

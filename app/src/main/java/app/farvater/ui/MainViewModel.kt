@@ -53,6 +53,7 @@ data class SourceUi(
     val author: String,
     val license: String,
     val homepage: String,
+    val forum: String? = null,
     val description: String,
     val community: Boolean,
     val enabled: Boolean,
@@ -761,7 +762,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val community = BuiltInCatalog.sources.map { s ->
             val snap = snaps[s.id]
             SourceUi(
-                id = s.id, title = s.title, author = s.author, license = s.license, homepage = s.homepage,
+                id = s.id, title = s.title, author = s.author, license = s.license, homepage = s.homepage, forum = s.forum,
                 description = s.description, community = true,
                 enabled = settings.communityEnabled && s.id in enabled,
                 nodeCount = shown(snap), updatedAt = snap?.updatedAt ?: 0,

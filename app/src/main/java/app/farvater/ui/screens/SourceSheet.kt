@@ -11,6 +11,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Text
@@ -132,6 +133,17 @@ fun SourceSheet(
                         iconTint = c.blue,
                         onClick = { runCatching { uri.openUri(source.homepage) } },
                     )
+                    source.forum?.let { forum ->
+                        IosDivider(start = 59.dp)
+                        IosRow(
+                            title = "Форум",
+                            subtitle = forum.removePrefix("https://"),
+                            titleColor = c.tint,
+                            icon = Icons.Rounded.Forum,
+                            iconTint = c.indigo,
+                            onClick = { runCatching { uri.openUri(forum) } },
+                        )
+                    }
                 } else {
                     IosDivider(start = 59.dp)
                     IosRow(
