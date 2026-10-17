@@ -2,6 +2,7 @@ package app.farvater.data
 
 import android.content.Context
 import app.farvater.core.catalog.BuiltInCatalog
+import app.farvater.core.model.NetMode
 import app.farvater.core.model.NetModeChoice
 import app.farvater.core.model.NodeProfile
 import app.farvater.core.model.ProxyNode
@@ -40,6 +41,8 @@ data class AppSettings(
     val uiStyle: UiStyle = UiStyle.IOS,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
+    val modeNodes: Boolean = true,
+    val autoStart: Boolean = false,
 )
 
 @Serializable
@@ -137,6 +140,41 @@ class Prefs(context: Context) {
         if (selectedNodeId != node.id) selectedNodeId = node.id
         lastNode = node
     }
+
+    @Volatile private var cachedModeNodes: Map<String, ProxyNode>? = null
+
+    var modeNodes: Map<String, ProxyNode>
+        get() = cachedModeNodes ?: (read<Map<String, ProxyNode>>("mode_nodes") ?: emptyMap()).also { cachedModeNodes = it }
+        set(value) {
+            cachedModeNodes = value
+            write("mode_nodes", value)
+        }
+
+    fun nodeForMode(mode: NetMode): ProxyNode? = modeNodes[mode.name]
+
+    fun rememberForMode(mode: NetMode, node: ProxyNode) {
+        if (modeNodes[mode.name] != node) modeNodes = modeNodes + (mode.name to node)
+    }
+
+    fun forgetModeNodes(predicate: (ProxyNode) -> Boolean) {
+        val kept = modeNodes.filterValues { !predicate(it) }
+        if (kept.size != modeNodes.size) modeNodes = kept
+    }
+
+    fun allowedForAuto(node: ProxyNode): Boolean {
+        val s = settings
+        return when {
+            node.sourceId == ProxyNode.MANUAL_SOURCE -> true
+            userSources.any { it.id == node.sourceId } -> true
+            BuiltInCatalog.byId(node.sourceId) != null ->
+                s.communityEnabled && node.sourceId in enabledSources && !(s.safeMode && node.isInsecure)
+            else -> false
+        }
+    }
+
+    var vpnWasOn: Boolean
+        get() = sp.getBoolean("vpn_was_on", false)
+        set(value) = sp.edit().putBoolean("vpn_was_on", value).apply()
 
     @Volatile private var cachedProfiles: Map<String, NodeProfile>? = null
 

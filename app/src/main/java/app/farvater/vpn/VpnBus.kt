@@ -1,6 +1,8 @@
 package app.farvater.vpn
 
+import app.farvater.core.model.NetMode
 import app.farvater.core.model.ProxyNode
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 
 sealed interface VpnState {
@@ -24,4 +26,5 @@ object VpnBus {
     val traffic = MutableStateFlow(Traffic())
     val speedHistory = MutableStateFlow<List<Long>>(emptyList())
     val failedChecks = MutableStateFlow(0)
+    val netMode = MutableSharedFlow<NetMode>(extraBufferCapacity = 4)
 }

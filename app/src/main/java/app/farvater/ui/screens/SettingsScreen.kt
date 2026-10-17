@@ -65,10 +65,12 @@ import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.PhoneIphone
+import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.VisibilityOff
@@ -592,6 +594,42 @@ private fun ConnectionPage(settings: AppSettings, onChange: ((AppSettings) -> Ap
             value = if (bypassCount == 0) "нет" else bypassCount.toString(),
             chevron = true,
             onClick = onApps,
+        )
+    }
+    IosSection(
+        header = "Режим сети",
+        footer = "Фарватер помнит узел для белых списков и узел для обычных блокировок. Когда режим сети меняется, " +
+            "он сам переключается на узел, который вы выбирали для этого режима. Режим определяется сам, если в «Источниках» выбрано «Авто».",
+    ) {
+        IosRow(
+            title = "Свой узел для БС и ЧС",
+            icon = Icons.Rounded.SwapHoriz,
+            iconTint = c.teal,
+            trailing = { IosSwitch(settings.modeNodes, { v -> onChange { it.copy(modeNodes = v) } }) },
+        )
+    }
+    IosSection(
+        header = "Автозапуск",
+        footer = "Фарватер подключится к последнему узлу, когда телефон включится, а после обновления — если VPN был включён. " +
+            "На Xiaomi, Huawei, Honor, OPPO и vivo разрешите ещё автозапуск в «Работе в фоне».",
+    ) {
+        IosRow(
+            title = "Подключаться при включении телефона",
+            icon = Icons.Rounded.PowerSettingsNew,
+            iconTint = c.green,
+            trailing = { IosSwitch(settings.autoStart, { v -> onChange { it.copy(autoStart = v) } }) },
+        )
+        IosDivider(start = Divider.dp)
+        IosRow(
+            title = "Постоянный VPN Android",
+            subtitle = "Самый надёжный способ: Android сам держит VPN включённым. Нажмите на шестерёнку у Фарватера и включите «Постоянная VPN»",
+            subtitleLines = 3,
+            icon = Icons.Rounded.Lock,
+            iconTint = c.blue,
+            chevron = true,
+            onClick = {
+                runCatching { context.startActivity(Intent(Settings.ACTION_VPN_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            },
         )
     }
     IosSection(

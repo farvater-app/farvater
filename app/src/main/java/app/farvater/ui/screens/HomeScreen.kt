@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Radar
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -81,7 +82,9 @@ import app.farvater.ui.formatSpeed
 import app.farvater.ui.ios.EdgeHaptics
 import app.farvater.ui.ios.IosButton
 import app.farvater.ui.ios.IosButtonStyle
+import app.farvater.ui.ios.IosCircleButton
 import app.farvater.ui.ios.IosCompactBar
+import app.farvater.ui.ios.IosSpinner
 import app.farvater.ui.ios.glassSource
 import app.farvater.ui.ios.rememberGlassBackdrop
 import app.farvater.ui.ios.IosDivider
@@ -110,6 +113,7 @@ fun HomeScreen(
     onCancelTest: () -> Unit,
     onOpenServers: () -> Unit,
     onOpenUpdate: () -> Unit = {},
+    onRefresh: () -> Unit = {},
     stalled: Boolean = false,
 ) {
     val c = Ios.colors
@@ -204,7 +208,15 @@ fun HomeScreen(
                 )
             }
             IosLargeTitle("Фарватер") {
-                if (!island) Badge(shortStatus(mode), statusColor(mode), active = mode != ConnectMode.Idle)
+                if (!island) {
+                    Badge(shortStatus(mode), statusColor(mode), active = mode != ConnectMode.Idle)
+                    Spacer(Modifier.width(10.dp))
+                }
+                if (state.refreshing) {
+                    Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { IosSpinner() }
+                } else {
+                    IosCircleButton(Icons.Rounded.Refresh, "Обновить все", onRefresh)
+                }
             }
 
             state.update?.let { info ->
@@ -285,7 +297,14 @@ fun HomeScreen(
                 if (vpn is VpnState.Connected) SessionSection(vpn, traffic, history, state.settings.encryptedDns)
             }
 
-            IosSection(header = "Узел") {
+            IosSection(
+                header = when {
+                    !state.settings.modeNodes -> "Узел"
+                    state.netMode == NetMode.WHITE -> "Узел для белых списков"
+                    state.netMode == NetMode.BLACK -> "Узел для обычных блокировок"
+                    else -> "Узел"
+                },
+            ) {
                 val node = state.selectedNode
                 if (node != null) {
                     val (flag, title) = remember(node.name) { splitFlag(node.name) }
@@ -363,6 +382,7 @@ private fun headline(mode: ConnectMode, state: UiState): String = when (mode) {
     ConnectMode.Idle -> "Не подключено"
     ConnectMode.Searching -> when {
         state.sensing -> "Галс проверяет сеть"
+        state.quick -> "Галс проверяет знакомые узлы"
         state.pathfinding != null -> "Галс ищет рабочие профили"
         state.gals -> "Галс ищет рабочие узлы"
         else -> "Проверяю узлы"

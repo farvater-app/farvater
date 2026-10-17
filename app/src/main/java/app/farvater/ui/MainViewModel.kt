@@ -22,6 +22,7 @@ import app.farvater.data.SourceConfig
 import app.farvater.data.SourceSnapshot
 import app.farvater.data.UpdateInfo
 import app.farvater.data.UserSource
+import app.farvater.engine.GalsPlan
 import app.farvater.engine.NetModeDetector
 import app.farvater.engine.NodeTester
 import app.farvater.engine.Pathfinder
@@ -97,6 +98,7 @@ data class UiState(
     val pathfinding: GalsStep? = null,
     val gals: Boolean = false,
     val sensing: Boolean = false,
+    val quick: Boolean = false,
     val galsNet: NetMode? = null,
     val dead: Set<String> = emptySet(),
     val preflight: ProxyNode? = null,
@@ -140,6 +142,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             pathfinding = null,
             gals = false,
             sensing = false,
+            quick = false,
             galsNet = null,
             preflight = null,
             deadPrompt = null,
@@ -208,7 +211,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         viewModelScope.launch {
-            VpnBus.state.collect { if (it is VpnState.Failed) toast(it.message) }
+            VpnBus.state.collect { vpn ->
+                if (vpn is VpnState.Failed) toast(vpn.message)
+                val node = (vpn as? VpnState.Connected)?.node ?: (vpn as? VpnState.Connecting)?.node
+                if (node != null && node.id != _state.value.selectedId) {
+                    _state.update { it.copy(selectedId = node.id, savedNode = node) }
+                }
+            }
+        }
+        viewModelScope.launch {
+            VpnBus.netMode.collect { mode ->
+                if (prefs.settings.netMode != NetModeChoice.AUTO || mode == detected) return@collect
+                val before = modeKey()
+                detected = mode
+                lastDetect = System.currentTimeMillis()
+                if (modeKey() != before) reloadHealth()
+                rebuildNow()
+            }
         }
     }
 
@@ -289,22 +308,40 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return viewModelScope.launch {
             _state.update { it.copy(detecting = true) }
             val mode = NetModeDetector.detect()
+            var changed = false
             if (mode != null) {
                 val before = modeKey()
                 detected = mode
                 prefs.lastNetMode = mode.name
-                if (modeKey() != before) reloadHealth()
+                changed = modeKey() != before
+                if (changed) reloadHealth()
             }
             _state.update { it.copy(detecting = false) }
             rebuildNow()
+            if (changed) switchForMode(mode)
         }.also { detectJob = it }
     }
 
     fun setNetMode(choice: NetModeChoice) {
         val before = modeKey()
         updateSettings { it.copy(netMode = choice) }
-        if (modeKey() != before) reloadHealth()
+        if (modeKey() != before) {
+            reloadHealth()
+            switchForMode(effectiveMode(prefs.settings))
+        }
         if (choice == NetModeChoice.AUTO) detectNetMode(force = true)
+    }
+
+    private fun switchForMode(mode: NetMode?) {
+        if (mode == null || !prefs.settings.modeNodes || _state.value.gals || testing) return
+        val vpn = VpnBus.state.value
+        if (vpn is VpnState.Connected || vpn is VpnState.Connecting) {
+            FarvaterVpnService.recheckMode(getApplication())
+            return
+        }
+        val target = prefs.nodeForMode(mode) ?: return
+        if (target.id == _state.value.selectedId || _state.value.nodes.none { it.id == target.id }) return
+        setSelected(target)
     }
 
     private fun sourceMode(id: String): SourceMode =
@@ -598,42 +635,99 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun findWorkingNow() {
-        if (_state.value.nodes.isEmpty()) _state.update { it.copy(gals = false, galsNet = null) }
-        testAll {
-            val candidates = _state.value.nodes.filter { results.value[it.id]?.alive == true }.take(PATH_CANDIDATES)
-            if (candidates.isEmpty()) {
-                _state.update { it.copy(gals = false, galsNet = null) }
-                toast("Рабочих узлов не нашлось. Обновите источники через Wi-Fi или добавьте свою подписку.")
-                return@testAll
-            }
-            pathJob = viewModelScope.launch {
-                val ordinaryBlocking = (_state.value.galsNet ?: effectiveMode(prefs.settings)) == NetMode.BLACK
-                var chosen: ProxyNode? = null
-                var telegramBlocked = false
-                try {
-                    for (node in candidates) {
-                        val found = Pathfinder.find(node, prefs.profileFor(node.id), ordinaryBlocking) { tried ->
-                            _state.update { it.copy(pathfinding = GalsStep(node.name, tried)) }
-                        }
-                        if (found.telegramBlocked) telegramBlocked = true
-                        val profile = found.profile ?: continue
-                        prefs.rememberProfile(node.id, profile)
-                        chosen = node
-                        break
+        if (_state.value.nodes.isEmpty()) {
+            _state.update { it.copy(gals = false, galsNet = null) }
+            testAll()
+            return
+        }
+        pathJob = viewModelScope.launch {
+            val settings = prefs.settings
+            val mode = _state.value.galsNet ?: effectiveMode(settings)
+            val ordinaryBlocking = mode == NetMode.BLACK
+            val tried = HashSet<String>()
+            val failedKinds = HashSet<String>()
+            val failedHosts = HashSet<String>()
+            var telegramBlocked = false
+            var dnsBlocked = false
+            var chosen: ProxyNode? = null
+
+            suspend fun attempt(node: ProxyNode, limit: Int) {
+                tried += node.id
+                val found = try {
+                    Pathfinder.find(node, prefs.profileFor(node.id), ordinaryBlocking, checkDns = settings.encryptedDns, limit = limit) { t ->
+                        _state.update { it.copy(pathfinding = GalsStep(node.name, t)) }
                     }
                 } finally {
-                    _state.update { it.copy(pathfinding = null, gals = false, galsNet = null) }
+                    _state.update { it.copy(pathfinding = null) }
                 }
-                val target = chosen ?: candidates.first()
-                if (chosen == null) {
-                    toast(
-                        if (telegramBlocked) "Галс не нашёл узла, через который открывается Telegram: похоже, у проверенных узлов выход в России. Подключаюсь к самому быстрому."
-                        else "Галс не нашёл узла, через который идут данные: похоже, провайдер замораживает соединения. Подключаюсь к самому быстрому."
-                    )
+                if (found.telegramBlocked) telegramBlocked = true
+                if (found.dnsBlocked) dnsBlocked = true
+                val profile = found.profile
+                if (profile == null) {
+                    if (!found.telegramBlocked && !found.dnsBlocked) {
+                        failedKinds += GalsPlan.kind(node)
+                        failedHosts += node.address.lowercase()
+                    }
+                    return
                 }
-                setSelected(target)
-                connect(target)
+                prefs.rememberProfile(node.id, profile)
+                chosen = node
             }
+
+            val remembered = mode?.takeIf { settings.modeNodes }?.let { prefs.nodeForMode(it) }
+            val quick = GalsPlan.quick(_state.value.nodes, results.value, _state.value.dead, listOf(remembered, _state.value.selectedNode))
+            val since = System.currentTimeMillis()
+            testAll()
+            try {
+                _state.update { it.copy(quick = true) }
+                for (node in quick) {
+                    attempt(node, limit = QUICK_VARIANTS)
+                    if (chosen != null) break
+                }
+            } finally {
+                _state.update { it.copy(quick = false) }
+            }
+
+            var scanned = 0
+            while (chosen == null && scanned < PATH_CANDIDATES) {
+                val running = testJob?.isActive == true
+                val node = GalsPlan.next(_state.value.nodes, results.value, _state.value.dead, tried, failedKinds, failedHosts, since)
+                if (node == null) {
+                    if (!running) break
+                    delay(SCOUT_MS)
+                    continue
+                }
+                scanned++
+                attempt(node, limit = 4)
+            }
+            val test = testJob
+            if (chosen != null) {
+                test?.cancel()
+                viewModelScope.launch {
+                    test?.join()
+                    rebuildNow()
+                }
+            } else {
+                test?.join()
+            }
+
+            _state.update { it.copy(gals = false, galsNet = null) }
+            val target = chosen ?: bestNode()
+            if (target == null) {
+                toast("Рабочих узлов не нашлось. Обновите источники через Wi-Fi или добавьте свою подписку.")
+                return@launch
+            }
+            if (chosen == null) {
+                toast(
+                    when {
+                        telegramBlocked -> "Галс не нашёл узла, через который открывается Telegram: похоже, у проверенных узлов выход в России. Подключаюсь к самому быстрому."
+                        dnsBlocked -> "Галс не нашёл узла, через который работает DNS: адреса сайтов не узнаются. Подключаюсь к самому быстрому."
+                        else -> "Галс не нашёл узла, через который идут данные: похоже, провайдер замораживает соединения. Подключаюсь к самому быстрому."
+                    },
+                )
+            }
+            setSelected(target, rememberFor = mode.takeIf { chosen != null })
+            connect(target, restart = true)
         }
     }
 
@@ -692,6 +786,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun toggleConnection() {
+        if (_state.value.gals || pathJob?.isActive == true) {
+            cancelTest()
+            return
+        }
         when (VpnBus.state.value) {
             is VpnState.Connected, is VpnState.Connecting -> FarvaterVpnService.stop(getApplication())
             else -> {
@@ -713,19 +811,34 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun select(node: ProxyNode) {
-        setSelected(node)
+        setSelected(node, rememberFor = effectiveMode(prefs.settings))
         val vpn = VpnBus.state.value
         if (vpn is VpnState.Connected && vpn.node.id != node.id) connect(node)
     }
 
     @Synchronized
-    private fun setSelected(node: ProxyNode) {
+    private fun setSelected(node: ProxyNode, rememberFor: NetMode? = null) {
         prefs.selectNode(node)
+        if (rememberFor != null && prefs.settings.modeNodes) prefs.rememberForMode(rememberFor, node)
         _state.update { it.copy(selectedId = node.id, savedNode = node) }
+    }
+
+    private fun reconcileModeNodes(nodes: List<ProxyNode>) {
+        val remembered = prefs.modeNodes
+        if (remembered.isEmpty()) return
+        val updated = remembered.mapValues { (_, saved) ->
+            if (nodes.any { it.id == saved.id }) return@mapValues saved
+            nodes.firstOrNull {
+                it.sourceId == saved.sourceId && it.protocol == saved.protocol &&
+                    it.address == saved.address && it.port == saved.port && it.name == saved.name
+            } ?: saved
+        }
+        if (updated != remembered) prefs.modeNodes = updated
     }
 
     @Synchronized
     private fun dropSelectionIf(predicate: (ProxyNode) -> Boolean) {
+        prefs.forgetModeNodes(predicate)
         val current = _state.value.selectedNode ?: return
         if (!predicate(current)) return
         prefs.clearSelection()
@@ -875,6 +988,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val single = secure.onePerEndpoint(prefs.selectedNodeId)
         val nodes = if (settings.dropDuplicates) single else secure
         val selected = reconcileSelection(nodes)
+        reconcileModeNodes(nodes)
         val res = results.value
 
         _state.update {
@@ -934,6 +1048,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         private const val FLUSH_MS = 300L
         private const val RECONNECT_DELAY_MS = 1200L
         private const val PATH_CANDIDATES = 8
+        private const val QUICK_VARIANTS = 2
+        private const val SCOUT_MS = 300L
 
         private val cachedSnapshots = MutableStateFlow<Map<String, SourceSnapshot>>(emptyMap())
         private val cachedResults = MutableStateFlow<Map<String, TestResult>>(emptyMap())

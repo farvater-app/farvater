@@ -76,6 +76,7 @@ fun FarvaterRoot(vm: MainViewModel) {
                         onCancelTest = vm::cancelTest,
                         onOpenServers = { tab = Tab.Servers },
                         onOpenUpdate = vm::openUpdate,
+                        onRefresh = vm::refreshAll,
                         stalled = failed >= VpnBus.STALL_CHECKS,
                     )
                 }
