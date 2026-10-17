@@ -626,7 +626,7 @@ private fun ConnectionPage(settings: AppSettings, onChange: ((AppSettings) -> Ap
             title = "Постоянная VPN",
             subtitle = "Настройка самого Android: он включает VPN после перезагрузки и следит, чтобы VPN не отключался. " +
                 "Нажмите, затем значок настроек рядом с Фарватером и включите «Постоянная VPN»",
-            subtitleLines = 4,
+            subtitleLines = 5,
             icon = Icons.Rounded.Lock,
             iconTint = c.blue,
             chevron = true,
