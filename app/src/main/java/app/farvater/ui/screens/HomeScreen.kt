@@ -66,8 +66,13 @@ import app.farvater.ui.components.ConnectMode
 import app.farvater.ui.components.DelayLabel
 import app.farvater.ui.components.DotBars
 import app.farvater.ui.components.DotConnectButton
+import app.farvater.ui.components.HyperConnect
 import app.farvater.ui.components.NodeAvatar
+import app.farvater.ui.components.OriginBars
+import app.farvater.ui.components.OriginConnect
+import app.farvater.ui.components.OriginTile
 import app.farvater.ui.components.Sparkline
+import app.farvater.ui.components.StatusIsland
 import app.farvater.ui.components.SumieHero
 import app.farvater.ui.components.nodeSummary
 import app.farvater.ui.formatBytes
@@ -117,15 +122,60 @@ fun HomeScreen(
     }
     val sumie = LocalUiStyle.current == UiStyle.SUMIE
     val nothing = Ios.nothing
+    val origin = Ios.origin
+    val hyper = Ios.hyper
+    val island = origin || hyper
     val scroll = rememberScrollState()
     EdgeHaptics(scroll)
     val collapsed by remember { derivedStateOf { scroll.value > 70 } }
 
     val glow by animateColorAsState(
-        if (mode == ConnectMode.Idle) c.tint.copy(alpha = 0.06f) else statusColor(mode).copy(alpha = 0.2f),
+        when {
+            mode == ConnectMode.Idle -> c.tint.copy(alpha = if (origin) 0.1f else 0.06f)
+            else -> statusColor(mode).copy(alpha = if (origin) 0.26f else 0.2f)
+        },
         animationSpec = tween(700),
         label = "glow",
     )
+    val connectedNode = remember(vpn) { (vpn as? VpnState.Connected)?.node?.name?.let { splitFlag(it).second } }
+
+    val status: @Composable () -> Unit = {
+        AnimatedContent(
+            targetState = mode,
+            transitionSpec = {
+                (fadeIn(tween(240)) + scaleIn(spring(dampingRatio = 0.8f, stiffness = 400f), initialScale = 0.92f)) togetherWith
+                    fadeOut(tween(120))
+            },
+            label = "status",
+            modifier = Modifier.fillMaxWidth(),
+        ) { m ->
+            Column(Modifier.fillMaxWidth().padding(horizontal = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    headline(m, state).let { if (nothing) it.uppercase() else it },
+                    style = if (Ios.material) MaterialTheme.typography.headlineSmall else IosType.title2,
+                    color = statusColor(m),
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    if (m == ConnectMode.Connected && stalled) "Узел не отвечает. Проверьте интернет или выберите другой узел" else supporting(m, vpn, state, sumie),
+                    style = IosType.subheadline,
+                    color = c.secondaryLabel,
+                    textAlign = TextAlign.Center,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (m == ConnectMode.Connected && stalled) {
+                    IosButton(
+                        "Найти рабочий",
+                        onClick = onFindWorking,
+                        style = IosButtonStyle.Plain,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
+        }
+    }
 
     val backdrop = rememberGlassBackdrop()
     Box(Modifier.fillMaxSize()) {
@@ -135,16 +185,27 @@ fun HomeScreen(
                 .glassSource(backdrop)
                 .verticalScroll(scroll)
                 .drawBehind {
-                    if (!sumie && !nothing) drawRect(
+                    if (!sumie && !nothing && !hyper) drawRect(
                         Brush.radialGradient(
                             listOf(glow, Color.Transparent),
-                            center = Offset(size.width / 2, 190.dp.toPx()),
+                            center = Offset(size.width / 2, if (origin) 260.dp.toPx() else 190.dp.toPx()),
                             radius = size.width * 0.8f,
                         ),
                     )
                 },
         ) {
-            IosLargeTitle("Фарватер") { Badge(shortStatus(mode), statusColor(mode), active = mode != ConnectMode.Idle) }
+            if (island) {
+                StatusIsland(
+                    mode = mode,
+                    node = connectedNode,
+                    since = (vpn as? VpnState.Connected)?.since,
+                    downBps = traffic.downBps,
+                    progress = state.progress?.let { it.done to it.total },
+                )
+            }
+            IosLargeTitle("Фарватер") {
+                if (!island) Badge(shortStatus(mode), statusColor(mode), active = mode != ConnectMode.Idle)
+            }
 
             state.update?.let { info ->
                 IosSection {
@@ -160,49 +221,30 @@ fun HomeScreen(
                 }
             }
 
-            Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.Center) {
-                when {
-                    sumie -> SumieHero(mode = mode, onClick = onToggle)
-                    nothing -> DotConnectButton(mode = mode, onClick = onToggle, size = 204.dp)
-                    else -> ConnectButton(mode = mode, onClick = onToggle, size = 184.dp)
+            if (origin) {
+                OriginTile(Modifier.padding(top = 4.dp)) {
+                    OriginConnect(mode = mode, onClick = onToggle)
+                    status()
                 }
-            }
-
-            Spacer(Modifier.height(8.dp))
-            AnimatedContent(
-                targetState = mode,
-                transitionSpec = {
-                    (fadeIn(tween(240)) + scaleIn(spring(dampingRatio = 0.8f, stiffness = 400f), initialScale = 0.92f)) togetherWith
-                        fadeOut(tween(120))
-                },
-                label = "status",
-                modifier = Modifier.fillMaxWidth(),
-            ) { m ->
-                Column(Modifier.fillMaxWidth().padding(horizontal = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        headline(m, state).let { if (nothing) it.uppercase() else it },
-                        style = if (Ios.material) MaterialTheme.typography.headlineSmall else IosType.title2,
-                        color = statusColor(m),
-                        textAlign = TextAlign.Center,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        if (m == ConnectMode.Connected && stalled) "Узел не отвечает. Проверьте интернет или выберите другой узел" else supporting(m, vpn, state, sumie),
-                        style = IosType.subheadline,
-                        color = c.secondaryLabel,
-                        textAlign = TextAlign.Center,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (m == ConnectMode.Connected && stalled) {
-                        IosButton(
-                            "Найти рабочий",
-                            onClick = onFindWorking,
-                            style = IosButtonStyle.Plain,
-                            modifier = Modifier.padding(top = 4.dp),
+            } else {
+                Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.Center) {
+                    when {
+                        sumie -> SumieHero(mode = mode, onClick = onToggle)
+                        nothing -> DotConnectButton(mode = mode, onClick = onToggle, size = 204.dp)
+                        hyper -> HyperConnect(
+                            mode = mode,
+                            status = tileStatus(mode, state, connectedNode),
+                            progress = state.progress?.let { if (it.total == 0) 0f else it.done.toFloat() / it.total },
+                            downBps = traffic.downBps,
+                            upBps = traffic.upBps,
+                            history = history,
+                            onClick = onToggle,
                         )
+                        else -> ConnectButton(mode = mode, onClick = onToggle, size = 184.dp)
                     }
                 }
+                Spacer(Modifier.height(if (hyper) 16.dp else 8.dp))
+                status()
             }
 
             val progress = state.progress
@@ -303,6 +345,14 @@ private fun shortStatus(mode: ConnectMode): String = when (mode) {
     ConnectMode.Error -> "Ошибка"
 }
 
+private fun tileStatus(mode: ConnectMode, state: UiState, node: String?): String = when (mode) {
+    ConnectMode.Idle -> "Выключен"
+    ConnectMode.Searching -> state.progress?.let { "Проверено ${it.done} из ${it.total}" } ?: "Поиск"
+    ConnectMode.Connecting -> "Подключение"
+    ConnectMode.Connected -> node ?: "Защищено"
+    ConnectMode.Error -> "Ошибка"
+}
+
 private fun profileLabel(profile: NodeProfile): String = listOfNotNull(
     profile.fingerprint?.replaceFirstChar { it.uppercase() },
     "mux".takeIf { profile.mux },
@@ -358,6 +408,8 @@ private fun SessionSection(vpn: VpnState.Connected, traffic: Traffic, history: L
         }
         if (Ios.nothing) {
             DotBars(history, Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 16.dp, vertical = 8.dp))
+        } else if (Ios.origin) {
+            OriginBars(history, c.green, Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 16.dp, vertical = 8.dp))
         } else {
             Sparkline(history, c.green, Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 16.dp, vertical = 8.dp))
         }

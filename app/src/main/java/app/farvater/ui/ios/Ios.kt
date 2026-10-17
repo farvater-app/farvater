@@ -173,6 +173,22 @@ fun Modifier.iosRowPress(onLongClick: (() -> Unit)? = null, onClick: () -> Unit)
 
 val SectionCorner = 24.dp
 
+@Composable
+@ReadOnlyComposable
+fun sectionCorner(): Dp = when {
+    Ios.origin -> 26.dp
+    Ios.hyper -> 22.dp
+    else -> SectionCorner
+}
+
+fun originRim(dark: Boolean): Brush = Brush.verticalGradient(
+    if (dark) {
+        listOf(Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.04f))
+    } else {
+        listOf(Color.White, Color(0xFF1B2350).copy(alpha = 0.08f))
+    },
+)
+
 val SheetCorner: Dp
     @Composable @ReadOnlyComposable get() = if (Ios.material) 28.dp else 34.dp
 
@@ -279,7 +295,7 @@ fun IosSection(
             header != null && material -> Text(
                 header,
                 style = MaterialTheme.typography.titleSmall,
-                color = c.tint,
+                color = if (Ios.hyper) c.secondaryLabel else c.tint,
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
             )
             header != null -> Text(
@@ -290,8 +306,13 @@ fun IosSection(
             )
             else -> Spacer(Modifier.height(if (material) 16.dp else 20.dp))
         }
+        val shape = RoundedCornerShape(sectionCorner())
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(SectionCorner)).background(c.cell),
+            Modifier
+                .fillMaxWidth()
+                .then(if (Ios.origin) Modifier.border(1.dp, originRim(c.dark), shape) else Modifier)
+                .clip(shape)
+                .background(c.cell),
             content = content,
         )
         if (footer != null) {

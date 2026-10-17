@@ -1,10 +1,12 @@
 package app.farvater.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -47,11 +49,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -61,6 +69,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -73,11 +82,14 @@ import app.farvater.ui.ios.GlassBackdrop
 import app.farvater.ui.ios.GlassStyles
 import app.farvater.ui.ios.glassSource
 import app.farvater.ui.ios.liquidGlass
+import app.farvater.ui.ios.originRim
 import app.farvater.ui.ios.rememberGlassBackdrop
+import app.farvater.ui.theme.HyperFont
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.IosType
 import app.farvater.ui.theme.LocalUiStyle
 import app.farvater.ui.theme.NothingLabel
+import app.farvater.ui.theme.OriginFont
 
 internal enum class Tab(val title: String, val icon: ImageVector, val iconIdle: ImageVector) {
     Home("Фарватер", Icons.Rounded.Home, Icons.Outlined.Home),
@@ -100,6 +112,8 @@ internal fun FarvaterFrame(
 ) {
     when {
         Ios.nothing -> NothingFrame(tab, onTab, snackbar, content)
+        Ios.origin -> OriginFrame(tab, onTab, snackbar, content)
+        Ios.hyper -> HyperFrame(tab, onTab, snackbar, content)
         Ios.material -> MaterialFrame(tab, onTab, snackbar, content)
         else -> GlassFrame(tab, onTab, snackbar, content)
     }
@@ -180,6 +194,208 @@ private fun NothingTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick:
         Icon(tab.iconIdle, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
         Spacer(Modifier.height(4.dp))
         Text(tab.title.uppercase(), style = NothingLabel.copy(fontSize = 9.sp, letterSpacing = 1.sp), color = tint, maxLines = 1)
+    }
+}
+
+@Composable
+private fun OriginFrame(
+    tab: Tab,
+    onTab: (Tab) -> Unit,
+    snackbar: SnackbarHostState,
+    content: @Composable (PaddingValues) -> Unit,
+) {
+    val c = Ios.colors
+    val haptics = LocalHapticFeedback.current
+    val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val bottomInset: Dp = navInset + 64.dp + 24.dp
+    Surface(color = c.background, contentColor = c.label, modifier = Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .drawBehind {
+                    drawRect(
+                        Brush.radialGradient(
+                            listOf(c.tint.copy(alpha = if (c.dark) 0.22f else 0.14f), Color.Transparent),
+                            center = Offset(size.width, 0f),
+                            radius = size.width * 1.15f,
+                        ),
+                    )
+                },
+        ) {
+            CompositionLocalProvider(LocalBottomInset provides bottomInset) {
+                content(WindowInsets.statusBars.asPaddingValues())
+            }
+            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset)) { data ->
+                val shape = RoundedCornerShape(22.dp)
+                Box(
+                    Modifier
+                        .padding(horizontal = 20.dp)
+                        .shadow(14.dp, shape)
+                        .background(c.cellRaised, shape)
+                        .border(1.dp, originRim(c.dark), shape),
+                ) {
+                    Text(
+                        data.visuals.message,
+                        style = IosType.subheadline,
+                        color = c.label,
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 13.dp),
+                    )
+                }
+            }
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(start = 20.dp, end = 20.dp, bottom = navInset + 12.dp)
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .shadow(16.dp, CircleShape)
+                    .background(c.bar, CircleShape)
+                    .border(1.dp, originRim(c.dark), CircleShape),
+            ) {
+                BoxWithConstraints(Modifier.fillMaxSize().padding(6.dp)) {
+                    val item = maxWidth / Tab.entries.size
+                    val pill by animateDpAsState(
+                        item * tab.ordinal,
+                        spring(dampingRatio = 0.6f, stiffness = 420f),
+                        label = "pill",
+                    )
+                    Box(
+                        Modifier
+                            .offset { IntOffset(pill.roundToPx(), 0) }
+                            .width(item)
+                            .fillMaxHeight()
+                            .background(c.tint.copy(alpha = if (c.dark) 0.22f else 0.12f), CircleShape),
+                    )
+                    Row(Modifier.fillMaxSize()) {
+                        Tab.entries.forEach { t ->
+                            OriginTab(t, selected = t == tab, modifier = Modifier.weight(1f)) {
+                                if (t != tab) {
+                                    haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                                    onTab(t)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OriginTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val c = Ios.colors
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val tint by animateColorAsState(if (selected) c.tint else c.secondaryLabel, spring(stiffness = 500f), label = "tint")
+    val squashX by animateFloatAsState(if (pressed) 0.86f else 1f, spring(dampingRatio = 0.4f, stiffness = 520f), label = "squashX")
+    val squashY by animateFloatAsState(if (pressed) 0.8f else 1f, spring(dampingRatio = 0.4f, stiffness = 520f), label = "squashY")
+    Column(
+        modifier
+            .fillMaxHeight()
+            .clickable(interactionSource = interaction, indication = null, role = Role.Tab, onClick = onClick)
+            .semantics { this.selected = selected }
+            .graphicsLayer { scaleX = squashX; scaleY = squashY },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+    ) {
+        Icon(if (selected) tab.icon else tab.iconIdle, contentDescription = null, tint = tint, modifier = Modifier.size(23.dp))
+        Spacer(Modifier.height(2.dp))
+        Text(
+            tab.title,
+            style = TextStyle(fontFamily = OriginFont, fontWeight = FontWeight.ExtraBold, fontSize = 10.5.sp, lineHeight = 13.sp),
+            color = tint,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun HyperFrame(
+    tab: Tab,
+    onTab: (Tab) -> Unit,
+    snackbar: SnackbarHostState,
+    content: @Composable (PaddingValues) -> Unit,
+) {
+    val c = Ios.colors
+    val haptics = LocalHapticFeedback.current
+    val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val bottomInset: Dp = navInset + 64.dp
+    Surface(color = c.background, contentColor = c.label, modifier = Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize()) {
+            CompositionLocalProvider(LocalBottomInset provides bottomInset) {
+                content(WindowInsets.statusBars.asPaddingValues())
+            }
+            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset + 12.dp)) { data ->
+                Box(
+                    Modifier
+                        .padding(horizontal = 24.dp)
+                        .background(Color(0xF2232326), RoundedCornerShape(22.dp)),
+                ) {
+                    Text(
+                        data.visuals.message,
+                        style = TextStyle(fontFamily = HyperFont, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 19.sp),
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                    )
+                }
+            }
+            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(c.bar)) {
+                Box(Modifier.fillMaxWidth().height(0.5.dp).background(c.separator))
+                Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 8.dp)) {
+                    Tab.entries.forEach { t ->
+                        HyperTab(t, selected = t == tab, modifier = Modifier.weight(1f)) {
+                            if (t != tab) {
+                                haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                                onTab(t)
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(navInset))
+            }
+        }
+    }
+}
+
+@Composable
+private fun HyperTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val c = Ios.colors
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val tint by animateColorAsState(if (selected) c.tint else c.secondaryLabel, spring(stiffness = 500f), label = "tint")
+    val press by animateFloatAsState(if (pressed) 0.88f else 1f, spring(dampingRatio = 0.5f, stiffness = 600f), label = "press")
+    val pop = remember { Animatable(1f) }
+    var seen by remember { mutableStateOf(selected) }
+    LaunchedEffect(selected) {
+        if (selected && !seen) {
+            pop.snapTo(0.78f)
+            pop.animateTo(1f, spring(dampingRatio = 0.32f, stiffness = 420f))
+        }
+        seen = selected
+    }
+    Column(
+        modifier
+            .fillMaxHeight()
+            .clickable(interactionSource = interaction, indication = null, role = Role.Tab, onClick = onClick)
+            .semantics { this.selected = selected }
+            .graphicsLayer { scaleX = press; scaleY = press },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+    ) {
+        Icon(
+            if (selected) tab.icon else tab.iconIdle,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(25.dp).graphicsLayer { scaleX = pop.value; scaleY = pop.value },
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(
+            tab.title,
+            style = TextStyle(fontFamily = HyperFont, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, lineHeight = 14.sp),
+            color = tint,
+            maxLines = 1,
+        )
     }
 }
 

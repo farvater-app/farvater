@@ -155,6 +155,51 @@ class ScreenshotTest {
         Settings(Fake.state.settings.copy(uiStyle = UiStyle.NOTHING))
     }
 
+    @Test fun originIdleDark() = shot("61_origin_home_idle_dark", dark = true, style = UiStyle.ORIGIN) { Home(VpnState.Idle) }
+    @Test fun originIdleLight() = shot("61_origin_home_idle_light", dark = false, style = UiStyle.ORIGIN) { Home(VpnState.Idle) }
+    @Test fun originConnectedDark() = shot("62_origin_home_connected_dark", dark = true, style = UiStyle.ORIGIN) { Home(Fake.connected) }
+    @Test fun originConnectedLight() = shot("62_origin_home_connected_light", dark = false, style = UiStyle.ORIGIN) { Home(Fake.connected) }
+    @Test fun originSearchingDark() = shot("63_origin_home_searching_dark", dark = true, style = UiStyle.ORIGIN) {
+        Home(VpnState.Idle, Fake.state.copy(progress = TestProgress(37, 120, 9)))
+    }
+    @Test fun originErrorLight() = shot("64_origin_home_error_light", dark = false, style = UiStyle.ORIGIN) {
+        Home(VpnState.Failed("Узел не ответил", Fake.state.nodes.first()))
+    }
+    @Test fun originServersDark() = shot("65_origin_servers_dark", dark = true, style = UiStyle.ORIGIN) { Servers() }
+    @Test fun originSourcesLight() = shot("66_origin_sources_light", dark = false, style = UiStyle.ORIGIN) { Sources() }
+    @Test fun originAppearanceDark() = shot("67_origin_appearance_dark", dark = true, style = UiStyle.ORIGIN, act = ::openAppearance) {
+        Settings(Fake.state.settings.copy(uiStyle = UiStyle.ORIGIN))
+    }
+    @Test fun originAppIconsLight() = shot("68_origin_app_icons_light", dark = false, style = UiStyle.ORIGIN, act = ::openAppIcons) {
+        Settings(Fake.state.settings.copy(uiStyle = UiStyle.ORIGIN))
+    }
+
+    @Test fun hyperIdleLight() = shot("71_hyper_home_idle_light", dark = false, style = UiStyle.HYPER) { Home(VpnState.Idle) }
+    @Test fun hyperIdleDark() = shot("71_hyper_home_idle_dark", dark = true, style = UiStyle.HYPER) { Home(VpnState.Idle) }
+    @Test fun hyperConnectedLight() = shot("72_hyper_home_connected_light", dark = false, style = UiStyle.HYPER) { Home(Fake.connected) }
+    @Test fun hyperConnectedDark() = shot("72_hyper_home_connected_dark", dark = true, style = UiStyle.HYPER) { Home(Fake.connected) }
+    @Test fun hyperSearchingLight() = shot("73_hyper_home_searching_light", dark = false, style = UiStyle.HYPER) {
+        Home(VpnState.Idle, Fake.state.copy(progress = TestProgress(37, 120, 9)))
+    }
+    @Test fun hyperErrorDark() = shot("74_hyper_home_error_dark", dark = true, style = UiStyle.HYPER) {
+        Home(VpnState.Failed("Узел не ответил", Fake.state.nodes.first()))
+    }
+    @Test fun hyperServersLight() = shot("75_hyper_servers_light", dark = false, style = UiStyle.HYPER) { Servers() }
+    @Test fun hyperSourcesDark() = shot("76_hyper_sources_dark", dark = true, style = UiStyle.HYPER) { Sources() }
+    @Test fun hyperAppearanceLight() = shot("77_hyper_appearance_light", dark = false, style = UiStyle.HYPER, act = ::openAppearance) {
+        Settings(Fake.state.settings.copy(uiStyle = UiStyle.HYPER))
+    }
+    @Test fun hyperAppIconsDark() = shot("78_hyper_app_icons_dark", dark = true, style = UiStyle.HYPER, act = ::openAppIcons) {
+        Settings(Fake.state.settings.copy(uiStyle = UiStyle.HYPER))
+    }
+
+    private fun openAppearance() {
+        rule.onNodeWithText("Оформление").performClick()
+        rule.mainClock.advanceTimeBy(1_500)
+        rule.onRoot().performTouchInput { swipeUp() }
+        rule.mainClock.advanceTimeBy(1_000)
+    }
+
     private fun openAppIcons() {
         rule.onNodeWithText("Оформление").performClick()
         rule.mainClock.advanceTimeBy(1_500)
@@ -245,6 +290,7 @@ class ScreenshotTest {
         rkp: Boolean = false,
         sumie: Boolean = false,
         nothing: Boolean = false,
+        style: UiStyle? = null,
         act: (() -> Unit)? = null,
         content: @Composable () -> Unit,
     ) {
@@ -252,7 +298,7 @@ class ScreenshotTest {
         rule.setContent {
             FarvaterTheme(
                 darkTheme = dark,
-                style = when {
+                style = style ?: when {
                     rkp -> UiStyle.ROSKOMPOZOR
                     sumie -> UiStyle.SUMIE
                     nothing -> UiStyle.NOTHING

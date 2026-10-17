@@ -44,7 +44,9 @@ import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Adjust
 import androidx.compose.material.icons.rounded.Android
 import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BatteryChargingFull
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -130,9 +132,11 @@ import app.farvater.ui.ios.IosSpinner
 import app.farvater.ui.ios.IosSwitch
 import app.farvater.ui.ios.SheetCorner
 import app.farvater.R
+import app.farvater.ui.theme.HyperBlue
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.IosType
 import app.farvater.ui.theme.NothingRed
+import app.farvater.ui.theme.OriginBlue
 import app.farvater.ui.theme.RkpBlue
 import app.farvater.ui.theme.SumieSeal
 import kotlinx.coroutines.launch
@@ -284,6 +288,8 @@ private fun SettingsRoot(
                         UiStyle.ROSKOMPOZOR -> "#РосКомПозор"
                         UiStyle.SUMIE -> "Сумиэ"
                         UiStyle.NOTHING -> "Nothing"
+                        UiStyle.ORIGIN -> "Origin"
+                        UiStyle.HYPER -> "Hyper"
                     },
                     chevron = true,
                     onClick = { onOpen(SettingsPage.Appearance) },
@@ -502,6 +508,24 @@ private fun AppearancePage(
             icon = Icons.Rounded.Adjust,
             iconTint = NothingRed,
             onClick = { onChange { it.copy(uiStyle = UiStyle.NOTHING) } },
+        )
+        IosDivider(start = divider)
+        IosChoiceRow(
+            title = "Origin",
+            subtitle = "Крупные плитки, мягкое свечение и пружинистые кнопки, как в OriginOS",
+            selected = settings.uiStyle == UiStyle.ORIGIN,
+            icon = Icons.Rounded.AutoAwesome,
+            iconTint = OriginBlue,
+            onClick = { onChange { it.copy(uiStyle = UiStyle.ORIGIN) } },
+        )
+        IosDivider(start = divider)
+        IosChoiceRow(
+            title = "Hyper",
+            subtitle = "Живой остров сверху, плитка VPN с бликом и столбики скорости, как в HyperOS",
+            selected = settings.uiStyle == UiStyle.HYPER,
+            icon = Icons.Rounded.Bolt,
+            iconTint = HyperBlue,
+            onClick = { onChange { it.copy(uiStyle = UiStyle.HYPER) } },
         )
     }
 
