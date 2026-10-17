@@ -444,6 +444,7 @@ fun IosChoiceRow(
         IosRow(
             title = title,
             subtitle = subtitle,
+            subtitleLines = 3,
             onClick = onClick,
             leading = { RadioButton(selected = selected, onClick = null, colors = radio) },
         )
@@ -451,6 +452,7 @@ fun IosChoiceRow(
         IosRow(
             title = title,
             subtitle = subtitle,
+            subtitleLines = 3,
             onClick = onClick,
             icon = icon,
             iconTint = iconTint,
