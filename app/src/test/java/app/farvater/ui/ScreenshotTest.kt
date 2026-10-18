@@ -7,6 +7,9 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.ResolveInfo
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -193,6 +196,9 @@ class ScreenshotTest {
         Settings(Fake.state.settings.copy(uiStyle = UiStyle.HYPER))
     }
 
+    @Test fun nothingConnectionLargeFontDark() = shot(
+        "54_nothing_connection_large_font_dark", dark = true, nothing = true, fontScale = 1.3f, act = ::openConnection,
+    ) { Settings(Fake.state.settings.copy(uiStyle = UiStyle.NOTHING)) }
     @Test fun connectionPageDark() = shot("53_connection_dark", dark = true, act = ::openConnection) { Settings() }
     @Test fun originConnectionLight() = shot("69_origin_connection_light", dark = false, style = UiStyle.ORIGIN, act = ::openConnection) {
         Settings(Fake.state.settings.copy(uiStyle = UiStyle.ORIGIN))
@@ -305,6 +311,7 @@ class ScreenshotTest {
         sumie: Boolean = false,
         nothing: Boolean = false,
         style: UiStyle? = null,
+        fontScale: Float = 1f,
         act: (() -> Unit)? = null,
         content: @Composable () -> Unit,
     ) {
@@ -320,7 +327,9 @@ class ScreenshotTest {
                     else -> UiStyle.IOS
                 },
                 dynamicColor = false,
-            ) { content() }
+            ) {
+                CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) { content() }
+            }
         }
         rule.mainClock.advanceTimeBy(1_500)
         if (act != null) {

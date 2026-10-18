@@ -363,6 +363,7 @@ fun IosRow(
     subtitle: String? = null,
     subtitleColor: Color? = null,
     subtitleLines: Int = 2,
+    titleLines: Int = 1,
     icon: ImageVector? = null,
     iconTint: Color = Ios.colors.tint,
     leading: (@Composable () -> Unit)? = null,
@@ -398,7 +399,7 @@ fun IosRow(
             Spacer(Modifier.width(12.dp))
         }
         Column(Modifier.weight(1f)) {
-            Text(title, style = titleStyle, color = titleColor ?: c.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(title, style = titleStyle, color = titleColor ?: c.label, maxLines = titleLines, overflow = TextOverflow.Ellipsis)
             if (subtitle != null) {
                 Text(
                     subtitle,
@@ -444,7 +445,7 @@ fun IosChoiceRow(
         IosRow(
             title = title,
             subtitle = subtitle,
-            subtitleLines = 3,
+            subtitleLines = Int.MAX_VALUE,
             onClick = onClick,
             leading = { RadioButton(selected = selected, onClick = null, colors = radio) },
         )
@@ -452,7 +453,7 @@ fun IosChoiceRow(
         IosRow(
             title = title,
             subtitle = subtitle,
-            subtitleLines = 3,
+            subtitleLines = Int.MAX_VALUE,
             onClick = onClick,
             icon = icon,
             iconTint = iconTint,

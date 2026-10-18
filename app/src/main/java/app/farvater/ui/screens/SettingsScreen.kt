@@ -603,6 +603,7 @@ private fun ConnectionPage(settings: AppSettings, onChange: ((AppSettings) -> Ap
     ) {
         IosRow(
             title = "Свой узел для БС и ЧС",
+            titleLines = 2,
             icon = Icons.Rounded.SwapHoriz,
             iconTint = c.teal,
             trailing = { IosSwitch(settings.modeNodes, { v -> onChange { it.copy(modeNodes = v) } }) },
@@ -610,23 +611,27 @@ private fun ConnectionPage(settings: AppSettings, onChange: ((AppSettings) -> Ap
     }
     IosSection(
         header = "Автозапуск",
-        footer = "Если VPN был включён, Фарватер подключится сам и после своего обновления. " +
-            "На Xiaomi, Huawei, Honor, OPPO и vivo для автозапуска нужно ещё разрешение системы: оно описано в «Работе в фоне». " +
-            "На некоторых телефонах пункт «Постоянная VPN» называется немного иначе.",
+        footer = "Как включить постоянный VPN: в открывшихся настройках нажмите на значок настроек рядом с Фарватером " +
+            "и включите переключатель «Постоянная VPN». У некоторых производителей он называется немного иначе. " +
+            "Там же можно запретить выход в интернет без VPN.\n\n" +
+            "Автоподключение срабатывает и после обновления Фарватера, если VPN был включён. " +
+            "На Xiaomi, Huawei, Honor, OPPO и vivo для него нужно ещё системное разрешение на автозапуск: оно описано в «Работе в фоне».",
     ) {
         IosRow(
             title = "Автоподключение",
+            titleLines = 2,
             subtitle = "Подключаться к последнему узлу, когда телефон включится",
+            subtitleLines = Int.MAX_VALUE,
             icon = Icons.Rounded.PowerSettingsNew,
             iconTint = c.green,
             trailing = { IosSwitch(settings.autoStart, { v -> onChange { it.copy(autoStart = v) } }) },
         )
         IosDivider(start = Divider.dp)
         IosRow(
-            title = "Постоянная VPN",
-            subtitle = "Настройка самого Android: он включает VPN после перезагрузки и следит, чтобы VPN не отключался. " +
-                "Нажмите, затем значок настроек рядом с Фарватером и включите «Постоянная VPN»",
-            subtitleLines = 5,
+            title = "Постоянный VPN в Android",
+            titleLines = 2,
+            subtitle = "Системная функция: Android сам включает VPN после перезагрузки и следит, чтобы он не отключался. Надёжнее автоподключения",
+            subtitleLines = Int.MAX_VALUE,
             icon = Icons.Rounded.Lock,
             iconTint = c.blue,
             chevron = true,
@@ -662,7 +667,7 @@ private fun SecurityPage(settings: AppSettings, onChange: ((AppSettings) -> AppS
         IosRow(
             title = "Только защищённые узлы",
             subtitle = "В публичных подписках скрывать узлы без шифрования, со старым шифрованием или без проверки сертификата",
-            subtitleLines = 3,
+            subtitleLines = Int.MAX_VALUE,
             icon = Icons.Rounded.GppGood,
             iconTint = c.green,
             trailing = { IosSwitch(settings.safeMode, { v -> onChange { it.copy(safeMode = v) } }) },
