@@ -3,22 +3,9 @@ package app.farvater.engine
 import app.farvater.core.model.ProxyNode
 
 object GalsPlan {
-    const val QUICK = 3
+    private const val UPGRADE_RATIO = 1.5
 
     fun kind(node: ProxyNode): String = "${node.protocol}/${node.security}/${node.transport}"
-
-    fun quick(
-        nodes: List<ProxyNode>,
-        results: Map<String, TestResult>,
-        dead: Set<String>,
-        preferred: List<ProxyNode?>,
-    ): List<ProxyNode> {
-        val known = nodes
-            .filter { results[it.id]?.alive == true && it.id !in dead }
-            .sortedWith(compareBy({ results.getValue(it.id).method != TestMethod.REAL }, { results.getValue(it.id).delayMs }))
-        val listed = nodes.mapTo(HashSet()) { it.id }
-        return (preferred.filterNotNull().filter { it.id !in dead && it.id in listed } + known).distinctBy { it.id }.take(QUICK)
-    }
 
     fun next(
         nodes: List<ProxyNode>,
@@ -39,4 +26,8 @@ object GalsPlan {
             ),
         )
         .firstOrNull()?.first
+
+    fun fastest(verified: Map<String, Long>): String? = verified.maxByOrNull { it.value }?.key
+
+    fun worthSwitching(currentSpeed: Long, bestSpeed: Long): Boolean = bestSpeed > currentSpeed * UPGRADE_RATIO
 }

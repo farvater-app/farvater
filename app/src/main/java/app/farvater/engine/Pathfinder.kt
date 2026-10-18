@@ -16,12 +16,17 @@ import java.net.Proxy
 import java.net.ServerSocket
 import java.util.concurrent.TimeUnit
 
-data class PathResult(val profile: NodeProfile?, val telegramBlocked: Boolean = false, val dnsBlocked: Boolean = false)
+data class PathResult(
+    val profile: NodeProfile?,
+    val telegramBlocked: Boolean = false,
+    val dnsBlocked: Boolean = false,
+    val speedBps: Long = 0,
+)
 
 object Pathfinder {
     private enum class Verdict { OK, NO_DATA, NO_TELEGRAM, NO_DNS }
 
-    private class Check(val verdict: Verdict, val dns: String? = null)
+    private class Check(val verdict: Verdict, val dns: String? = null, val speedBps: Long = 0)
 
     private const val PAYLOAD = 256 * 1024
     private const val ENOUGH = 200 * 1024
@@ -55,7 +60,7 @@ object Pathfinder {
             onTry(profile)
             val result = check(node, profile, dns)
             when (result.verdict) {
-                Verdict.OK -> return PathResult(profile.copy(dns = result.dns))
+                Verdict.OK -> return PathResult(profile.copy(dns = result.dns), speedBps = result.speedBps)
                 Verdict.NO_TELEGRAM -> return PathResult(null, telegramBlocked = true)
                 Verdict.NO_DNS -> return PathResult(null, dnsBlocked = true)
                 Verdict.NO_DATA -> Unit
@@ -75,11 +80,16 @@ object Pathfinder {
                 .readTimeout(5, TimeUnit.SECONDS)
                 .callTimeout(15, TimeUnit.SECONDS)
                 .build()
+            val speed = urls.firstNotNullOfOrNull { url ->
+                val start = System.nanoTime()
+                val bytes = download(client, url)
+                if (bytes >= ENOUGH) bytes * 1_000_000_000L / (System.nanoTime() - start).coerceAtLeast(1) else null
+            }
             when {
-                urls.none { url -> download(client, url) >= ENOUGH } -> Check(Verdict.NO_DATA)
+                speed == null -> Check(Verdict.NO_DATA)
                 !reachable(client, TELEGRAM) -> Check(Verdict.NO_TELEGRAM)
-                dns == null -> Check(Verdict.OK)
-                else -> DohProbe.firstAnswering(client, dns)?.let { Check(Verdict.OK, it) } ?: Check(Verdict.NO_DNS)
+                dns == null -> Check(Verdict.OK, speedBps = speed)
+                else -> DohProbe.firstAnswering(client, dns)?.let { Check(Verdict.OK, it, speed) } ?: Check(Verdict.NO_DNS)
             }
         } finally {
             XrayEngine.stopProbe(probe)

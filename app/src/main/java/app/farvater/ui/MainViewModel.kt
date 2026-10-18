@@ -98,7 +98,7 @@ data class UiState(
     val pathfinding: GalsStep? = null,
     val gals: Boolean = false,
     val sensing: Boolean = false,
-    val quick: Boolean = false,
+    val refining: Boolean = false,
     val galsNet: NetMode? = null,
     val dead: Set<String> = emptySet(),
     val preflight: ProxyNode? = null,
@@ -142,7 +142,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             pathfinding = null,
             gals = false,
             sensing = false,
-            quick = false,
+            refining = false,
             galsNet = null,
             preflight = null,
             deadPrompt = null,
@@ -596,7 +596,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun cancelTest() {
         testJob?.cancel()
         pathJob?.cancel()
-        _state.update { it.copy(progress = null, pathfinding = null, gals = false, sensing = false, galsNet = null) }
+        _state.update { it.copy(progress = null, pathfinding = null, gals = false, sensing = false, galsNet = null, refining = false) }
     }
 
     private var pathJob: Job? = null
@@ -649,12 +649,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val failedHosts = HashSet<String>()
             var telegramBlocked = false
             var dnsBlocked = false
-            var chosen: ProxyNode? = null
+            val verified = LinkedHashMap<String, Pair<ProxyNode, Long>>()
+            var connected: ProxyNode? = null
 
-            suspend fun attempt(node: ProxyNode, limit: Int) {
+            suspend fun attempt(node: ProxyNode) {
                 tried += node.id
                 val found = try {
-                    Pathfinder.find(node, prefs.profileFor(node.id), ordinaryBlocking, checkDns = settings.encryptedDns, limit = limit) { t ->
+                    Pathfinder.find(node, prefs.profileFor(node.id), ordinaryBlocking, checkDns = settings.encryptedDns) { t ->
                         _state.update { it.copy(pathfinding = GalsStep(node.name, t)) }
                     }
                 } finally {
@@ -671,62 +672,63 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     return
                 }
                 prefs.rememberProfile(node.id, profile)
-                chosen = node
+                verified[node.id] = node to found.speedBps
+                if (connected == null) {
+                    connected = node
+                    _state.update { it.copy(gals = false, galsNet = null, refining = true) }
+                    setSelected(node, rememberFor = mode)
+                    connect(node, restart = true)
+                }
             }
 
-            val remembered = mode?.takeIf { settings.modeNodes }?.let { prefs.nodeForMode(it) }
-            val quick = GalsPlan.quick(_state.value.nodes, results.value, _state.value.dead, listOf(remembered, _state.value.selectedNode))
-            val since = System.currentTimeMillis()
-            testAll()
             try {
-                _state.update { it.copy(quick = true) }
-                for (node in quick) {
-                    attempt(node, limit = QUICK_VARIANTS)
-                    if (chosen != null) break
+                val since = System.currentTimeMillis()
+                testAll()
+                var scanned = 0
+                while (scanned < PATH_CANDIDATES) {
+                    val running = testJob?.isActive == true
+                    val node = GalsPlan.next(_state.value.nodes, results.value, _state.value.dead, tried, failedKinds, failedHosts, since)
+                    if (node == null) {
+                        if (!running) break
+                        delay(SCOUT_MS)
+                        continue
+                    }
+                    scanned++
+                    attempt(node)
                 }
+                testJob?.join()
             } finally {
-                _state.update { it.copy(quick = false) }
+                _state.update { it.copy(gals = false, galsNet = null, refining = false) }
             }
 
-            var scanned = 0
-            while (chosen == null && scanned < PATH_CANDIDATES) {
-                val running = testJob?.isActive == true
-                val node = GalsPlan.next(_state.value.nodes, results.value, _state.value.dead, tried, failedKinds, failedHosts, since)
-                if (node == null) {
-                    if (!running) break
-                    delay(SCOUT_MS)
-                    continue
+            val current = connected
+            if (current != null) {
+                val bestId = GalsPlan.fastest(verified.mapValues { it.value.second }) ?: return@launch
+                val (best, bestSpeed) = verified.getValue(bestId)
+                val currentSpeed = verified[current.id]?.second ?: 0L
+                val vpn = VpnBus.state.value
+                val stillOnCurrent = (vpn as? VpnState.Connected)?.node?.id == current.id || (vpn as? VpnState.Connecting)?.node?.id == current.id
+                if (best.id != current.id && stillOnCurrent && GalsPlan.worthSwitching(currentSpeed, bestSpeed)) {
+                    setSelected(best, rememberFor = mode)
+                    connect(best, restart = true)
+                    toast("Галс нашёл узел быстрее: «${splitFlag(best.name).second}»")
                 }
-                scanned++
-                attempt(node, limit = 4)
-            }
-            val test = testJob
-            if (chosen != null) {
-                test?.cancel()
-                viewModelScope.launch {
-                    test?.join()
-                    rebuildNow()
-                }
-            } else {
-                test?.join()
+                return@launch
             }
 
-            _state.update { it.copy(gals = false, galsNet = null) }
-            val target = chosen ?: bestNode()
+            val target = bestNode()
             if (target == null) {
                 toast("Рабочих узлов не нашлось. Обновите источники через Wi-Fi или добавьте свою подписку.")
                 return@launch
             }
-            if (chosen == null) {
-                toast(
-                    when {
-                        telegramBlocked -> "Галс не нашёл узла, через который открывается Telegram: похоже, у проверенных узлов выход в России. Подключаюсь к самому быстрому."
-                        dnsBlocked -> "Галс не нашёл узла, через который работает DNS: адреса сайтов не узнаются. Подключаюсь к самому быстрому."
-                        else -> "Галс не нашёл узла, через который идут данные: похоже, провайдер замораживает соединения. Подключаюсь к самому быстрому."
-                    },
-                )
-            }
-            setSelected(target, rememberFor = mode.takeIf { chosen != null })
+            toast(
+                when {
+                    telegramBlocked -> "Галс не нашёл узла, через который открывается Telegram: похоже, у проверенных узлов выход в России. Подключаюсь к самому быстрому."
+                    dnsBlocked -> "Галс не нашёл узла, через который работает DNS: адреса сайтов не узнаются. Подключаюсь к самому быстрому."
+                    else -> "Галс не нашёл узла, через который идут данные: похоже, провайдер замораживает соединения. Подключаюсь к самому быстрому."
+                },
+            )
+            setSelected(target)
             connect(target, restart = true)
         }
     }
@@ -786,10 +788,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun toggleConnection() {
-        if (_state.value.gals || pathJob?.isActive == true) {
+        if (_state.value.gals) {
             cancelTest()
             return
         }
+        if (_state.value.refining) cancelTest()
         when (VpnBus.state.value) {
             is VpnState.Connected, is VpnState.Connecting -> FarvaterVpnService.stop(getApplication())
             else -> {
@@ -1048,7 +1051,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         private const val FLUSH_MS = 300L
         private const val RECONNECT_DELAY_MS = 1200L
         private const val PATH_CANDIDATES = 8
-        private const val QUICK_VARIANTS = 2
         private const val SCOUT_MS = 300L
 
         private val cachedSnapshots = MutableStateFlow<Map<String, SourceSnapshot>>(emptyMap())

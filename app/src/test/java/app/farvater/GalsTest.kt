@@ -86,13 +86,12 @@ class GalsTest {
     }
 
     @Test
-    fun quickPathTriesRememberedNodeThenKnownFastest() {
-        val nodes = listOf(node("a"), node("b"), node("c"), node("d"))
-        val results = mapOf(alive("b", 300), alive("c", 90), alive("d", 50, method = TestMethod.TCP))
-        val quick = GalsPlan.quick(nodes, results, dead = setOf("c"), preferred = listOf(node("a"), null, node("b")))
-        assertEquals(listOf("a", "b", "d"), quick.map { it.id })
-        val removed = GalsPlan.quick(nodes, results, dead = emptySet(), preferred = listOf(node("gone"), node("a")))
-        assertEquals(listOf("a", "c", "b"), removed.map { it.id })
+    fun galsSwitchesOnlyToClearlyFasterNode() {
+        assertEquals("b", GalsPlan.fastest(mapOf("a" to 400_000L, "b" to 900_000L, "c" to 300_000L)))
+        assertNull(GalsPlan.fastest(emptyMap()))
+        assertTrue(GalsPlan.worthSwitching(currentSpeed = 400_000, bestSpeed = 900_000))
+        assertFalse(GalsPlan.worthSwitching(currentSpeed = 400_000, bestSpeed = 550_000))
+        assertFalse(GalsPlan.worthSwitching(currentSpeed = 400_000, bestSpeed = 400_000))
     }
 
     @Test

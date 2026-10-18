@@ -118,6 +118,8 @@ fun HomeScreen(
 ) {
     val c = Ios.colors
     val mode = when {
+        state.refining && vpn is VpnState.Connected -> ConnectMode.Connected
+        state.refining && vpn is VpnState.Connecting -> ConnectMode.Connecting
         state.gals || state.progress != null || state.pathfinding != null -> ConnectMode.Searching
         state.preflight != null || vpn is VpnState.Connecting -> ConnectMode.Connecting
         vpn is VpnState.Connected -> ConnectMode.Connected
@@ -382,7 +384,6 @@ private fun headline(mode: ConnectMode, state: UiState): String = when (mode) {
     ConnectMode.Idle -> "Не подключено"
     ConnectMode.Searching -> when {
         state.sensing -> "Галс проверяет сеть"
-        state.quick -> "Галс проверяет знакомые узлы"
         state.pathfinding != null -> "Галс ищет рабочие профили"
         state.gals -> "Галс ищет рабочие узлы"
         else -> "Проверяю узлы"
@@ -406,7 +407,7 @@ private fun supporting(mode: ConnectMode, vpn: VpnState, state: UiState, sumie: 
         }.orEmpty()
     }
     ConnectMode.Connecting -> ((vpn as? VpnState.Connecting)?.node ?: state.preflight)?.let { splitFlag(it.name).second }.orEmpty()
-    ConnectMode.Connected -> "Трафик идёт через выбранный узел"
+    ConnectMode.Connected -> if (state.refining) "Галс ещё ищет узел быстрее" else "Трафик идёт через выбранный узел"
     ConnectMode.Error -> (vpn as? VpnState.Failed)?.message ?: "Попробуйте другой узел"
 }
 
