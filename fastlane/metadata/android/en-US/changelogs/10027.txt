@@ -1,0 +1,8 @@
+- Gals connects to the first working node and switches to the fastest one
+- Gals checks Telegram and DNS through the node
+- Origin and Hyper styles and an app icon picker
+- Separate nodes for whitelists and ordinary blocking
+- Auto-connect when the phone starts
+- Unresponsive nodes gather in a Not responding group
+- Seven more Russian apps bypass the VPN
+- Updated privacy policy
