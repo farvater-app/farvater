@@ -207,8 +207,8 @@ class ScreenshotTest {
     private fun openConnection() {
         rule.onNodeWithText("Подключение").performClick()
         rule.mainClock.advanceTimeBy(1_500)
-        repeat(2) {
-            rule.onRoot().performTouchInput { swipeUp() }
+        repeat(3) {
+            rule.onRoot().performTouchInput { swipeUp(startY = height * 0.7f, endY = height * 0.15f) }
             rule.mainClock.advanceTimeBy(1_000)
         }
     }
