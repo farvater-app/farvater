@@ -1,36 +1,43 @@
 {
-  "versionCode": 10026,
-  "versionName": "1.0.26",
-  "published": "15.10.2026",
+  "versionCode": 10027,
+  "versionName": "1.0.27",
+  "published": "18.10.2026",
   "critical": false,
   "notes": [
-    "Обновление внутри приложения работает на Android 9 и 10"
+    "Галс подключается к первому рабочему узлу и переключается на самый быстрый",
+    "Галс проверяет через узел Telegram и DNS",
+    "Стили Origin и Hyper и выбор значка приложения",
+    "Свой узел для белых списков и для обычных блокировок",
+    "Автоподключение при включении телефона",
+    "Неработающие узлы собираются в группу «Не отвечают»",
+    "Ещё семь российских приложений мимо VPN",
+    "Новая редакция политики конфиденциальности"
   ],
   "assets": {
     "arm64-v8a": {
-      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.26/Farvater-1.0.26-arm64-v8a.apk",
-      "sha256": "25fac65a99b07d39b78d4b06488e2ec3de471f45557a68c53aab8ec58a033ab9",
-      "size": 22095343
+      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.27/Farvater-1.0.27-arm64-v8a.apk",
+      "sha256": "657aec13a8ae379d1f1974b97f3b4225f27e0cf8fb91b2cd166c69e1ac540c89",
+      "size": 22326802
     },
     "armeabi-v7a": {
-      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.26/Farvater-1.0.26-armeabi-v7a.apk",
-      "sha256": "27b659f1e7fb243be80814fbe6302e697afa771259d0732233cd6743025870d6",
-      "size": 22647065
+      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.27/Farvater-1.0.27-armeabi-v7a.apk",
+      "sha256": "54152f1b813652dcf6c41216e716fcd215f7e37d3ef10b7d0497e52660a7d9a3",
+      "size": 22878515
     },
     "universal": {
-      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.26/Farvater-1.0.26-universal.apk",
-      "sha256": "5d3068e9d667ec667e9083d1d0edb836e37a26e52472c9b9813ca0ce3b298786",
-      "size": 63957597
+      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.27/Farvater-1.0.27-universal.apk",
+      "sha256": "52d38e5a38cca685de06acaaf6595ad8343b80d426ad06807219067b5f99d4ce",
+      "size": 64189055
     },
     "x86": {
-      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.26/Farvater-1.0.26-x86.apk",
-      "sha256": "836f292bee295f6502f90dddae645c8d1e5b518a509864f1f5632e17ce3cc59c",
-      "size": 23708269
+      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.27/Farvater-1.0.27-x86.apk",
+      "sha256": "3663eb5fd9fae612c368168d87bda6fd8583f952dd9459deec674d0d80fb54f0",
+      "size": 23939723
     },
     "x86_64": {
-      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.26/Farvater-1.0.26-x86_64.apk",
-      "sha256": "7f7b10dc5a8518ba0cbd9a25fdd73cc5cd998f8c26a6cd1f7fa470ea164b1fd8",
-      "size": 23168192
+      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.27/Farvater-1.0.27-x86_64.apk",
+      "sha256": "d6118f71e6b99ed50db250e0294d46e33e2e3e3c5725d50b4995ec5c2a794644",
+      "size": 23399637
     }
   }
 }
