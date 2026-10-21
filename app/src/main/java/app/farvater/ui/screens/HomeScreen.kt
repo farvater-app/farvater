@@ -258,8 +258,6 @@ fun HomeScreen(
                         harmony -> HarmonyConnect(
                             mode = mode,
                             status = tileStatus(mode, state, connectedNode),
-                            downBps = traffic.downBps,
-                            upBps = traffic.upBps,
                             onClick = onToggle,
                         )
                         else -> ConnectButton(mode = mode, onClick = onToggle, size = 184.dp)

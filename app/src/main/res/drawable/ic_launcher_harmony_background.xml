@@ -7,7 +7,7 @@
             <gradient android:type="linear"
                 android:startX="0" android:startY="0"
                 android:endX="108" android:endY="108"
-                android:startColor="#FF4F95FF" android:endColor="#FF0A4FE0" />
+                android:startColor="#FF19C8FF" android:endColor="#FF0A4FE0" />
         </aapt:attr>
     </path>
     <path android:pathData="M-20,-20 a64,64 0 1,0 128,0 a64,64 0 1,0 -128,0 z">

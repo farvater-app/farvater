@@ -9,9 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,8 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowDownward
-import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.CircularProgressIndicator
@@ -44,7 +40,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
@@ -56,10 +51,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.farvater.ui.formatSpeed
 import app.farvater.ui.theme.HarmonyFont
 import app.farvater.ui.theme.Ios
-import app.farvater.ui.theme.Numeric
 
 private val HarmonyCardOn = Color(0xFF0A59F7)
 private val HarmonyCardOnEnd = Color(0xFF2F6EF5)
@@ -68,8 +61,6 @@ private val HarmonyCardOnEnd = Color(0xFF2F6EF5)
 fun HarmonyConnect(
     mode: ConnectMode,
     status: String,
-    downBps: Long,
-    upBps: Long,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -141,7 +132,7 @@ fun HarmonyConnect(
         ConnectMode.Error -> "Повторить подключение"
     }
 
-    Column(modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+    Box(modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Box(
             Modifier
                 .fillMaxWidth()
@@ -203,39 +194,6 @@ fun HarmonyConnect(
                 }
                 Icon(Icons.Rounded.PowerSettingsNew, contentDescription = null, tint = glyph, modifier = Modifier.size(36.dp))
             }
-        }
-        Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            HarmonySpeed(Icons.Rounded.ArrowDownward, "Загрузка", downBps, on, c.green, Modifier.weight(1f))
-            HarmonySpeed(Icons.Rounded.ArrowUpward, "Отдача", upBps, on, c.blue, Modifier.weight(1f))
-        }
-    }
-}
-
-@Composable
-private fun HarmonySpeed(icon: ImageVector, label: String, bps: Long, active: Boolean, color: Color, modifier: Modifier) {
-    val c = Ios.colors
-    val value = if (active) formatSpeed(bps) else "—"
-    Row(
-        modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(c.cell)
-            .semantics(mergeDescendants = true) { contentDescription = if (active) "$label $value" else label }
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.size(32.dp).background(color.copy(alpha = 0.14f), CircleShape), contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
-        }
-        Spacer(Modifier.width(10.dp))
-        Column {
-            Text(label, style = TextStyle(fontFamily = HarmonyFont, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp), color = c.secondaryLabel, maxLines = 1)
-            Text(
-                value,
-                style = TextStyle(fontFamily = HarmonyFont, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 21.sp).merge(Numeric),
-                color = c.label,
-                maxLines = 1,
-            )
         }
     }
 }
