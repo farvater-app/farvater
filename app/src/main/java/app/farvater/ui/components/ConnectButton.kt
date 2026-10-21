@@ -171,8 +171,8 @@ fun ConnectButton(
 
     val description = when (mode) {
         ConnectMode.Idle -> "Подключиться"
-        ConnectMode.Searching -> "Идёт поиск рабочего узла"
-        ConnectMode.Connecting -> "Подключение"
+        ConnectMode.Searching -> "Остановить"
+        ConnectMode.Connecting -> "Отменить подключение"
         ConnectMode.Connected -> "Отключиться"
         ConnectMode.Error -> "Повторить подключение"
     }

@@ -37,7 +37,6 @@ import app.farvater.ui.ios.IosRow
 import app.farvater.ui.ios.IosSheet
 import app.farvater.ui.ios.IosSearchField
 import app.farvater.ui.ios.IosSpinner
-import app.farvater.ui.ios.IosSwitch
 import app.farvater.ui.ios.SectionCorner
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.IosType
@@ -102,8 +101,8 @@ fun BypassAppsSheet(selected: Set<String>, ruApps: Set<String>, onChange: (Set<S
                             IosRow(
                                 title = app.label,
                                 leading = { AppIcon(app.pkg, pm, icons) },
-                                onClick = { toggle(!checked) },
-                                trailing = { IosSwitch(checked, toggle) },
+                                checked = checked,
+                                onCheckedChange = toggle,
                             )
                         }
                         if (index != shown.lastIndex) IosDivider(start = 60.dp)

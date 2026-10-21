@@ -38,8 +38,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -97,6 +98,14 @@ fun StatusIsland(
         }
     }
 
+    val spoken = when (mode) {
+        ConnectMode.Idle -> "VPN выключен"
+        ConnectMode.Searching -> "Идёт поиск рабочего узла"
+        ConnectMode.Connecting -> "Подключение"
+        ConnectMode.Connected -> if (node != null) "Подключено, $node" else "Подключено"
+        ConnectMode.Error -> "Ошибка подключения"
+    }
+
     val state = when (mode) {
         ConnectMode.Idle -> Island.Off
         ConnectMode.Searching, ConnectMode.Connecting -> Island.Busy
@@ -119,7 +128,10 @@ fun StatusIsland(
                 .clip(RoundedCornerShape(50))
                 .background(Color.Black)
                 .then(if (c.dark) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(50)) else Modifier)
-                .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+                .clearAndSetSemantics {
+                    contentDescription = spoken
+                    liveRegion = LiveRegionMode.Polite
+                },
         ) { s ->
             when (s) {
                 Island.Big -> Row(

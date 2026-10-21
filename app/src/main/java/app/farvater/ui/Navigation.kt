@@ -70,6 +70,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -306,6 +307,7 @@ private fun OriginTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick: 
             style = TextStyle(fontFamily = OriginFont, fontWeight = FontWeight.ExtraBold, fontSize = 10.5.sp, lineHeight = 13.sp),
             color = tint,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -395,6 +397,7 @@ private fun HyperTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick: (
             style = TextStyle(fontFamily = HyperFont, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, lineHeight = 14.sp),
             color = tint,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }

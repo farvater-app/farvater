@@ -3,11 +3,8 @@ package app.farvater.ui.components
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -19,6 +16,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -36,7 +34,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,9 +44,9 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -67,11 +64,13 @@ import app.farvater.ui.theme.HyperFont
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.Numeric
 
+private val HyperTileOn = Color(0xFF1A66E0)
+private const val SWEEPS = 2
+
 @Composable
 fun HyperConnect(
     mode: ConnectMode,
     status: String,
-    progress: Float?,
     downBps: Long,
     upBps: Long,
     history: List<Long>,
@@ -85,18 +84,14 @@ fun HyperConnect(
         modifier.fillMaxWidth().padding(horizontal = 16.dp).height(196.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        VpnTile(mode, status, progress, onClick, Modifier.weight(1f).fillMaxHeight())
-        SpeedMeter(downBps, peak, active, Icons.Rounded.ArrowDownward, "Загрузка", c.tint, Modifier.width(74.dp).fillMaxHeight())
-        SpeedMeter(
-            upBps, peak, active, Icons.Rounded.ArrowUpward, "Отдача",
-            lerp(c.tint, if (c.dark) Color.Black else Color.White, 0.35f),
-            Modifier.width(74.dp).fillMaxHeight(),
-        )
+        VpnTile(mode, status, onClick, Modifier.weight(1f).fillMaxHeight())
+        SpeedMeter(downBps, peak, active, Icons.Rounded.ArrowDownward, "Загрузка", c.green, Modifier.width(74.dp).fillMaxHeight())
+        SpeedMeter(upBps, peak, active, Icons.Rounded.ArrowUpward, "Отдача", c.blue, Modifier.width(74.dp).fillMaxHeight())
     }
 }
 
 @Composable
-private fun VpnTile(mode: ConnectMode, status: String, progress: Float?, onClick: () -> Unit, modifier: Modifier) {
+private fun VpnTile(mode: ConnectMode, status: String, onClick: () -> Unit, modifier: Modifier) {
     val c = Ios.colors
     val haptics = LocalHapticFeedback.current
     val still = rememberReduceMotion()
@@ -124,7 +119,7 @@ private fun VpnTile(mode: ConnectMode, status: String, progress: Float?, onClick
 
     val bg by animateColorAsState(
         when (mode) {
-            ConnectMode.Connected -> c.tint
+            ConnectMode.Connected -> HyperTileOn
             ConnectMode.Error -> c.red.copy(alpha = 0.14f).compositeOver(c.cell)
             else -> c.cell
         },
@@ -132,7 +127,7 @@ private fun VpnTile(mode: ConnectMode, status: String, progress: Float?, onClick
         label = "tile",
     )
     val fg by animateColorAsState(if (on) Color.White else c.label, tween(380), label = "fg")
-    val sub by animateColorAsState(if (on) Color.White.copy(alpha = 0.82f) else c.secondaryLabel, tween(380), label = "sub")
+    val sub by animateColorAsState(if (on) Color.White.copy(alpha = 0.95f) else c.secondaryLabel, tween(380), label = "sub")
     val iconBg by animateColorAsState(
         when {
             on -> Color.White.copy(alpha = 0.22f)
@@ -157,22 +152,22 @@ private fun VpnTile(mode: ConnectMode, status: String, progress: Float?, onClick
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.95f else 1f, spring(dampingRatio = 0.5f, stiffness = 500f), label = "press")
-    val sweep by if (on && !still) {
-        rememberInfiniteTransition(label = "sweep").animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(tween(3200, easing = LinearEasing), RepeatMode.Restart),
-            label = "sweep",
-        )
-    } else {
-        remember { mutableFloatStateOf(1f) }
+    val sweep = remember { Animatable(1f) }
+    LaunchedEffect(on, still) {
+        if (on && !still) {
+            repeat(SWEEPS) {
+                sweep.snapTo(0f)
+                sweep.animateTo(1f, tween(3200, easing = LinearEasing))
+            }
+        } else {
+            sweep.snapTo(1f)
+        }
     }
-    val shown by animateFloatAsState(progress ?: 0f, spring(stiffness = 200f), label = "progress")
 
     val description = when (mode) {
         ConnectMode.Idle -> "Подключиться"
-        ConnectMode.Searching -> "Идёт поиск рабочего узла"
-        ConnectMode.Connecting -> "Подключение"
+        ConnectMode.Searching -> "Остановить"
+        ConnectMode.Connecting -> "Отменить подключение"
         ConnectMode.Connected -> "Отключиться"
         ConnectMode.Error -> "Повторить подключение"
     }
@@ -187,18 +182,19 @@ private fun VpnTile(mode: ConnectMode, status: String, progress: Float?, onClick
             .clip(RoundedCornerShape(28.dp))
             .background(bg)
             .drawWithContent {
-                drawContent()
-                if (on && sweep < 0.55f) {
+                val t = sweep.value
+                if (on && t < 0.55f) {
                     val w = size.width
-                    val x = -0.6f * w + 2.2f * w * (sweep / 0.55f)
+                    val x = -0.6f * w + 2.2f * w * (t / 0.55f)
                     drawRect(
                         Brush.linearGradient(
-                            listOf(Color.Transparent, Color.White.copy(alpha = 0.32f), Color.Transparent),
+                            listOf(Color.Transparent, Color.White.copy(alpha = 0.22f), Color.Transparent),
                             start = Offset(x - w * 0.35f, 0f),
                             end = Offset(x + w * 0.35f, size.height),
                         ),
                     )
                 }
+                drawContent()
             }
             .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick)
             .semantics {
@@ -227,18 +223,6 @@ private fun VpnTile(mode: ConnectMode, status: String, progress: Float?, onClick
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (progress != null) {
-                Box(
-                    Modifier
-                        .padding(top = 10.dp)
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(c.fill),
-                ) {
-                    Box(Modifier.fillMaxWidth(shown.coerceIn(0f, 1f)).fillMaxHeight().background(c.tint))
-                }
-            }
         }
     }
 }
@@ -254,11 +238,8 @@ private fun SpeedMeter(
     modifier: Modifier,
 ) {
     val c = Ios.colors
-    val fraction by animateFloatAsState(
-        if (active) (bps.toFloat() / peak).coerceIn(0.05f, 1f) else 0f,
-        spring(dampingRatio = 0.7f, stiffness = 180f),
-        label = "meter",
-    )
+    val target = if (active) (bps.toFloat() / peak).coerceIn(0.05f, 1f) else 0f
+    val fraction = animateFloatAsState(target, spring(dampingRatio = 0.7f, stiffness = 180f), label = "meter")
     val text = if (active) formatSpeed(bps) else ""
     val value = if (active) text.substringBeforeLast(' ') else "—"
     val unit = if (active) text.substringAfterLast(' ') else ""
@@ -268,19 +249,27 @@ private fun SpeedMeter(
             .background(c.fill)
             .semantics(mergeDescendants = true) { contentDescription = if (active) "$label $text" else label },
     ) {
-        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(fraction).background(color))
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleY = fraction.value
+                    transformOrigin = TransformOrigin(0.5f, 1f)
+                }
+                .background(color),
+        )
         Column(Modifier.align(Alignment.TopCenter).padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 value,
                 style = TextStyle(fontFamily = HyperFont, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 20.sp).merge(Numeric),
-                color = if (fraction > 0.84f) Color.White else c.label,
+                color = if (target > 0.84f) Color.White else c.label,
                 maxLines = 1,
             )
             if (unit.isNotEmpty()) {
                 Text(
                     unit,
                     style = TextStyle(fontFamily = HyperFont, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 14.sp),
-                    color = if (fraction > 0.76f) Color.White.copy(alpha = 0.85f) else c.secondaryLabel,
+                    color = if (target > 0.76f) Color.White else c.secondaryLabel,
                     maxLines = 1,
                 )
             }
@@ -288,7 +277,7 @@ private fun SpeedMeter(
         Icon(
             icon,
             contentDescription = null,
-            tint = if (fraction > 0.16f) Color.White else c.secondaryLabel,
+            tint = if (target > 0.16f) Color.White else c.secondaryLabel,
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp).size(22.dp),
         )
     }

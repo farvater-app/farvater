@@ -182,8 +182,8 @@ fun SumieHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modif
     val press by animateFloatAsState(if (pressed) 0.97f else 1f, spring(dampingRatio = 0.6f, stiffness = 600f), label = "press")
     val description = when (mode) {
         ConnectMode.Idle -> "Подключиться"
-        ConnectMode.Searching -> "Идёт поиск рабочего узла"
-        ConnectMode.Connecting -> "Подключение"
+        ConnectMode.Searching -> "Остановить"
+        ConnectMode.Connecting -> "Отменить подключение"
         ConnectMode.Connected -> "Отключиться"
         ConnectMode.Error -> "Повторить подключение"
     }

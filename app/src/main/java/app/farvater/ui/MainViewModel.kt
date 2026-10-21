@@ -852,7 +852,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun toggleConnection() {
-        if (_state.value.gals) {
+        if (_state.value.gals || (_state.value.progress != null && !_state.value.refining)) {
             cancelTest()
             return
         }

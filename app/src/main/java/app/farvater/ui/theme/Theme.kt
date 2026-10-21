@@ -343,9 +343,9 @@ private val OriginLight = lightColorScheme(
     primaryContainer = Color(0xFFDDE1FF), onPrimaryContainer = Color(0xFF0A1060),
     secondary = Color(0xFF5A5F7A), onSecondary = Color.White,
     secondaryContainer = Color(0xFFE2E5F6), onSecondaryContainer = Color(0xFF171B2E),
-    tertiary = Color(0xFF0FA866), onTertiary = Color.White,
+    tertiary = Color(0xFF0A7A48), onTertiary = Color.White,
     tertiaryContainer = Color(0xFFC8F5DE), onTertiaryContainer = Color(0xFF002112),
-    error = Color(0xFFE5384A), onError = Color.White,
+    error = Color(0xFFD02A3C), onError = Color.White,
     errorContainer = Color(0xFFFFDADB), onErrorContainer = Color(0xFF41000A),
     background = Color(0xFFEEF1F7), onBackground = Color(0xFF0E1220),
     surface = Color(0xFFEEF1F7), onSurface = Color(0xFF0E1220),
@@ -365,12 +365,12 @@ private fun originColors(s: ColorScheme, dark: Boolean): IosColors = materialCol
     highlight = if (dark) Color(0xFF1F2230) else Color(0xFFE9ECF4),
     bar = if (dark) Color(0xF2161822) else Color(0xF2FFFFFF),
     tint = s.primary,
-    green = if (dark) Color(0xFF2FD891) else Color(0xFF0FA866),
+    green = if (dark) Color(0xFF2FD891) else Color(0xFF0A7A48),
     blue = s.primary,
     indigo = if (dark) Color(0xFFA7B2FF) else Color(0xFF5B4CF0),
 )
 
-val HyperBlue = Color(0xFF3482FF)
+val HyperBlue = Color(0xFF1A66E0)
 val HyperBlueNight = Color(0xFF4D94FF)
 
 val HyperFont = FontFamily(
@@ -384,13 +384,13 @@ private val HyperLight = lightColorScheme(
     primaryContainer = Color(0xFFDCE8FF), onPrimaryContainer = Color(0xFF00214F),
     secondary = Color(0xFF5E6470), onSecondary = Color.White,
     secondaryContainer = Color(0xFFE6E8ED), onSecondaryContainer = Color(0xFF191C22),
-    tertiary = Color(0xFF1FC16B), onTertiary = Color.White,
+    tertiary = Color(0xFF13803F), onTertiary = Color.White,
     tertiaryContainer = Color(0xFFC9F4DA), onTertiaryContainer = Color(0xFF00210E),
-    error = Color(0xFFF5483B), onError = Color.White,
+    error = Color(0xFFC8291D), onError = Color.White,
     errorContainer = Color(0xFFFFDAD6), onErrorContainer = Color(0xFF410002),
     background = Color(0xFFF3F4F7), onBackground = Color(0xFF111114),
     surface = Color(0xFFF3F4F7), onSurface = Color(0xFF111114),
-    surfaceVariant = Color(0xFFE6E8ED), onSurfaceVariant = Color(0xFF7B7E86),
+    surfaceVariant = Color(0xFFE6E8ED), onSurfaceVariant = Color(0xFF6A6D75),
     outline = Color(0xFFA2A5AD), outlineVariant = Color(0xFFE3E5EA),
     inverseSurface = Color(0xFF1F2024), inverseOnSurface = Color(0xFFF3F4F7), inversePrimary = Color(0xFFA9C7FF),
     surfaceTint = Color.Transparent, scrim = Color.Black,
@@ -429,7 +429,7 @@ private fun hyperColors(s: ColorScheme, dark: Boolean): IosColors = materialColo
     fill = if (dark) Color(0xFF242428) else Color(0xFFE6E8ED),
     bar = if (dark) Color(0xFA0D0D0F) else Color(0xFAFFFFFF),
     tint = s.primary,
-    green = if (dark) Color(0xFF2FD27A) else Color(0xFF1FC16B),
+    green = if (dark) Color(0xFF2FD27A) else Color(0xFF13803F),
     blue = s.primary,
 )
 

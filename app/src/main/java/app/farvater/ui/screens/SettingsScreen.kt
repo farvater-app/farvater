@@ -82,9 +82,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -132,7 +133,6 @@ import app.farvater.ui.ios.IosRow
 import app.farvater.ui.ios.IosSection
 import app.farvater.ui.ios.IosSegmented
 import app.farvater.ui.ios.IosSpinner
-import app.farvater.ui.ios.IosSwitch
 import app.farvater.ui.ios.SheetCorner
 import app.farvater.R
 import app.farvater.ui.theme.HyperBlue
@@ -142,7 +142,9 @@ import app.farvater.ui.theme.NothingRed
 import app.farvater.ui.theme.OriginBlue
 import app.farvater.ui.theme.RkpBlue
 import app.farvater.ui.theme.SumieSeal
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val TestUrls = listOf(
     "https://www.gstatic.com/generate_204" to "Google, по умолчанию",
@@ -170,6 +172,8 @@ fun SettingsScreen(
     settings: AppSettings,
     onChange: ((AppSettings) -> AppSettings) -> Unit,
     onOpenDocument: (String) -> Unit,
+    pageName: String? = null,
+    onPageName: ((String?) -> Unit)? = null,
     hwid: String = "",
     onCopied: () -> Unit = {},
     updateVersion: String? = null,
@@ -177,12 +181,14 @@ fun SettingsScreen(
     onCheckUpdates: () -> Unit = {},
     duplicates: Int = 0,
 ) {
-    var page by rememberSaveable { mutableStateOf<SettingsPage?>(null) }
+    var localPage by rememberSaveable { mutableStateOf<String?>(null) }
+    val page = (if (onPageName != null) pageName else localPage)?.let { name -> SettingsPage.entries.firstOrNull { it.name == name } }
+    val openPage: (SettingsPage?) -> Unit = { next -> if (onPageName != null) onPageName(next?.name) else localPage = next?.name }
     val context = LocalContext.current
     var appIcon by remember { mutableStateOf(AppIcons.selected(context)) }
     var showApps by remember { mutableStateOf(false) }
     var showChangelog by remember { mutableStateOf(false) }
-    BackHandler(enabled = page != null) { page = null }
+    BackHandler(enabled = page != null) { openPage(null) }
 
     AnimatedContent(
         targetState = page,
@@ -204,10 +210,10 @@ fun SettingsScreen(
                 settings = settings,
                 appIcon = appIcon,
                 updateVersion = updateVersion,
-                onOpen = { page = it },
+                onOpen = { openPage(it) },
                 onChangelog = { showChangelog = true },
             )
-            else -> IosPushedPage(title = current.title, backTitle = "Настройки", onBack = { page = null }) {
+            else -> IosPushedPage(title = current.title, backTitle = "Настройки", onBack = { openPage(null) }) {
                 when (current) {
                     SettingsPage.Appearance -> AppearancePage(settings, onChange, appIcon) { icon ->
                         AppIcons.choose(context, icon)
@@ -551,9 +557,8 @@ private fun AppearancePage(
         ) {
             IosRow(
                 title = "Цвета обоев",
-                trailing = {
-                    IosSwitch(settings.dynamicColor, { v -> onChange { it.copy(dynamicColor = v) } })
-                },
+                checked = settings.dynamicColor,
+                onCheckedChange = { v -> onChange { it.copy(dynamicColor = v) } },
             )
         }
     }
@@ -573,8 +578,9 @@ private val ThemeChoices = listOf(
 private fun ConnectionPage(settings: AppSettings, onChange: ((AppSettings) -> AppSettings) -> Unit, onApps: () -> Unit) {
     val c = Ios.colors
     val context = LocalContext.current
-    val bypassCount = remember(settings.bypassApps, settings.directRuServices) {
-        context.installedCount(if (settings.directRuServices) settings.bypassApps + RuApps.packages else settings.bypassApps)
+    val bypassCount by produceState<Int?>(null, settings.bypassApps, settings.directRuServices) {
+        val packages = if (settings.directRuServices) settings.bypassApps + RuApps.packages else settings.bypassApps
+        value = withContext(Dispatchers.IO) { context.installedCount(packages) }
     }
     IosSection(
         footer = "Сайты и приложения банков, Госуслуг, Яндекса, VK и маркетплейсов работают напрямую, как без VPN: " +
@@ -582,17 +588,20 @@ private fun ConnectionPage(settings: AppSettings, onChange: ((AppSettings) -> Ap
     ) {
         IosRow(
             title = "Российские сервисы",
+            titleLines = 2,
             icon = Icons.Rounded.AccountBalance,
             iconTint = c.green,
-            trailing = { IosSwitch(settings.directRuServices, { v -> onChange { it.copy(directRuServices = v) } }) },
+            checked = settings.directRuServices,
+            onCheckedChange = { v -> onChange { it.copy(directRuServices = v) } },
         )
     }
     IosSection(footer = "Выбранные приложения ходят в интернет напрямую. Пригодится, если приложение не работает через VPN.") {
         IosRow(
             title = "Приложения мимо VPN",
+            titleLines = 2,
             icon = Icons.Rounded.Apps,
             iconTint = c.indigo,
-            value = if (bypassCount == 0) "нет" else bypassCount.toString(),
+            value = bypassCount?.let { if (it == 0) "нет" else it.toString() },
             chevron = true,
             onClick = onApps,
         )
@@ -607,7 +616,8 @@ private fun ConnectionPage(settings: AppSettings, onChange: ((AppSettings) -> Ap
             titleLines = 2,
             icon = Icons.Rounded.SwapHoriz,
             iconTint = c.teal,
-            trailing = { IosSwitch(settings.modeNodes, { v -> onChange { it.copy(modeNodes = v) } }) },
+            checked = settings.modeNodes,
+            onCheckedChange = { v -> onChange { it.copy(modeNodes = v) } },
         )
     }
     IosSection(
@@ -625,7 +635,8 @@ private fun ConnectionPage(settings: AppSettings, onChange: ((AppSettings) -> Ap
             subtitleLines = Int.MAX_VALUE,
             icon = Icons.Rounded.PowerSettingsNew,
             iconTint = c.green,
-            trailing = { IosSwitch(settings.autoStart, { v -> onChange { it.copy(autoStart = v) } }) },
+            checked = settings.autoStart,
+            onCheckedChange = { v -> onChange { it.copy(autoStart = v) } },
         )
         IosDivider(start = Divider.dp)
         IosRow(
@@ -667,11 +678,13 @@ private fun SecurityPage(settings: AppSettings, onChange: ((AppSettings) -> AppS
     ) {
         IosRow(
             title = "Только защищённые узлы",
+            titleLines = 2,
             subtitle = "В публичных подписках скрывать узлы без шифрования, со старым шифрованием или без проверки сертификата",
             subtitleLines = Int.MAX_VALUE,
             icon = Icons.Rounded.GppGood,
             iconTint = c.green,
-            trailing = { IosSwitch(settings.safeMode, { v -> onChange { it.copy(safeMode = v) } }) },
+            checked = settings.safeMode,
+            onCheckedChange = { v -> onChange { it.copy(safeMode = v) } },
         )
         IosDivider(start = divider)
         IosRow(
@@ -679,7 +692,8 @@ private fun SecurityPage(settings: AppSettings, onChange: ((AppSettings) -> AppS
             subtitle = "Адреса сайтов узнаются по HTTPS, сервер не сможет подменить их",
             icon = Icons.Rounded.Dns,
             iconTint = c.blue,
-            trailing = { IosSwitch(settings.encryptedDns, { v -> onChange { it.copy(encryptedDns = v) } }) },
+            checked = settings.encryptedDns,
+            onCheckedChange = { v -> onChange { it.copy(encryptedDns = v) } },
         )
     }
 }
@@ -702,7 +716,8 @@ private fun SubscriptionsPage(
             title = "Отправлять HWID",
             icon = Icons.Rounded.PhoneAndroid,
             iconTint = c.indigo,
-            trailing = { IosSwitch(settings.sendHwid, { v -> onChange { it.copy(sendHwid = v) } }) },
+            checked = settings.sendHwid,
+            onCheckedChange = { v -> onChange { it.copy(sendHwid = v) } },
         )
         IosDivider(start = Divider.dp)
         IosRow(
@@ -731,7 +746,8 @@ private fun TestingPage(settings: AppSettings, onChange: ((AppSettings) -> AppSe
             titleLines = 2,
             icon = Icons.Rounded.CloudOff,
             iconTint = c.red,
-            trailing = { IosSwitch(settings.groupDead, { v -> onChange { it.copy(groupDead = v) } }) },
+            checked = settings.groupDead,
+            onCheckedChange = { v -> onChange { it.copy(groupDead = v) } },
         )
     }
     IosSection(
@@ -746,7 +762,8 @@ private fun TestingPage(settings: AppSettings, onChange: ((AppSettings) -> AppSe
             title = "Скрывать неработающие",
             icon = Icons.Rounded.VisibilityOff,
             iconTint = c.gray,
-            trailing = { IosSwitch(settings.hideDead, { v -> onChange { it.copy(hideDead = v) } }) },
+            checked = settings.hideDead,
+            onCheckedChange = { v -> onChange { it.copy(hideDead = v) } },
         )
         IosDivider(start = Divider.dp)
         IosRow(
@@ -754,7 +771,8 @@ private fun TestingPage(settings: AppSettings, onChange: ((AppSettings) -> AppSe
             subtitle = "Быстрые узлы поднимаются наверх сразу",
             icon = Icons.AutoMirrored.Rounded.Sort,
             iconTint = c.teal,
-            trailing = { IosSwitch(settings.liveSort, { v -> onChange { it.copy(liveSort = v) } }) },
+            checked = settings.liveSort,
+            onCheckedChange = { v -> onChange { it.copy(liveSort = v) } },
         )
         IosDivider(start = Divider.dp)
         IosRow(
@@ -766,7 +784,8 @@ private fun TestingPage(settings: AppSettings, onChange: ((AppSettings) -> AppSe
             },
             icon = Icons.Rounded.ContentCopy,
             iconTint = c.indigo,
-            trailing = { IosSwitch(settings.dropDuplicates, { v -> onChange { it.copy(dropDuplicates = v) } }) },
+            checked = settings.dropDuplicates,
+            onCheckedChange = { v -> onChange { it.copy(dropDuplicates = v) } },
         )
     }
     IosSection(
@@ -868,7 +887,8 @@ private fun UpdatesPage(
             subtitle = "Уведомлять о новых версиях и срочных исправлениях",
             icon = Icons.Rounded.NotificationsActive,
             iconTint = c.red,
-            trailing = { IosSwitch(settings.autoUpdates, { v -> onChange { it.copy(autoUpdates = v) } }) },
+            checked = settings.autoUpdates,
+            onCheckedChange = { v -> onChange { it.copy(autoUpdates = v) } },
         )
     }
     IosSection {

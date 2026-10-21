@@ -39,6 +39,7 @@ fun FarvaterRoot(vm: MainViewModel) {
     val state by vm.state.collectAsStateWithLifecycle()
 
     var tab by rememberSaveable { mutableStateOf(Tab.Home) }
+    var settingsPage by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler(enabled = tab != Tab.Home) { tab = Tab.Home }
     var reopenOnboarding by remember { mutableStateOf(false) }
     var openDocument by remember { mutableStateOf<String?>(null) }
@@ -108,6 +109,8 @@ fun FarvaterRoot(vm: MainViewModel) {
                     settings = state.settings,
                     onChange = vm::updateSettings,
                     onOpenDocument = { openDocument = it },
+                    pageName = settingsPage,
+                    onPageName = { settingsPage = it },
                     hwid = vm.hwid,
                     onCopied = { vm.showMessage("HWID скопирован") },
                     updateVersion = state.update?.versionName,

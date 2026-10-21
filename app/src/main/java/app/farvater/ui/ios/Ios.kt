@@ -106,6 +106,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -373,10 +376,13 @@ fun IosRow(
     titleColor: Color? = null,
     onLongClick: (() -> Unit)? = null,
     onClick: (() -> Unit)? = null,
+    checked: Boolean? = null,
+    onCheckedChange: ((Boolean) -> Unit)? = null,
     trailing: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val c = Ios.colors
     val material = Ios.material
+    val haptics = LocalHapticFeedback.current
     val showChevron = chevron && !material
     val titleStyle = if (material) MaterialTheme.typography.bodyLarge else IosType.body
     val subtitleStyle = if (material) MaterialTheme.typography.bodyMedium else IosType.footnote
@@ -385,7 +391,16 @@ fun IosRow(
     Row(
         modifier
             .fillMaxWidth()
-            .then(if (onClick != null) Modifier.iosRowPress(onLongClick, onClick) else Modifier)
+            .then(
+                when {
+                    checked != null && onCheckedChange != null -> Modifier.toggleable(value = checked, role = Role.Switch) {
+                        haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
+                        onCheckedChange(it)
+                    }
+                    onClick != null -> Modifier.iosRowPress(onLongClick, onClick)
+                    else -> Modifier
+                },
+            )
             .heightIn(min = if (material) 56.dp else 50.dp)
             .padding(start = 16.dp, end = if (showChevron) 10.dp else 16.dp, top = vertical, bottom = vertical),
         verticalAlignment = Alignment.CenterVertically,
@@ -418,6 +433,10 @@ fun IosRow(
             Spacer(Modifier.width(8.dp))
             trailing()
         }
+        if (checked != null) {
+            Spacer(Modifier.width(8.dp))
+            IosSwitch(checked, null)
+        }
         if (showChevron) {
             Spacer(Modifier.width(4.dp))
             Icon(
@@ -441,9 +460,15 @@ fun IosChoiceRow(
 ) {
     val c = Ios.colors
     val radio = if (Ios.nothing) RadioButtonDefaults.colors(selectedColor = c.red) else RadioButtonDefaults.colors()
+    val chosen = selected
+    val choice = Modifier.semantics {
+        this.selected = chosen
+        role = Role.RadioButton
+    }
     if (Ios.material && icon == null) {
         IosRow(
             title = title,
+            modifier = choice,
             subtitle = subtitle,
             subtitleLines = Int.MAX_VALUE,
             onClick = onClick,
@@ -452,6 +477,7 @@ fun IosChoiceRow(
     } else {
         IosRow(
             title = title,
+            modifier = choice,
             subtitle = subtitle,
             subtitleLines = Int.MAX_VALUE,
             onClick = onClick,
@@ -460,7 +486,7 @@ fun IosChoiceRow(
             trailing = {
                 when {
                     Ios.material -> RadioButton(selected = selected, onClick = null, colors = radio)
-                    selected -> Icon(Icons.Rounded.Check, contentDescription = "Выбрано", tint = c.tint, modifier = Modifier.size(22.dp))
+                    selected -> Icon(Icons.Rounded.Check, contentDescription = null, tint = c.tint, modifier = Modifier.size(22.dp))
                 }
             },
         )
@@ -468,15 +494,17 @@ fun IosChoiceRow(
 }
 
 @Composable
-fun IosSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+fun IosSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier: Modifier = Modifier) {
     val c = Ios.colors
     val haptics = LocalHapticFeedback.current
     if (Ios.material) {
         Switch(
             checked = checked,
-            onCheckedChange = {
-                haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
-                onCheckedChange(it)
+            onCheckedChange = onCheckedChange?.let { change ->
+                {
+                    haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
+                    change(it)
+                }
             },
             modifier = modifier,
             colors = if (Ios.nothing) {
@@ -512,14 +540,20 @@ fun IosSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Mo
             .size(62.dp, 28.dp)
             .clip(CircleShape)
             .background(lerp(c.fill, c.green, progress))
-            .toggleable(
-                value = checked,
-                interactionSource = interaction,
-                indication = null,
-                role = Role.Switch,
-                onValueChange = {
-                    haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
-                    onCheckedChange(it)
+            .then(
+                if (onCheckedChange == null) {
+                    Modifier
+                } else {
+                    Modifier.toggleable(
+                        value = checked,
+                        interactionSource = interaction,
+                        indication = null,
+                        role = Role.Switch,
+                        onValueChange = {
+                            haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
+                            onCheckedChange(it)
+                        },
+                    )
                 },
             )
             .padding(2.dp),

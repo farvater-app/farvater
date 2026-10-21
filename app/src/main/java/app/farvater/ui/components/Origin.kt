@@ -53,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -70,6 +71,10 @@ import androidx.compose.ui.unit.dp
 import app.farvater.ui.ios.originRim
 import app.farvater.ui.theme.EaseInOut
 import app.farvater.ui.theme.Ios
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+private const val ORIGIN_CALM_MS = 10_400L
 
 @Composable
 fun OriginTile(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
@@ -129,8 +134,8 @@ fun OriginConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = M
         when (mode) {
             ConnectMode.Idle -> if (c.dark) Color(0xFF2C3242) else Color.White
             ConnectMode.Searching, ConnectMode.Connecting -> Color(0xFF6E86FF)
-            ConnectMode.Connected -> Color(0xFF36E39B)
-            ConnectMode.Error -> Color(0xFFFF7A7F)
+            ConnectMode.Connected -> Color(0xFF0E9A5C)
+            ConnectMode.Error -> Color(0xFFE5484D)
         },
         soft,
         label = "top",
@@ -139,8 +144,8 @@ fun OriginConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = M
         when (mode) {
             ConnectMode.Idle -> if (c.dark) Color(0xFF161921) else Color(0xFFE2E7F2)
             ConnectMode.Searching, ConnectMode.Connecting -> Color(0xFF3149E8)
-            ConnectMode.Connected -> Color(0xFF0FA866)
-            ConnectMode.Error -> Color(0xFFE5384A)
+            ConnectMode.Connected -> Color(0xFF0B8A53)
+            ConnectMode.Error -> Color(0xFFC42638)
         },
         soft,
         label = "bottom",
@@ -153,14 +158,20 @@ fun OriginConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = M
     val squashX by animateFloatAsState(if (pressed) 0.9f else 1f, spring(dampingRatio = 0.36f, stiffness = 420f), label = "squashX")
     val squashY by animateFloatAsState(if (pressed) 0.84f else 1f, spring(dampingRatio = 0.36f, stiffness = 420f), label = "squashY")
 
-    val breath by originLoop(!still, 2600, EaseInOut, RepeatMode.Reverse, "breath")
+    var calm by remember { mutableStateOf(false) }
+    LaunchedEffect(mode) {
+        calm = false
+        delay(ORIGIN_CALM_MS)
+        calm = true
+    }
+    val breath by originLoop(!still && !calm, 2600, EaseInOut, RepeatMode.Reverse, "breath")
     val orbit by originLoop(busy && !still, 1100, LinearEasing, RepeatMode.Restart, "orbit")
-    val ripple by originLoop(mode == ConnectMode.Connected && !still, 2400, FastOutSlowInEasing, RepeatMode.Restart, "ripple")
+    val ripple by originLoop(mode == ConnectMode.Connected && !still && !calm, 2400, FastOutSlowInEasing, RepeatMode.Restart, "ripple")
 
     val description = when (mode) {
         ConnectMode.Idle -> "Подключиться"
-        ConnectMode.Searching -> "Идёт поиск рабочего узла"
-        ConnectMode.Connecting -> "Подключение"
+        ConnectMode.Searching -> "Остановить"
+        ConnectMode.Connecting -> "Отменить подключение"
         ConnectMode.Connected -> "Отключиться"
         ConnectMode.Error -> "Повторить подключение"
     }
@@ -260,19 +271,24 @@ fun OriginBars(values: List<Long>, color: Color, modifier: Modifier = Modifier, 
     val tail = values.takeLast(count)
     val max = (tail.maxOrNull() ?: 0L).coerceAtLeast(1L).toFloat()
     val offset = count - tail.size
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.Bottom) {
-        repeat(count) { i ->
+    val active = List(count) { i -> (tail.getOrNull(i - offset) ?: 0L) > 0 }
+    val heights = remember(count) { List(count) { Animatable(0.08f) } }
+    LaunchedEffect(tail, max) {
+        heights.forEachIndexed { i, h ->
             val v = tail.getOrNull(i - offset) ?: 0L
-            val h by animateFloatAsState(
-                (v / max).coerceIn(0.08f, 1f),
-                spring(dampingRatio = 0.55f, stiffness = 300f),
-                label = "bar",
-            )
-            Box(
-                Modifier
-                    .weight(1f)
-                    .fillMaxHeight(h)
-                    .background(if (v > 0) color else c.fill, RoundedCornerShape(50)),
+            launch { h.animateTo((v / max).coerceIn(0.08f, 1f), spring(dampingRatio = 0.55f, stiffness = 300f)) }
+        }
+    }
+    Canvas(modifier) {
+        val gap = 4.dp.toPx()
+        val w = (size.width - gap * (count - 1)) / count
+        heights.forEachIndexed { i, h ->
+            val bar = size.height * h.value
+            drawRoundRect(
+                color = if (active[i]) color else c.fill,
+                topLeft = Offset(i * (w + gap), size.height - bar),
+                size = Size(w, bar),
+                cornerRadius = CornerRadius(w / 2),
             )
         }
     }

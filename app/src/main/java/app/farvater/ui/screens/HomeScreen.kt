@@ -248,7 +248,6 @@ fun HomeScreen(
                         hyper -> HyperConnect(
                             mode = mode,
                             status = tileStatus(mode, state, connectedNode),
-                            progress = state.progress?.let { if (it.total == 0) 0f else it.done.toFloat() / it.total },
                             downBps = traffic.downBps,
                             upBps = traffic.upBps,
                             history = history,
@@ -368,7 +367,7 @@ private fun shortStatus(mode: ConnectMode): String = when (mode) {
 
 private fun tileStatus(mode: ConnectMode, state: UiState, node: String?): String = when (mode) {
     ConnectMode.Idle -> "Выключен"
-    ConnectMode.Searching -> state.progress?.let { "Проверено ${it.done} из ${it.total}" } ?: "Поиск"
+    ConnectMode.Searching -> "Поиск"
     ConnectMode.Connecting -> "Подключение"
     ConnectMode.Connected -> node ?: "Защищено"
     ConnectMode.Error -> "Ошибка"
