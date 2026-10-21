@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.farvater.ui.formatDuration
 import app.farvater.ui.formatSpeed
+import app.farvater.ui.theme.HarmonyFont
 import app.farvater.ui.theme.HyperFont
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.Numeric
@@ -70,7 +71,11 @@ fun StatusIsland(
 ) {
     val c = Ios.colors
     val hyper = Ios.hyper
-    val font = if (hyper) HyperFont else OriginFont
+    val font = when {
+        hyper -> HyperFont
+        Ios.harmony -> HarmonyFont
+        else -> OriginFont
+    }
     val text = TextStyle(fontFamily = font, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, lineHeight = 16.sp, color = Color.White)
 
     var big by remember { mutableStateOf(false) }

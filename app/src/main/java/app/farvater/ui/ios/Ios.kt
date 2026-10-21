@@ -181,6 +181,7 @@ val SectionCorner = 24.dp
 fun sectionCorner(): Dp = when {
     Ios.origin -> 26.dp
     Ios.hyper -> 22.dp
+    Ios.harmony -> 20.dp
     else -> SectionCorner
 }
 
@@ -298,7 +299,7 @@ fun IosSection(
             header != null && material -> Text(
                 header,
                 style = MaterialTheme.typography.titleSmall,
-                color = if (Ios.hyper) c.secondaryLabel else c.tint,
+                color = if (Ios.hyper || Ios.harmony) c.secondaryLabel else c.tint,
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
             )
             header != null -> Text(

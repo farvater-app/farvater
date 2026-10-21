@@ -53,6 +53,7 @@ import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.DonutLarge
 import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.GppGood
@@ -135,6 +136,7 @@ import app.farvater.ui.ios.IosSegmented
 import app.farvater.ui.ios.IosSpinner
 import app.farvater.ui.ios.SheetCorner
 import app.farvater.R
+import app.farvater.ui.theme.HarmonyBlue
 import app.farvater.ui.theme.HyperBlue
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.IosType
@@ -299,6 +301,7 @@ private fun SettingsRoot(
                         UiStyle.NOTHING -> "Nothing"
                         UiStyle.ORIGIN -> "Origin"
                         UiStyle.HYPER -> "Hyper"
+                        UiStyle.HARMONY -> "Harmony"
                     },
                     chevron = true,
                     onClick = { onOpen(SettingsPage.Appearance) },
@@ -535,6 +538,15 @@ private fun AppearancePage(
             icon = Icons.Rounded.Bolt,
             iconTint = HyperBlue,
             onClick = { onChange { it.copy(uiStyle = UiStyle.HYPER) } },
+        )
+        IosDivider(start = divider)
+        IosChoiceRow(
+            title = "Harmony",
+            subtitle = "Большая карточка VPN, капсула статуса сверху и фирменный синий, как в HarmonyOS",
+            selected = settings.uiStyle == UiStyle.HARMONY,
+            icon = Icons.Rounded.DonutLarge,
+            iconTint = HarmonyBlue,
+            onClick = { onChange { it.copy(uiStyle = UiStyle.HARMONY) } },
         )
     }
 

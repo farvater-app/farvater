@@ -196,6 +196,25 @@ class ScreenshotTest {
         Settings(Fake.state.settings.copy(uiStyle = UiStyle.HYPER))
     }
 
+    @Test fun harmonyIdleLight() = shot("81_harmony_home_idle_light", dark = false, style = UiStyle.HARMONY) { Home(VpnState.Idle) }
+    @Test fun harmonyIdleDark() = shot("81_harmony_home_idle_dark", dark = true, style = UiStyle.HARMONY) { Home(VpnState.Idle) }
+    @Test fun harmonyConnectedLight() = shot("82_harmony_home_connected_light", dark = false, style = UiStyle.HARMONY) { Home(Fake.connected) }
+    @Test fun harmonyConnectedDark() = shot("82_harmony_home_connected_dark", dark = true, style = UiStyle.HARMONY) { Home(Fake.connected) }
+    @Test fun harmonySearchingDark() = shot("83_harmony_home_searching_dark", dark = true, style = UiStyle.HARMONY) {
+        Home(VpnState.Idle, Fake.state.copy(progress = TestProgress(37, 120, 9)))
+    }
+    @Test fun harmonyErrorLight() = shot("84_harmony_home_error_light", dark = false, style = UiStyle.HARMONY) {
+        Home(VpnState.Failed("Узел не ответил", Fake.state.nodes.first()))
+    }
+    @Test fun harmonyServersDark() = shot("85_harmony_servers_dark", dark = true, style = UiStyle.HARMONY) { Servers() }
+    @Test fun harmonySourcesLight() = shot("86_harmony_sources_light", dark = false, style = UiStyle.HARMONY) { Sources() }
+    @Test fun harmonyAppearanceDark() = shot("87_harmony_appearance_dark", dark = true, style = UiStyle.HARMONY, act = ::openAppearance) {
+        Settings(Fake.state.settings.copy(uiStyle = UiStyle.HARMONY))
+    }
+    @Test fun harmonyAppIconsLight() = shot("88_harmony_app_icons_light", dark = false, style = UiStyle.HARMONY, act = { openAppIcons(aboveBar = true) }) {
+        Settings(Fake.state.settings.copy(uiStyle = UiStyle.HARMONY))
+    }
+
     @Test fun nothingConnectionLargeFontDark() = shot(
         "54_nothing_connection_large_font_dark", dark = true, nothing = true, fontScale = 1.3f, act = { openConnection(swipes = 2) },
     ) { Settings(Fake.state.settings.copy(uiStyle = UiStyle.NOTHING)) }

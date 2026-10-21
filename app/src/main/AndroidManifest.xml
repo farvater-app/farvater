@@ -169,6 +169,19 @@
             </intent-filter>
         </activity-alias>
 
+        <activity-alias
+            android:name=".IconHarmony"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_harmony"
+            android:roundIcon="@mipmap/ic_launcher_harmony"
+            android:targetActivity=".FarvaterActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
         <service
             android:name=".vpn.FarvaterVpnService"
             android:exported="false"

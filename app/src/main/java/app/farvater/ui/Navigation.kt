@@ -5,6 +5,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -85,6 +86,7 @@ import app.farvater.ui.ios.glassSource
 import app.farvater.ui.ios.liquidGlass
 import app.farvater.ui.ios.originRim
 import app.farvater.ui.ios.rememberGlassBackdrop
+import app.farvater.ui.theme.HarmonyFont
 import app.farvater.ui.theme.HyperFont
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.IosType
@@ -115,6 +117,7 @@ internal fun FarvaterFrame(
         Ios.nothing -> NothingFrame(tab, onTab, snackbar, content)
         Ios.origin -> OriginFrame(tab, onTab, snackbar, content)
         Ios.hyper -> HyperFrame(tab, onTab, snackbar, content)
+        Ios.harmony -> HarmonyFrame(tab, onTab, snackbar, content)
         Ios.material -> MaterialFrame(tab, onTab, snackbar, content)
         else -> GlassFrame(tab, onTab, snackbar, content)
     }
@@ -395,6 +398,84 @@ private fun HyperTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick: (
         Text(
             tab.title,
             style = TextStyle(fontFamily = HyperFont, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, lineHeight = 14.sp),
+            color = tint,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun HarmonyFrame(
+    tab: Tab,
+    onTab: (Tab) -> Unit,
+    snackbar: SnackbarHostState,
+    content: @Composable (PaddingValues) -> Unit,
+) {
+    val c = Ios.colors
+    val haptics = LocalHapticFeedback.current
+    val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val bottomInset: Dp = navInset + 60.dp
+    Surface(color = c.background, contentColor = c.label, modifier = Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize()) {
+            CompositionLocalProvider(LocalBottomInset provides bottomInset) {
+                content(WindowInsets.statusBars.asPaddingValues())
+            }
+            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset + 12.dp)) { data ->
+                Box(
+                    Modifier
+                        .padding(horizontal = 24.dp)
+                        .background(Color(0xF2303133), RoundedCornerShape(20.dp)),
+                ) {
+                    Text(
+                        data.visuals.message,
+                        style = TextStyle(fontFamily = HarmonyFont, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 19.sp),
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                    )
+                }
+            }
+            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(c.bar)) {
+                Row(Modifier.fillMaxWidth().height(60.dp).padding(horizontal = 12.dp)) {
+                    Tab.entries.forEach { t ->
+                        HarmonyTab(t, selected = t == tab, modifier = Modifier.weight(1f)) {
+                            if (t != tab) {
+                                haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                                onTab(t)
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(navInset))
+            }
+        }
+    }
+}
+
+@Composable
+private fun HarmonyTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val c = Ios.colors
+    val interaction = remember { MutableInteractionSource() }
+    val tint by animateColorAsState(if (selected) c.tint else c.secondaryLabel, tween(220), label = "tint")
+    val lift by animateFloatAsState(if (selected) -2f else 0f, spring(dampingRatio = 0.6f, stiffness = 500f), label = "lift")
+    Column(
+        modifier
+            .fillMaxHeight()
+            .clickable(interactionSource = interaction, indication = null, role = Role.Tab, onClick = onClick)
+            .semantics { this.selected = selected },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+    ) {
+        Icon(
+            if (selected) tab.icon else tab.iconIdle,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(24.dp).graphicsLayer { translationY = lift.dp.toPx() },
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(
+            tab.title,
+            style = TextStyle(fontFamily = HarmonyFont, fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal, fontSize = 10.sp, lineHeight = 13.sp),
             color = tint,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

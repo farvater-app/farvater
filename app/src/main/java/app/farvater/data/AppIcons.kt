@@ -66,6 +66,11 @@ enum class AppIcon(
         R.drawable.ic_launcher_hyper_background, R.drawable.ic_launcher_hyper_foreground,
         R.drawable.ic_launcher_hyper_monochrome, R.drawable.widget_on_hyper,
     ),
+    HARMONY(
+        "IconHarmony", "Harmony",
+        R.drawable.ic_launcher_harmony_background, R.drawable.ic_launcher_harmony_foreground,
+        R.drawable.ic_launcher_harmony_monochrome, R.drawable.widget_on_harmony,
+    ),
 }
 
 object AppIcons {

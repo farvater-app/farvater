@@ -67,6 +67,7 @@ import app.farvater.ui.components.ConnectMode
 import app.farvater.ui.components.DelayLabel
 import app.farvater.ui.components.DotBars
 import app.farvater.ui.components.DotConnectButton
+import app.farvater.ui.components.HarmonyConnect
 import app.farvater.ui.components.HyperConnect
 import app.farvater.ui.components.NodeAvatar
 import app.farvater.ui.components.OriginBars
@@ -130,7 +131,8 @@ fun HomeScreen(
     val nothing = Ios.nothing
     val origin = Ios.origin
     val hyper = Ios.hyper
-    val island = origin || hyper
+    val harmony = Ios.harmony
+    val island = origin || hyper || harmony
     val scroll = rememberScrollState()
     EdgeHaptics(scroll)
     val collapsed by remember { derivedStateOf { scroll.value > 70 } }
@@ -191,7 +193,7 @@ fun HomeScreen(
                 .glassSource(backdrop)
                 .verticalScroll(scroll)
                 .drawBehind {
-                    if (!sumie && !nothing && !hyper) drawRect(
+                    if (!sumie && !nothing && !hyper && !harmony) drawRect(
                         Brush.radialGradient(
                             listOf(glow, Color.Transparent),
                             center = Offset(size.width / 2, if (origin) 260.dp.toPx() else 190.dp.toPx()),
@@ -253,10 +255,17 @@ fun HomeScreen(
                             history = history,
                             onClick = onToggle,
                         )
+                        harmony -> HarmonyConnect(
+                            mode = mode,
+                            status = tileStatus(mode, state, connectedNode),
+                            downBps = traffic.downBps,
+                            upBps = traffic.upBps,
+                            onClick = onToggle,
+                        )
                         else -> ConnectButton(mode = mode, onClick = onToggle, size = 184.dp)
                     }
                 }
-                Spacer(Modifier.height(if (hyper) 16.dp else 8.dp))
+                Spacer(Modifier.height(if (hyper || harmony) 16.dp else 8.dp))
                 status()
             }
 

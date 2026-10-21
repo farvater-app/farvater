@@ -41,6 +41,9 @@ https://github.com/googlefonts/manrope
 Шрифт Onest (The Onest Project Authors) для стиля Hyper: оставлены латиница и кириллица. SIL Open Font License 1.1.
 https://github.com/googlefonts/onest
 
+Шрифт Inter (The Inter Project Authors) для стиля Harmony: оставлены латиница и кириллица. SIL Open Font License 1.1.
+https://github.com/rsms/inter
+
 3. Тексты лицензий
 
 GNU GPL 3.0 и GNU LGPL 3.0: https://www.gnu.org/licenses/
@@ -79,7 +82,7 @@ Redistribution and use in source and binary forms, with or without modification,
 
 THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-Для шрифтов Farvater Dot (основан на Tiny5), Manrope и Onest — SIL Open Font License 1.1:
+Для шрифтов Farvater Dot (основан на Tiny5), Manrope, Onest и Inter — SIL Open Font License 1.1:
 
 Copyright 2022-2024 The Tiny5 Project Authors (https://github.com/Gissio/font_tiny5)
 Copyright 2018 The Manrope Project Authors (https://github.com/googlefonts/manrope)

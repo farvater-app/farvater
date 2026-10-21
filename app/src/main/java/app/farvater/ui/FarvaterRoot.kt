@@ -5,7 +5,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
@@ -20,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.farvater.data.LEGAL_VERSION
+import app.farvater.ui.components.rememberReduceMotion
 import app.farvater.ui.ios.AlertAction
 import app.farvater.ui.ios.AlertRole
 import app.farvater.ui.ios.IosAlert
@@ -51,13 +53,19 @@ fun FarvaterRoot(vm: MainViewModel) {
         vm.consumeMessage()
     }
 
+    val still = rememberReduceMotion()
     FarvaterFrame(tab = tab, onTab = { tab = it }, snackbar = snackbar) { padding ->
         AnimatedContent(
             targetState = tab,
             modifier = Modifier.padding(padding).consumeWindowInsets(padding),
             transitionSpec = {
-                (fadeIn(tween(220, delayMillis = 40, easing = EaseOutQuint)) + scaleIn(tween(260, delayMillis = 40, easing = EaseOutQuint), initialScale = 0.97f)) togetherWith
-                    fadeOut(tween(110))
+                if (still) {
+                    fadeIn(tween(160)) togetherWith fadeOut(tween(100))
+                } else {
+                    val dir = if (targetState.ordinal > initialState.ordinal) 1 else -1
+                    (slideInHorizontally(tween(340, easing = EaseOutQuint)) { it * dir } + fadeIn(tween(200))) togetherWith
+                        (slideOutHorizontally(tween(340, easing = EaseOutQuint)) { -it * dir } + fadeOut(tween(200)))
+                }
             },
             label = "tabs",
         ) { current ->
