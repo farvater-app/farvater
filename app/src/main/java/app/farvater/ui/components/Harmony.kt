@@ -57,8 +57,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.farvater.ui.formatSpeed
-import app.farvater.ui.ios.Ios
 import app.farvater.ui.theme.HarmonyFont
+import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.Numeric
 
 private val HarmonyCardOn = Color(0xFF0A59F7)
