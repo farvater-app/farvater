@@ -17,6 +17,7 @@ import app.farvater.core.parser.SubscriptionParser
 import app.farvater.core.parser.Usage
 import app.farvater.data.AppSettings
 import app.farvater.data.LEGAL_VERSION
+import app.farvater.data.NodeCheck
 import app.farvater.data.NodeHealth
 import app.farvater.data.SourceConfig
 import app.farvater.data.SourceSnapshot
@@ -43,7 +44,10 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.Channel
@@ -180,9 +184,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private var detectJob: Job? = null
     private val attempts = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
+    private val healthLock = Mutex()
+
     init {
         if (results.value.isEmpty()) results.value = NodeHealth.results(prefs.nodeHealth, modeKey())
-        _state.update { it.copy(results = results.value, dead = NodeHealth.dead(prefs.nodeHealth, modeKey())) }
+        _state.update { it.copy(results = results.value, dead = deadFor(prefs.nodeHealth, modeKey())) }
+        viewModelScope.launch(Dispatchers.Default) {
+            healthLock.withLock {
+                val history = prefs.nodeHealth
+                val fresh = NodeHealth.prune(history)
+                if (fresh.size != history.size) prefs.nodeHealth = fresh
+            }
+        }
         viewModelScope.launch(Dispatchers.Default) {
             for (request in rebuildRequests) {
                 rebuildLocked()
@@ -327,7 +340,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         updateSettings { it.copy(netMode = choice) }
         if (modeKey() != before) {
             reloadHealth()
-            switchForMode(effectiveMode(prefs.settings))
+            viewModelScope.launch {
+                rebuildNow()
+                switchForMode(effectiveMode(prefs.settings))
+            }
         }
         if (choice == NetModeChoice.AUTO) detectNetMode(force = true)
     }
@@ -336,7 +352,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (mode == null || !prefs.settings.modeNodes || _state.value.gals || testing) return
         val vpn = VpnBus.state.value
         if (vpn is VpnState.Connected || vpn is VpnState.Connecting) {
-            FarvaterVpnService.recheckMode(getApplication())
+            FarvaterVpnService.recheckMode(getApplication(), mode)
             return
         }
         val target = prefs.nodeForMode(mode) ?: return
@@ -524,8 +540,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         val settings = prefs.settings
+        val vpn = VpnBus.state.value
+        val vpnOn = vpn is VpnState.Connected || vpn is VpnState.Connecting
+        val connected = (vpn as? VpnState.Connected)?.node?.takeIf { node -> nodes.any { it.id == node.id } }
         testing = true
         testJob = viewModelScope.launch {
+            val me = coroutineContext.job
             var done = 0
             var alive = 0
             var lastFlush = 0L
@@ -545,23 +565,33 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     )
                 }
             }
+            fun take(r: TestResult) {
+                done++
+                if (r.alive) alive++
+                pending[r.nodeId] = r
+                finished += r
+                val now = System.nanoTime() / 1_000_000
+                if (now - lastFlush >= FLUSH_MS) {
+                    lastFlush = now
+                    flush()
+                }
+            }
             _state.update { it.copy(progress = TestProgress(0, nodes.size, 0)) }
             try {
-                NodeTester.testAll(nodes, settings.testUrl, settings.concurrency).collect { r ->
-                    done++
-                    if (r.alive) alive++
-                    pending[r.nodeId] = r
-                    finished += r
-                    val now = System.nanoTime() / 1_000_000
-                    if (now - lastFlush >= FLUSH_MS) {
-                        lastFlush = now
-                        flush()
-                    }
+                val rest = if (connected == null) {
+                    nodes
+                } else {
+                    val tunnel = NodeTester.throughTunnel(connected, settings.testUrl)
+                    if (tunnel != null) take(tunnel)
+                    if (tunnel != null) nodes.filter { it.id != connected.id } else nodes
                 }
+                NodeTester.testAll(rest, settings.testUrl, settings.concurrency).collect { take(it) }
             } finally {
-                testing = false
-                flush(finished = true)
-                recordHealth(finished)
+                if (testJob === me) {
+                    testing = false
+                    flush(finished = true)
+                }
+                recordHealth(finished, countFailures = !vpnOn)
             }
             rebuildNow()
             _state.update { it.copy(progress = null) }
@@ -581,10 +611,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(checking = it.checking + node.id) }
         viewModelScope.launch {
             try {
-                val r = NodeTester.testAll(listOf(node), prefs.settings.testUrl, 1).first()
+                val r = testOne(node)
                 results.update { it + (r.nodeId to r) }
                 _state.update { it.copy(results = results.value) }
-                recordHealth(listOf(r))
+                recordHealth(listOf(r), countFailures = !vpnActive())
                 val name = splitFlag(node.name).second
                 toast(if (r.alive) "«$name» отвечает: ${r.delayMs} мс" else "«$name» не отвечает")
             } finally {
@@ -604,11 +634,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun findWorking() {
         if (pathJob?.isActive == true || testJob?.isActive == true) return
         pathJob = viewModelScope.launch {
+            val me = coroutineContext.job
             _state.update { it.copy(gals = true, sensing = true) }
             val net = try {
                 senseNetwork()
             } finally {
-                _state.update { it.copy(sensing = false) }
+                if (pathJob === me) _state.update { it.copy(sensing = false) }
             }
             _state.update { it.copy(galsNet = net) }
             findWorkingNow()
@@ -641,6 +672,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         pathJob = viewModelScope.launch {
+            val me = coroutineContext.job
             val settings = prefs.settings
             val mode = _state.value.galsNet ?: effectiveMode(settings)
             val ordinaryBlocking = mode == NetMode.BLACK
@@ -650,6 +682,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             var telegramBlocked = false
             var dnsBlocked = false
             val verified = LinkedHashMap<String, Pair<ProxyNode, Long>>()
+            val partial = HashMap<String, Long>()
+            val partialProfiles = HashMap<String, NodeProfile>()
             var connected: ProxyNode? = null
 
             suspend fun attempt(node: ProxyNode) {
@@ -659,13 +693,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         _state.update { it.copy(pathfinding = GalsStep(node.name, t)) }
                     }
                 } finally {
-                    _state.update { it.copy(pathfinding = null) }
+                    if (pathJob === me) _state.update { it.copy(pathfinding = null) }
                 }
                 if (found.telegramBlocked) telegramBlocked = true
                 if (found.dnsBlocked) dnsBlocked = true
                 val profile = found.profile
                 if (profile == null) {
-                    if (!found.telegramBlocked && !found.dnsBlocked) {
+                    val half = found.partial
+                    if (half != null && found.telegramBlocked) {
+                        partial[node.id] = found.speedBps
+                        partialProfiles[node.id] = half
+                    } else if (!found.telegramBlocked && !found.dnsBlocked) {
                         failedKinds += GalsPlan.kind(node)
                         failedHosts += node.address.lowercase()
                     }
@@ -698,7 +736,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 testJob?.join()
             } finally {
-                _state.update { it.copy(gals = false, galsNet = null, refining = false) }
+                if (pathJob === me) _state.update { it.copy(gals = false, galsNet = null, refining = false) }
             }
 
             val current = connected
@@ -716,16 +754,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 return@launch
             }
 
-            val target = bestNode()
+            val target = GalsPlan.fallback(_state.value.nodes, results.value, _state.value.dead, tried, partial)
             if (target == null) {
-                toast("Рабочих узлов не нашлось. Обновите источники через Wi-Fi или добавьте свою подписку.")
+                toast(
+                    if (tried.isEmpty()) "Рабочих узлов не нашлось. Обновите источники через Wi-Fi или добавьте свою подписку."
+                    else "Галс не нашёл узла, через который идут данные: похоже, провайдер замораживает соединения. Обновите источники через Wi-Fi или добавьте свою подписку.",
+                )
                 return@launch
             }
+            partialProfiles[target.id]?.let { prefs.rememberProfile(target.id, it) }
             toast(
                 when {
-                    telegramBlocked -> "Галс не нашёл узла, через который открывается Telegram: похоже, у проверенных узлов выход в России. Подключаюсь к самому быстрому."
-                    dnsBlocked -> "Галс не нашёл узла, через который работает DNS: адреса сайтов не узнаются. Подключаюсь к самому быстрому."
-                    else -> "Галс не нашёл узла, через который идут данные: похоже, провайдер замораживает соединения. Подключаюсь к самому быстрому."
+                    target.id in partial -> "Галс не нашёл узла, через который открывается Telegram: похоже, у проверенных узлов выход в России. Подключаюсь к узлу, через который идут данные."
+                    dnsBlocked -> "Галс не нашёл узла, через который работает DNS: адреса сайтов не узнаются. Подключаюсь к самому быстрому из непроверенных."
+                    else -> "Галс не нашёл узла, через который идут данные: похоже, провайдер замораживает соединения. Подключаюсь к самому быстрому из непроверенных."
                 },
             )
             setSelected(target)
@@ -738,29 +780,51 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun modeKey(): String = effectiveMode(prefs.settings)?.name ?: "ANY"
 
-    private fun recordHealth(checked: Collection<TestResult>) {
+    private fun deadFor(history: Map<String, NodeCheck>, mode: String): Set<String> =
+        if (prefs.settings.groupDead) NodeHealth.dead(history, mode) else emptySet()
+
+    private fun vpnActive(): Boolean = VpnBus.state.value.let { it is VpnState.Connected || it is VpnState.Connecting }
+
+    private suspend fun testOne(node: ProxyNode): TestResult {
+        val url = prefs.settings.testUrl
+        val vpn = VpnBus.state.value
+        val tunnel = if (vpn is VpnState.Connected && vpn.node.id == node.id) NodeTester.throughTunnel(node, url) else null
+        return tunnel ?: NodeTester.testAll(listOf(node), url, 1).first()
+    }
+
+    private fun recordHealth(checked: Collection<TestResult>, countFailures: Boolean = true) {
         if (checked.isEmpty()) return
-        val history = NodeHealth.record(prefs.nodeHealth, modeKey(), checked)
-        prefs.nodeHealth = history
-        _state.update { it.copy(dead = NodeHealth.dead(history, modeKey())) }
+        val mode = modeKey()
+        val batch = checked.toList()
+        viewModelScope.launch(Dispatchers.Default) {
+            val dead = healthLock.withLock {
+                val history = NodeHealth.record(prefs.nodeHealth, mode, batch, countFailures = countFailures)
+                prefs.nodeHealth = history
+                deadFor(history, mode)
+            }
+            _state.update { it.copy(dead = dead) }
+            rebuild()
+        }
     }
 
     private fun reloadHealth() {
         if (testing) return
         results.value = NodeHealth.results(prefs.nodeHealth, modeKey())
-        _state.update { it.copy(results = results.value, dead = NodeHealth.dead(prefs.nodeHealth, modeKey())) }
+        _state.update { it.copy(results = results.value, dead = deadFor(prefs.nodeHealth, modeKey())) }
         rebuild()
     }
 
     private var preflightJob: Job? = null
 
     private fun preflight(node: ProxyNode) {
+        preflightJob?.cancel()
         preflightJob = viewModelScope.launch {
+            val me = coroutineContext.job
             _state.update { it.copy(preflight = node) }
             val r = try {
-                NodeTester.testAll(listOf(node), prefs.settings.testUrl, 1).first()
+                testOne(node)
             } finally {
-                _state.update { it.copy(preflight = null) }
+                if (preflightJob === me) _state.update { it.copy(preflight = null) }
             }
             results.update { it + (r.nodeId to r) }
             _state.update { it.copy(results = results.value) }
@@ -798,6 +862,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             else -> {
                 if (preflightJob?.isActive == true) {
                     preflightJob?.cancel()
+                    _state.update { it.copy(preflight = null) }
                     return
                 }
                 val dead = _state.value.dead
@@ -886,6 +951,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val old = prefs.settings
         val new = transform(old)
         prefs.settings = new
+        if (old.groupDead != new.groupDead) _state.update { it.copy(dead = deadFor(prefs.nodeHealth, modeKey())) }
         rebuild()
         val vpn = VpnBus.state.value
         val tunnelChanged = old.bypassApps != new.bypassApps ||

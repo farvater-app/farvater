@@ -17,16 +17,25 @@ object NodeHealth {
         mode: String,
         results: Collection<TestResult>,
         now: Long = System.currentTimeMillis(),
+        countFailures: Boolean = true,
     ): Map<String, NodeCheck> {
-        val out = history.filterValues { now - it.at < TTL_MS }.toMutableMap()
+        val out = prune(history, now).toMutableMap()
         results.forEach { r ->
             val key = key(mode, r.nodeId)
-            val fails = if (r.alive) 0 else (out[key]?.fails ?: 0) + 1
+            val before = out[key]?.fails ?: 0
+            val fails = when {
+                r.alive -> 0
+                countFailures -> before + 1
+                else -> before
+            }
             out[key] = NodeCheck(r.delayMs, r.method, r.at, fails)
         }
         if (out.size <= LIMIT) return out
         return out.entries.sortedBy { it.value.at }.takeLast(LIMIT).associate { it.key to it.value }
     }
+
+    fun prune(history: Map<String, NodeCheck>, now: Long = System.currentTimeMillis()): Map<String, NodeCheck> =
+        history.filterValues { now - it.at < TTL_MS }
 
     fun results(history: Map<String, NodeCheck>, mode: String, now: Long = System.currentTimeMillis()): Map<String, TestResult> =
         fresh(history, mode, now).map { (id, c) -> id to TestResult(id, c.delayMs, c.method, c.at) }.toMap()

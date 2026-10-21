@@ -3,18 +3,25 @@ package app.farvater.engine
 import app.farvater.core.model.Protocol
 import app.farvater.core.model.ProxyNode
 import app.farvater.core.xray.XrayConfigBuilder
+import app.farvater.net.await
+import app.farvater.net.orDefault
 import android.os.Process
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.Serializable
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.net.InetSocketAddress
+import java.net.Proxy
 import java.net.Socket
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 @Serializable
 enum class TestMethod { REAL, TCP }
@@ -59,9 +66,22 @@ object NodeTester {
                     return@launch
                 }
                 val sni = sniGates.getOrPut(handshakeKey(node)) { Semaphore(PER_SNI) }
-                send(sni.withPermit { realGate.withPermit { test(node, url) } })
+                send(sni.withPermit { realGate.withPermit { runInterruptible { test(node, url) } } })
             }
         }
+    }
+
+    private val tunnelClient by lazy {
+        OkHttpClient.Builder()
+            .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", XrayConfigBuilder.SOCKS_PORT)))
+            .callTimeout(8, TimeUnit.SECONDS)
+            .build()
+    }
+
+    suspend fun throughTunnel(node: ProxyNode, url: String): TestResult? = orDefault(null) {
+        val start = System.nanoTime()
+        val ok = tunnelClient.newCall(Request.Builder().url(url).build()).await { it.code == 204 || it.code == 200 }
+        if (ok) TestResult(node.id, ((System.nanoTime() - start) / 1_000_000).coerceAtLeast(1), TestMethod.REAL) else null
     }
 
     private fun handshakeKey(node: ProxyNode): String {

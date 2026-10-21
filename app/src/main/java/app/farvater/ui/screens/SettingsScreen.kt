@@ -49,6 +49,7 @@ import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Dns
@@ -720,6 +721,19 @@ private fun SubscriptionsPage(
 @Composable
 private fun TestingPage(settings: AppSettings, onChange: ((AppSettings) -> AppSettings) -> Unit, duplicates: Int) {
     val c = Ios.colors
+    IosSection(
+        footer = "Узлы, которые дважды подряд не ответили, собираются в свёрнутую группу «Не отвечают» и сами не выбираются. " +
+            "Проверки при включённом VPN в этот счёт не идут, а узел, к которому вы подключены, проверяется через сам туннель. " +
+            "Если выключить, такие узлы остаются в своих подписках.",
+    ) {
+        IosRow(
+            title = "Группа «Не отвечают»",
+            titleLines = 2,
+            icon = Icons.Rounded.CloudOff,
+            iconTint = c.red,
+            trailing = { IosSwitch(settings.groupDead, { v -> onChange { it.copy(groupDead = v) } }) },
+        )
+    }
     IosSection(
         footer = "Полные копии узлов, то есть одинаковые ссылки с разными названиями, Фарватер убирает всегда. " +
             "Этот переключатель убирает ещё и узлы с теми же адресом, портом и протоколом, даже если у них " +

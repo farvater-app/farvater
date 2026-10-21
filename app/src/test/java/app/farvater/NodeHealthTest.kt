@@ -45,4 +45,17 @@ class NodeHealthTest {
         val h = NodeHealth.record(emptyMap(), "BLACK", listOf(alive("b")), now)
         assertEquals(120L, NodeHealth.results(h, "BLACK", now)["b"]?.delayMs)
     }
+
+    @Test fun failuresWhileVpnIsOnDoNotPileUp() {
+        var h = NodeHealth.record(emptyMap(), "WHITE", listOf(dead("a")), now, countFailures = false)
+        h = NodeHealth.record(h, "WHITE", listOf(dead("a")), now, countFailures = false)
+        assertTrue(NodeHealth.dead(h, "WHITE", now).isEmpty())
+        assertEquals(-1L, NodeHealth.results(h, "WHITE", now)["a"]?.delayMs)
+    }
+
+    @Test fun pruneDropsChecksOlderThanADay() {
+        val h = NodeHealth.record(emptyMap(), "WHITE", listOf(alive("a")), now)
+        assertEquals(1, NodeHealth.prune(h, now).size)
+        assertTrue(NodeHealth.prune(h, now + NodeHealth.TTL_MS + 1).isEmpty())
+    }
 }

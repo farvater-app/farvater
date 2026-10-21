@@ -5,7 +5,10 @@ import app.farvater.core.model.Protocol
 import app.farvater.core.model.ProxyNode
 import app.farvater.core.xray.XrayConfigBuilder
 import app.farvater.engine.DohProbe
+import app.farvater.core.model.NetMode
 import app.farvater.engine.GalsPlan
+import app.farvater.engine.ModeStep
+import app.farvater.engine.ModeSwitch
 import app.farvater.engine.Pathfinder
 import app.farvater.engine.TestMethod
 import app.farvater.engine.TestResult
@@ -124,5 +127,51 @@ class GalsTest {
             since = 0,
         )
         assertEquals("xhttp", next?.id)
+    }
+
+    @Test
+    fun fallbackTakesNodeWithDataAndNeverAFrozenOne() {
+        val nodes = listOf(node("frozen"), node("noTelegram"), node("untried"))
+        val results = mapOf(alive("frozen", 20), alive("noTelegram", 300), alive("untried", 90))
+        val withData = GalsPlan.fallback(nodes, results, dead = emptySet(), tried = setOf("frozen", "noTelegram"), partial = mapOf("noTelegram" to 500_000L))
+        assertEquals("noTelegram", withData?.id)
+        val untried = GalsPlan.fallback(nodes, results, dead = emptySet(), tried = setOf("frozen", "noTelegram"), partial = emptyMap())
+        assertEquals("untried", untried?.id)
+        assertNull(GalsPlan.fallback(nodes, results, dead = setOf("untried"), tried = setOf("frozen", "noTelegram"), partial = emptyMap()))
+        assertEquals("untried", GalsPlan.fallback(nodes, results, dead = emptySet(), tried = setOf("frozen", "noTelegram"), partial = mapOf("gone" to 1L))?.id)
+    }
+
+    @Test
+    fun fragmentIsTriedEarlyUnderOrdinaryBlocking() {
+        val tls = node("tls", type = "ws", security = "tls")
+        val variants = Pathfinder.variants(tls, null, ordinaryBlocking = true)
+        assertEquals(NodeProfile(fragment = true), variants[1])
+        assertFalse(Pathfinder.variants(tls, null, ordinaryBlocking = false).any { it.fragment })
+    }
+
+    @Test
+    fun onlyTheMainProxyCarriesUdp() {
+        val main = XrayConfigBuilder.build(node("a"), directRuServices = false)
+        val probe = XrayConfigBuilder.build(node("a"), directRuServices = false, socksPort = XrayConfigBuilder.SOCKS_PORT + 1)
+        assertTrue(main.contains("\"udp\":true"))
+        assertTrue(probe.contains("\"udp\":false"))
+    }
+
+    @Test
+    fun modeSwitchWaitsRetriesAndSwitches() {
+        val now = 10_000_000L
+        assertEquals(ModeStep.Wait(ModeSwitch.RETRY_MS), ModeSwitch.step(null, "w", "k", now, 0))
+        assertEquals(ModeStep.Done, ModeSwitch.step(NetMode.WHITE, null, "k", now, 0))
+        assertEquals(ModeStep.Done, ModeSwitch.step(NetMode.WHITE, "k", "k", now, 0))
+        assertEquals(ModeStep.Wait(ModeSwitch.GAP_MS - 1_000), ModeSwitch.step(NetMode.WHITE, "w", "k", now, now - 1_000))
+        assertEquals(ModeStep.Switch, ModeSwitch.step(NetMode.WHITE, "w", "k", now, now - ModeSwitch.GAP_MS))
+    }
+
+    @Test
+    fun stalledNodeRechecksModeEveryThreeFailures() {
+        assertFalse(ModeSwitch.recheckAfter(2, 3))
+        assertTrue(ModeSwitch.recheckAfter(3, 3))
+        assertFalse(ModeSwitch.recheckAfter(4, 3))
+        assertTrue(ModeSwitch.recheckAfter(6, 3))
     }
 }

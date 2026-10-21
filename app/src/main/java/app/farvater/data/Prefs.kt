@@ -43,6 +43,7 @@ data class AppSettings(
     val dynamicColor: Boolean = true,
     val modeNodes: Boolean = true,
     val autoStart: Boolean = false,
+    val groupDead: Boolean = true,
 )
 
 @Serializable
@@ -194,12 +195,24 @@ class Prefs(context: Context) {
 
     @Volatile private var cachedHealth: Map<String, NodeCheck>? = null
 
+    private val health = context.getSharedPreferences("farvater_health", Context.MODE_PRIVATE)
+
     var nodeHealth: Map<String, NodeCheck>
-        get() = cachedHealth ?: (read<Map<String, NodeCheck>>("node_health") ?: emptyMap()).also { cachedHealth = it }
+        get() = cachedHealth ?: loadHealth().also { cachedHealth = it }
         set(value) {
             cachedHealth = value
-            write("node_health", value)
+            health.edit().putString(HEALTH_KEY, json.encodeToString(serializer<Map<String, NodeCheck>>(), value)).apply()
         }
+
+    private fun loadHealth(): Map<String, NodeCheck> {
+        health.getString(HEALTH_KEY, null)?.let { raw ->
+            return runCatching { json.decodeFromString(serializer<Map<String, NodeCheck>>(), raw) }.getOrDefault(emptyMap())
+        }
+        val old = read<Map<String, NodeCheck>>(HEALTH_KEY) ?: return emptyMap()
+        health.edit().putString(HEALTH_KEY, json.encodeToString(serializer<Map<String, NodeCheck>>(), old)).apply()
+        sp.edit().remove(HEALTH_KEY).apply()
+        return old
+    }
 
     var dayTraffic: DayTraffic
         get() = read<DayTraffic>("day_traffic") ?: DayTraffic()
@@ -212,6 +225,7 @@ class Prefs(context: Context) {
 
     private companion object {
         const val MAX_PROFILES = 300
+        const val HEALTH_KEY = "node_health"
         val OLD_CATALOG = setOf(
             "zieng2-universal", "igareck-mobile", "igareck-cidr", "rjsxrd-bypass", "rkp-whitelist", "byewhitelists2",
         )

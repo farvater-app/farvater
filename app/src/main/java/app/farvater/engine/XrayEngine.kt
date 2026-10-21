@@ -1,5 +1,6 @@
 package app.farvater.engine
 
+import app.farvater.core.xray.LocalProxyAuth
 import android.content.Context
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
@@ -55,6 +56,7 @@ object XrayEngine {
         check(isAvailable) { "ядро Xray не встроено — добавьте libv2ray.aar в app/libs" }
         stop()
         controller = launch(config)
+        LocalProxyAuth.open(LocalProxyAuth.port)
         lastError = null
     }.onFailure { lastError = (it.cause ?: it).message }
 
@@ -97,6 +99,7 @@ object XrayEngine {
     @Synchronized
     fun stop() {
         val c = controller ?: return
+        LocalProxyAuth.close(LocalProxyAuth.port)
         runCatching { c.javaClass.methods.first { it.name == "stopLoop" }.invoke(c) }
         controller = null
     }

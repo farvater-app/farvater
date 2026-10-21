@@ -67,7 +67,7 @@ object XrayConfigBuilder {
                                     put("pass", LocalProxyAuth.pass)
                                 }
                             }
-                            put("udp", true)
+                            put("udp", socksPort == SOCKS_PORT)
                         }
                         putJsonObject("sniffing") {
                             put("enabled", true)

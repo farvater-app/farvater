@@ -29,5 +29,17 @@ object GalsPlan {
 
     fun fastest(verified: Map<String, Long>): String? = verified.maxByOrNull { it.value }?.key
 
+    fun fallback(
+        nodes: List<ProxyNode>,
+        results: Map<String, TestResult>,
+        dead: Set<String>,
+        tried: Set<String>,
+        partial: Map<String, Long>,
+    ): ProxyNode? {
+        val byId = nodes.associateBy { it.id }
+        fastest(partial.filterKeys { it in byId })?.let { return byId.getValue(it) }
+        return nodes.firstOrNull { it.id !in tried && it.id !in dead && results[it.id]?.alive == true }
+    }
+
     fun worthSwitching(currentSpeed: Long, bestSpeed: Long): Boolean = bestSpeed > currentSpeed * UPGRADE_RATIO
 }

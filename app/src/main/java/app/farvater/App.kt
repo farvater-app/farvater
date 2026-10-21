@@ -34,7 +34,8 @@ class App : Application() {
         Authenticator.setDefault(object : Authenticator() {
             override fun getPasswordAuthentication(): PasswordAuthentication? =
                 if (requestingProtocol?.startsWith("SOCKS") == true &&
-                    (requestingHost == "127.0.0.1" || requestingSite?.isLoopbackAddress == true)
+                    (requestingHost == "127.0.0.1" || requestingSite?.isLoopbackAddress == true) &&
+                    LocalProxyAuth.isLive(requestingPort)
                 ) {
                     PasswordAuthentication(LocalProxyAuth.user, LocalProxyAuth.pass.toCharArray())
                 } else {

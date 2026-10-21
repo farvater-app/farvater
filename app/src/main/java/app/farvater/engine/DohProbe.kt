@@ -1,6 +1,8 @@
 package app.farvater.engine
 
 import app.farvater.core.xray.XrayConfigBuilder
+import app.farvater.net.await
+import app.farvater.net.orDefault
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.ByteArrayOutputStream
@@ -13,20 +15,20 @@ object DohProbe {
 
     val query: String = Base64.getUrlEncoder().withoutPadding().encodeToString(wire(NAME))
 
-    fun answers(client: OkHttpClient, server: String): Boolean = runCatching {
+    suspend fun answers(client: OkHttpClient, server: String): Boolean = orDefault(false) {
         val quick = client.newBuilder().callTimeout(5, TimeUnit.SECONDS).followRedirects(false).build()
         val request = Request.Builder()
             .url("${XrayConfigBuilder.dohUrl(server)}?dns=$query")
             .header("Accept", "application/dns-message")
             .build()
-        quick.newCall(request).execute().use { response ->
-            val source = response.body?.source() ?: return@use false
+        quick.newCall(request).await { response ->
+            val source = response.body?.source() ?: return@await false
             source.request(MAX_BODY)
             response.isSuccessful && answered(source.buffer.readByteArray(minOf(source.buffer.size, MAX_BODY)))
         }
-    }.getOrDefault(false)
+    }
 
-    fun firstAnswering(client: OkHttpClient, servers: List<String>): String? = servers.firstOrNull { answers(client, it) }
+    suspend fun firstAnswering(client: OkHttpClient, servers: List<String>): String? = servers.firstOrNull { answers(client, it) }
 
     fun answered(body: ByteArray): Boolean {
         if (body.size < 12) return false

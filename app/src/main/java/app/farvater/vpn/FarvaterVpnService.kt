@@ -20,16 +20,21 @@ import app.farvater.App
 import app.farvater.FarvaterActivity
 import app.farvater.R
 import app.farvater.core.catalog.RuApps
+import app.farvater.core.model.NetMode
 import app.farvater.core.model.NetModeChoice
 import app.farvater.core.model.ProxyNode
 import app.farvater.core.xray.XrayConfigBuilder
 import app.farvater.data.DayTraffic
 import app.farvater.data.UpdateWorker
 import app.farvater.engine.DohProbe
+import app.farvater.engine.ModeStep
+import app.farvater.engine.ModeSwitch
 import app.farvater.engine.NetModeDetector
 import app.farvater.engine.NodeTester
 import app.farvater.engine.TunBridge
 import app.farvater.engine.XrayEngine
+import app.farvater.net.await
+import app.farvater.net.orDefault
 import app.farvater.ui.formatBytes
 import app.farvater.ui.formatSpeed
 import kotlinx.coroutines.CoroutineScope
@@ -39,10 +44,12 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runInterruptible
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.net.InetSocketAddress
@@ -58,13 +65,13 @@ class FarvaterVpnService : VpnService() {
         const val EXTRA_RESTART = "app.farvater.extra.RESTART"
         const val EXTRA_CHECK_MODE = "app.farvater.extra.CHECK_MODE"
         private const val ACTION_CHECK_MODE = "app.farvater.action.CHECK_MODE"
+        private const val EXTRA_MODE = "app.farvater.extra.MODE"
         const val CHANNEL = "vpn"
         private const val NOTIFICATION_ID = 7
         private const val PROBE_EVERY = 60
         private val EARLY_PROBES = setOf(5, 15, 30)
         private const val UPDATE_GAP_MS = 15 * 60 * 1000L
         private const val NETWORK_SETTLE_MS = 4_000L
-        private const val MODE_SWITCH_GAP_MS = 2 * 60 * 1000L
 
         fun start(context: Context, node: ProxyNode, restart: Boolean = false, checkMode: Boolean = false) {
             App.prefs.selectNode(node)
@@ -76,8 +83,14 @@ class FarvaterVpnService : VpnService() {
             )
         }
 
-        fun recheckMode(context: Context) {
-            runCatching { context.startService(Intent(context, FarvaterVpnService::class.java).setAction(ACTION_CHECK_MODE)) }
+        fun recheckMode(context: Context, known: NetMode? = null) {
+            runCatching {
+                context.startService(
+                    Intent(context, FarvaterVpnService::class.java)
+                        .setAction(ACTION_CHECK_MODE)
+                        .putExtra(EXTRA_MODE, known?.name),
+                )
+            }
         }
 
         fun stop(context: Context) {
@@ -128,7 +141,11 @@ class FarvaterVpnService : VpnService() {
         }
         if (intent?.action == ACTION_CHECK_MODE) {
             val vpn = VpnBus.state.value
-            if (vpn is VpnState.Connected || vpn is VpnState.Connecting) checkMode() else stopSelf(startId)
+            if (vpn is VpnState.Connected || vpn is VpnState.Connecting) {
+                checkMode(known = intent.getStringExtra(EXTRA_MODE)?.let { runCatching { NetMode.valueOf(it) }.getOrNull() })
+                return START_STICKY
+            }
+            stopSelf(startId)
             return START_NOT_STICKY
         }
         val node = App.prefs.lastNode
@@ -149,7 +166,10 @@ class FarvaterVpnService : VpnService() {
 
     private fun startVpn(node: ProxyNode, restart: Boolean, fallback: ProxyNode? = null) {
         synchronized(this) {
-            if (fallback != null && stopped) return
+            if (fallback != null) {
+                if (stopped) return
+                App.prefs.selectNode(node)
+            }
             val current = VpnBus.state.value
             if (!restart && tun != null && current is VpnState.Connected && current.node == node) {
                 updateNotification(node.name, "Подключено")
@@ -281,7 +301,7 @@ class FarvaterVpnService : VpnService() {
                 if (!currentCoroutineContext().isActive) return
                 failures = if (ok) 0 else failures + 1
                 VpnBus.failedChecks.value = failures
-                if (failures == VpnBus.STALL_CHECKS) checkMode()
+                if (ModeSwitch.recheckAfter(failures, VpnBus.STALL_CHECKS)) checkMode()
                 maybeCheckUpdates()
             }
         }
@@ -307,31 +327,44 @@ class FarvaterVpnService : VpnService() {
         runCatching { getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(callback) }
     }
 
-    private fun checkMode(delayMs: Long = 0, replace: Boolean = false) {
+    private fun checkMode(delayMs: Long = 0, replace: Boolean = false, known: NetMode? = null) {
         if (modeJob?.isActive == true) {
             if (!replace) return
             modeJob?.cancel()
         }
         modeJob = scope.launch {
             delay(delayMs)
-            val settings = App.prefs.settings
-            if (settings.netMode != NetModeChoice.AUTO) return@launch
-            val mode = NetModeDetector.detect() ?: return@launch
-            App.prefs.lastNetMode = mode.name
-            VpnBus.netMode.tryEmit(mode)
-            if (!settings.modeNodes) return@launch
-            val target = App.prefs.nodeForMode(mode)?.takeIf { App.prefs.allowedForAuto(it) } ?: return@launch
-            val current = when (val s = VpnBus.state.value) {
-                is VpnState.Connected -> s.node
-                is VpnState.Connecting -> s.node
-                else -> return@launch
+            var hint = known
+            repeat(ModeSwitch.ATTEMPTS) {
+                val settings = App.prefs.settings
+                val auto = settings.netMode == NetModeChoice.AUTO
+                val mode = if (auto) hint ?: NetModeDetector.detect() else NetMode.valueOf(settings.netMode.name)
+                hint = null
+                if (auto && mode != null) {
+                    App.prefs.lastNetMode = mode.name
+                    VpnBus.netMode.tryEmit(mode)
+                }
+                if (!settings.modeNodes) return@launch
+                val current = when (val s = VpnBus.state.value) {
+                    is VpnState.Connected -> s.node
+                    is VpnState.Connecting -> s.node
+                    else -> return@launch
+                }
+                val target = mode?.let { App.prefs.nodeForMode(it) }?.takeIf { App.prefs.allowedForAuto(it) }
+                when (val step = ModeSwitch.step(mode, target?.id, current.id, System.currentTimeMillis(), lastModeSwitch)) {
+                    ModeStep.Done -> return@launch
+                    is ModeStep.Wait -> delay(step.ms)
+                    ModeStep.Switch -> {
+                        val next = target ?: return@launch
+                        if (!runInterruptible { NodeTester.test(next, settings.testUrl) }.alive) return@launch
+                        ensureActive()
+                        if (App.prefs.nodeForMode(mode ?: return@launch)?.id != next.id) return@launch
+                        lastModeSwitch = System.currentTimeMillis()
+                        startVpn(next, restart = true, fallback = current)
+                        return@launch
+                    }
+                }
             }
-            val now = System.currentTimeMillis()
-            if (target.id == current.id || now - lastModeSwitch < MODE_SWITCH_GAP_MS) return@launch
-            lastModeSwitch = now
-            if (!NodeTester.test(target, settings.testUrl).alive) return@launch
-            App.prefs.selectNode(target)
-            startVpn(target, restart = true, fallback = current)
         }
     }
 
@@ -342,11 +375,11 @@ class FarvaterVpnService : VpnService() {
         scope.launch { UpdateWorker.checkAndNotify(applicationContext) }
     }
 
-    private fun probe(node: ProxyNode): Boolean {
-        val web = runCatching {
+    private suspend fun probe(node: ProxyNode): Boolean {
+        val web = orDefault(false) {
             val request = Request.Builder().url(App.prefs.settings.testUrl).build()
-            probeClient.newCall(request).execute().use { it.code == 204 || it.code == 200 }
-        }.getOrDefault(false)
+            probeClient.newCall(request).await { it.code == 204 || it.code == 200 }
+        }
         if (!web || !App.prefs.settings.encryptedDns) return web
         return DohProbe.firstAnswering(probeClient, XrayConfigBuilder.dnsOrder(App.prefs.profileFor(node.id)?.dns)) != null
     }
