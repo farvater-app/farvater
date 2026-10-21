@@ -192,22 +192,22 @@ class ScreenshotTest {
     @Test fun hyperAppearanceLight() = shot("77_hyper_appearance_light", dark = false, style = UiStyle.HYPER, act = ::openAppearance) {
         Settings(Fake.state.settings.copy(uiStyle = UiStyle.HYPER))
     }
-    @Test fun hyperAppIconsDark() = shot("78_hyper_app_icons_dark", dark = true, style = UiStyle.HYPER, act = ::openAppIcons) {
+    @Test fun hyperAppIconsDark() = shot("78_hyper_app_icons_dark", dark = true, style = UiStyle.HYPER, act = { openAppIcons(aboveBar = true) }) {
         Settings(Fake.state.settings.copy(uiStyle = UiStyle.HYPER))
     }
 
     @Test fun nothingConnectionLargeFontDark() = shot(
-        "54_nothing_connection_large_font_dark", dark = true, nothing = true, fontScale = 1.3f, act = ::openConnection,
+        "54_nothing_connection_large_font_dark", dark = true, nothing = true, fontScale = 1.3f, act = { openConnection(swipes = 2) },
     ) { Settings(Fake.state.settings.copy(uiStyle = UiStyle.NOTHING)) }
     @Test fun connectionPageDark() = shot("53_connection_dark", dark = true, act = ::openConnection) { Settings() }
     @Test fun originConnectionLight() = shot("69_origin_connection_light", dark = false, style = UiStyle.ORIGIN, act = ::openConnection) {
         Settings(Fake.state.settings.copy(uiStyle = UiStyle.ORIGIN))
     }
 
-    private fun openConnection() {
+    private fun openConnection(swipes: Int = 3) {
         rule.onNodeWithText("Подключение").performClick()
         rule.mainClock.advanceTimeBy(1_500)
-        repeat(3) {
+        repeat(swipes) {
             rule.onRoot().performTouchInput { swipeUp(startY = height * 0.7f, endY = height * 0.15f) }
             rule.mainClock.advanceTimeBy(1_000)
         }
@@ -220,11 +220,11 @@ class ScreenshotTest {
         rule.mainClock.advanceTimeBy(1_000)
     }
 
-    private fun openAppIcons() {
+    private fun openAppIcons(aboveBar: Boolean = false) {
         rule.onNodeWithText("Оформление").performClick()
         rule.mainClock.advanceTimeBy(1_500)
-        repeat(3) {
-            rule.onRoot().performTouchInput { swipeUp() }
+        repeat(if (aboveBar) 5 else 3) {
+            rule.onRoot().performTouchInput { if (aboveBar) swipeUp(startY = height * 0.7f, endY = height * 0.15f) else swipeUp() }
             rule.mainClock.advanceTimeBy(1_000)
         }
     }
