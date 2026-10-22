@@ -20,5 +20,6 @@ object ModeSwitch {
         else -> ModeStep.Switch
     }
 
-    fun recheckAfter(failures: Int, stallChecks: Int): Boolean = failures >= stallChecks && failures % stallChecks == 0
+    fun recheckAfter(failures: Int, stallChecks: Int): Boolean =
+        failures >= stallChecks && failures % stallChecks == 0 && Integer.bitCount(failures / stallChecks) == 1
 }

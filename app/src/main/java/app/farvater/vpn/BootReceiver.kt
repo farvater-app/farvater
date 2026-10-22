@@ -11,7 +11,8 @@ import app.farvater.App
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val prefs = App.prefs
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED) prefs.vpnWasOn = false
+        val running = VpnBus.state.value is VpnState.Connected || VpnBus.state.value is VpnState.Connecting
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED && !running) prefs.vpnWasOn = false
         if (!prefs.settings.autoStart) return
         when (intent.action) {
             Intent.ACTION_BOOT_COMPLETED -> Unit

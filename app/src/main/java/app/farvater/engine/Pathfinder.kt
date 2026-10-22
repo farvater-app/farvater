@@ -40,6 +40,14 @@ object Pathfinder {
         "https://proof.ovh.net/files/1Mb.dat",
     )
 
+    private val base by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(8, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.SECONDS)
+            .callTimeout(15, TimeUnit.SECONDS)
+            .build()
+    }
+
     fun variants(node: ProxyNode, saved: NodeProfile?, ordinaryBlocking: Boolean): List<NodeProfile> = buildList {
         saved?.copy(dns = null)?.let(::add)
         add(NodeProfile())
@@ -79,12 +87,7 @@ object Pathfinder {
         val probe = XrayEngine.startProbe(config) ?: return@withContext Check(Verdict.NO_DATA)
         LocalProxyAuth.open(port)
         try {
-            val client = OkHttpClient.Builder()
-                .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port)))
-                .connectTimeout(8, TimeUnit.SECONDS)
-                .readTimeout(5, TimeUnit.SECONDS)
-                .callTimeout(15, TimeUnit.SECONDS)
-                .build()
+            val client = base.newBuilder().proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port))).build()
             var speed: Long? = null
             for (url in urls) {
                 val start = System.nanoTime()

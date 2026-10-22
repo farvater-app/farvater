@@ -14,6 +14,7 @@ import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.Serializable
+import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.net.InetSocketAddress
@@ -71,9 +72,10 @@ object NodeTester {
         }
     }
 
-    private val tunnelClient by lazy {
+    val tunnelClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", XrayConfigBuilder.SOCKS_PORT)))
+            .connectionPool(ConnectionPool(0, 1, TimeUnit.SECONDS))
             .callTimeout(8, TimeUnit.SECONDS)
             .build()
     }

@@ -13,9 +13,14 @@ object Failover {
             .sortedWith(compareBy({ results.getValue(it.id).method != TestMethod.REAL }, { results.getValue(it.id).delayMs }))
             .take(limit)
 
-    fun order(backups: List<ProxyNode>, current: ProxyNode): List<ProxyNode> =
-        backups.filter { it.id != current.id }.sortedBy { if (it.sourceId == current.sourceId) 0 else 1 }
+    const val SAME_FIRST = 2
 
-    fun probeDue(tick: Int, lastProbe: Int, failures: Int, every: Int, early: Set<Int>): Boolean =
-        tick in early || tick % every == 0 || (failures > 0 && tick - lastProbe >= FAST_PROBE_S)
+    fun order(backups: List<ProxyNode>, current: ProxyNode, skip: Set<String> = emptySet()): List<ProxyNode> {
+        val left = backups.filter { it.id != current.id && it.id !in skip }
+        val (same, others) = left.partition { it.sourceId == current.sourceId }
+        return same.take(SAME_FIRST) + others + same.drop(SAME_FIRST)
+    }
+
+    fun probeDue(tick: Int, lastProbe: Int, failures: Int, every: Int, early: Set<Int>, stall: Int): Boolean =
+        tick in early || tick % every == 0 || (failures in 1 until stall && tick - lastProbe >= FAST_PROBE_S)
 }

@@ -37,6 +37,7 @@ import app.farvater.vpn.VpnBus
 import app.farvater.vpn.VpnState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -342,9 +343,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         updateSettings { it.copy(netMode = choice) }
         if (modeKey() != before) {
             reloadHealth()
-            viewModelScope.launch {
-                rebuildNow()
-                switchForMode(effectiveMode(prefs.settings))
+            if (choice != NetModeChoice.AUTO) {
+                viewModelScope.launch {
+                    rebuildNow()
+                    switchForMode(effectiveMode(prefs.settings))
+                }
             }
         }
         if (choice == NetModeChoice.AUTO) detectNetMode(force = true)
@@ -569,6 +572,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             fun take(r: TestResult) {
                 done++
+                if (!r.alive && r.nodeId in exempt) return
                 if (r.alive) alive++
                 pending[r.nodeId] = r
                 finished += r
@@ -584,8 +588,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     nodes
                 } else {
                     val tunnel = NodeTester.throughTunnel(connected, settings.testUrl)
-                    if (tunnel != null) take(tunnel)
-                    if (tunnel != null) nodes.filter { it.id != connected.id } else nodes
+                    if (tunnel == null) {
+                        nodes
+                    } else {
+                        take(tunnel)
+                        nodes.filter { it.id != connected.id }
+                    }
                 }
                 NodeTester.testAll(rest, settings.testUrl, settings.concurrency).collect { take(it) }
             } finally {
@@ -681,7 +689,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val tried = HashSet<String>()
             val failedKinds = HashSet<String>()
             val failedHosts = HashSet<String>()
-            var telegramBlocked = false
             var dnsBlocked = false
             val verified = LinkedHashMap<String, Pair<ProxyNode, Long>>()
             val partial = HashMap<String, Long>()
@@ -697,7 +704,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 } finally {
                     if (pathJob === me) _state.update { it.copy(pathfinding = null) }
                 }
-                if (found.telegramBlocked) telegramBlocked = true
                 if (found.dnsBlocked) dnsBlocked = true
                 val profile = found.profile
                 if (profile == null) {
@@ -759,8 +765,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val target = GalsPlan.fallback(_state.value.nodes, results.value, _state.value.dead, tried, partial)
             if (target == null) {
                 toast(
-                    if (tried.isEmpty()) "Рабочих узлов не нашлось. Обновите источники через Wi-Fi или добавьте свою подписку."
-                    else "Галс не нашёл узла, через который идут данные: похоже, провайдер замораживает соединения. Обновите источники через Wi-Fi или добавьте свою подписку.",
+                    when {
+                        tried.isEmpty() -> "Рабочих узлов не нашлось. Обновите источники через Wi-Fi или добавьте свою подписку."
+                        dnsBlocked -> "Галс не нашёл узла, через который работает DNS: адреса сайтов через проверенные узлы не узнаются. Обновите источники через Wi-Fi или добавьте свою подписку."
+                        else -> "Галс не нашёл узла, через который идут данные: похоже, провайдер замораживает соединения. Обновите источники через Wi-Fi или добавьте свою подписку."
+                    },
                 )
                 return@launch
             }
@@ -791,6 +800,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             is VpnState.Connecting -> vpn.node
             else -> return emptySet()
         }
+        if (prefs.userSources.none { it.id == current.sourceId }) return emptySet()
         return nodes.filter { it.sourceId == current.sourceId }.mapTo(HashSet()) { it.id }
     }
 
@@ -801,20 +811,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return tunnel ?: NodeTester.testAll(listOf(node), url, 1).first()
     }
 
-    private fun recordHealth(checked: Collection<TestResult>, exempt: Set<String> = emptySet()) {
+    private suspend fun recordHealth(checked: Collection<TestResult>, exempt: Set<String> = emptySet()) {
         if (checked.isEmpty()) return
         val mode = modeKey()
         val batch = checked.toList()
-        viewModelScope.launch(Dispatchers.Default) {
-            val dead = healthLock.withLock {
+        val dead = withContext(NonCancellable + Dispatchers.Default) {
+            healthLock.withLock {
                 val history = NodeHealth.record(prefs.nodeHealth, mode, batch, exempt = exempt)
                 prefs.nodeHealth = history
-                deadFor(history, mode)
+                val dead = deadFor(history, mode)
+                prefs.backupNodes = BackupNodes(mode, Failover.pick(_state.value.nodes, results.value, dead))
+                dead
             }
-            _state.update { it.copy(dead = dead) }
-            rebuild()
-            prefs.backupNodes = BackupNodes(mode, Failover.pick(_state.value.nodes, results.value, dead))
         }
+        _state.update { it.copy(dead = dead) }
+        rebuild()
     }
 
     private fun reloadHealth() {
@@ -920,6 +931,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     @Synchronized
     private fun dropSelectionIf(predicate: (ProxyNode) -> Boolean) {
         prefs.forgetModeNodes(predicate)
+        val backups = prefs.backupNodes
+        if (backups.nodes.any(predicate)) prefs.backupNodes = backups.copy(nodes = backups.nodes.filterNot(predicate))
         val current = _state.value.selectedNode ?: return
         if (!predicate(current)) return
         prefs.clearSelection()
