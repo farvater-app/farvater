@@ -859,7 +859,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun reportDeadNode() {
         val current = (VpnBus.state.value as? VpnState.Connected)?.node ?: return
         toast(
-            if (prefs.settings.autoSwitch) "Узел «${current.name}» не отвечает. Ищу другой рабочий узел."
+            if (prefs.settings.autoSwitch && prefs.backupNodes.nodes.any { it.id != current.id }) "Узел «${current.name}» не отвечает. Ищу другой рабочий узел."
             else "Узел «${current.name}» не отвечает. Проверьте интернет или выберите другой узел.",
         )
     }
