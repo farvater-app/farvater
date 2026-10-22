@@ -41,19 +41,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.AccountBalance
-import androidx.compose.material.icons.rounded.Adjust
 import androidx.compose.material.icons.rounded.Android
 import androidx.compose.material.icons.rounded.Apps
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BatteryChargingFull
-import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Dns
-import androidx.compose.material.icons.rounded.DonutLarge
 import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.GppGood
@@ -66,12 +62,9 @@ import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.PhoneAndroid
-import androidx.compose.material.icons.rounded.PhoneIphone
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Public
-import androidx.compose.material.icons.rounded.RoundedCorner
 import androidx.compose.material.icons.rounded.SyncAlt
-import androidx.compose.material.icons.rounded.ToggleOn
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Speed
@@ -123,6 +116,8 @@ import app.farvater.engine.XrayEngine
 import app.farvater.ui.LocalBottomInset
 import app.farvater.ui.components.AppIconImage
 import app.farvater.ui.components.AppLogo
+import app.farvater.ui.components.OsLogo
+import app.farvater.ui.components.OsLogoMark
 import app.farvater.ui.ios.EdgeHaptics
 import app.farvater.ui.ios.IosButton
 import app.farvater.ui.ios.IosButtonStyle
@@ -131,6 +126,7 @@ import app.farvater.ui.ios.IosCompactBar
 import app.farvater.ui.ios.glassSource
 import app.farvater.ui.ios.rememberGlassBackdrop
 import app.farvater.ui.ios.IosDivider
+import app.farvater.ui.ios.IosIcon
 import app.farvater.ui.ios.IosLargeTitle
 import app.farvater.ui.ios.IosPushedPage
 import app.farvater.ui.ios.IosRow
@@ -139,14 +135,8 @@ import app.farvater.ui.ios.IosSegmented
 import app.farvater.ui.ios.IosSpinner
 import app.farvater.ui.ios.SheetCorner
 import app.farvater.R
-import app.farvater.ui.theme.HarmonyBlue
-import app.farvater.ui.theme.HyperBlue
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.IosType
-import app.farvater.ui.theme.NothingRed
-import app.farvater.ui.theme.OneUiBlue
-import app.farvater.ui.theme.OriginBlue
-import app.farvater.ui.theme.OxygenRed
 import app.farvater.ui.theme.RkpBlue
 import app.farvater.ui.theme.SumieSeal
 import kotlinx.coroutines.Dispatchers
@@ -253,6 +243,7 @@ fun SettingsScreen(
 }
 
 private const val Divider = 59
+private const val StyleDivider = 100
 private const val ChannelUrl = "https://t.me/farvater_app"
 
 @Composable
@@ -478,8 +469,6 @@ private fun AppearancePage(
     appIcon: AppIcon,
     onIcon: (AppIcon) -> Unit,
 ) {
-    val c = Ios.colors
-    val divider = Divider.dp
     IosSection(
         header = "Стиль",
         footer = "Меняет вид всего приложения: панели, кнопки, списки, переключатели и окна.",
@@ -488,89 +477,79 @@ private fun AppearancePage(
             title = "iOS 26",
             subtitle = "Liquid Glass: стеклянные панели с размытием и преломлением",
             selected = settings.uiStyle == UiStyle.IOS,
-            icon = Icons.Rounded.PhoneIphone,
-            iconTint = c.blue,
+            leading = { StyleMark { OsLogoMark(OsLogo.IOS) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.IOS) } },
         )
-        IosDivider(start = divider)
+        IosDivider(start = StyleDivider.dp)
         IosChoiceRow(
             title = "Material You",
             subtitle = "Стиль Android: Material 3 и цвета под обои телефона",
             selected = settings.uiStyle == UiStyle.MATERIAL,
-            icon = Icons.Rounded.Android,
-            iconTint = c.green,
+            leading = { StyleMark { OsLogoMark(OsLogo.MATERIAL) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.MATERIAL) } },
         )
-        IosDivider(start = divider)
+        IosDivider(start = StyleDivider.dp)
         IosChoiceRow(
             title = "#РосКомПозор",
             subtitle = "Material 3 в цветах #РКП: голубой на тёмно-сером фоне",
             selected = settings.uiStyle == UiStyle.ROSKOMPOZOR,
-            icon = ImageVector.vectorResource(R.drawable.ic_rkp),
-            iconTint = RkpBlue,
+            leading = { StyleMark { IosIcon(ImageVector.vectorResource(R.drawable.ic_rkp), RkpBlue) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.ROSKOMPOZOR) } },
         )
-        IosDivider(start = divider)
+        IosDivider(start = StyleDivider.dp)
         IosChoiceRow(
             title = "Сумиэ",
             subtitle = "Тушь на рисовой бумаге: круг энсо, красная печать и кот-лодочник",
             selected = settings.uiStyle == UiStyle.SUMIE,
-            icon = Icons.Rounded.Brush,
-            iconTint = SumieSeal,
+            leading = { StyleMark { IosIcon(Icons.Rounded.Brush, SumieSeal) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.SUMIE) } },
         )
-        IosDivider(start = divider)
+        IosDivider(start = StyleDivider.dp)
         IosChoiceRow(
             title = "Nothing",
             subtitle = "Точки, монохром и красный акцент, как в Nothing OS",
             selected = settings.uiStyle == UiStyle.NOTHING,
-            icon = Icons.Rounded.Adjust,
-            iconTint = NothingRed,
+            leading = { StyleMark { OsLogoMark(OsLogo.NOTHING) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.NOTHING) } },
         )
-        IosDivider(start = divider)
+        IosDivider(start = StyleDivider.dp)
         IosChoiceRow(
             title = "Origin",
             subtitle = "Крупные плитки, мягкое свечение и пружинистые кнопки, как в OriginOS",
             selected = settings.uiStyle == UiStyle.ORIGIN,
-            icon = Icons.Rounded.AutoAwesome,
-            iconTint = OriginBlue,
+            leading = { StyleMark { OsLogoMark(OsLogo.ORIGIN) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.ORIGIN) } },
         )
-        IosDivider(start = divider)
+        IosDivider(start = StyleDivider.dp)
         IosChoiceRow(
             title = "Hyper",
             subtitle = "Живой остров сверху, плитка VPN с бликом и столбики скорости, как в HyperOS",
             selected = settings.uiStyle == UiStyle.HYPER,
-            icon = Icons.Rounded.Bolt,
-            iconTint = HyperBlue,
+            leading = { StyleMark { OsLogoMark(OsLogo.HYPER) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.HYPER) } },
         )
-        IosDivider(start = divider)
+        IosDivider(start = StyleDivider.dp)
         IosChoiceRow(
             title = "Harmony",
             subtitle = "Большая карточка VPN, капсула статуса сверху и фирменный синий, как в HarmonyOS",
             selected = settings.uiStyle == UiStyle.HARMONY,
-            icon = Icons.Rounded.DonutLarge,
-            iconTint = HarmonyBlue,
+            leading = { StyleMark { OsLogoMark(OsLogo.HARMONY) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.HARMONY) } },
         )
-        IosDivider(start = divider)
+        IosDivider(start = StyleDivider.dp)
         IosChoiceRow(
             title = "One UI",
             subtitle = "Большое кольцо подключения, вкладки-надписи и спокойные цвета, как в One UI",
             selected = settings.uiStyle == UiStyle.ONEUI,
-            icon = Icons.Rounded.RoundedCorner,
-            iconTint = OneUiBlue,
+            leading = { StyleMark { OsLogoMark(OsLogo.ONEUI) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.ONEUI) } },
         )
-        IosDivider(start = divider)
+        IosDivider(start = StyleDivider.dp)
         IosChoiceRow(
             title = "Oxygen",
             subtitle = "Переключатель-ползунок, капсула статуса сверху и красный акцент, как в OxygenOS",
             selected = settings.uiStyle == UiStyle.OXYGEN,
-            icon = Icons.Rounded.ToggleOn,
-            iconTint = OxygenRed,
+            leading = { StyleMark { OsLogoMark(OsLogo.OXYGEN) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.OXYGEN) } },
         )
     }
@@ -1096,6 +1075,11 @@ fun OnboardingDialog(onChoice: (enableCommunity: Boolean) -> Unit, onOpenDocumen
             }
         }
     }
+}
+
+@Composable
+private fun StyleMark(content: @Composable () -> Unit) {
+    Box(Modifier.width(72.dp), contentAlignment = Alignment.Center) { content() }
 }
 
 @Composable

@@ -497,6 +497,7 @@ fun IosChoiceRow(
     subtitle: String? = null,
     icon: ImageVector? = null,
     iconTint: Color = Ios.colors.tint,
+    leading: (@Composable () -> Unit)? = null,
 ) {
     val c = Ios.colors
     val radio = if (Ios.nothing) RadioButtonDefaults.colors(selectedColor = c.red) else RadioButtonDefaults.colors()
@@ -505,7 +506,7 @@ fun IosChoiceRow(
         this.selected = chosen
         role = Role.RadioButton
     }
-    if (Ios.material && icon == null) {
+    if (Ios.material && icon == null && leading == null) {
         IosRow(
             title = title,
             modifier = choice,
@@ -523,6 +524,7 @@ fun IosChoiceRow(
             onClick = onClick,
             icon = icon,
             iconTint = iconTint,
+            leading = leading,
             trailing = {
                 when {
                     Ios.material -> RadioButton(selected = selected, onClick = null, colors = radio)
