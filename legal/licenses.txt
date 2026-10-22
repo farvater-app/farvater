@@ -195,4 +195,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 Логотип #РКП в стиле оформления «#РосКомПозор» принадлежит РКП и используется с их разрешения. Лицензия GPL на него не распространяется.
 https://hub.mos.ru/rkp/sub-roskompozor
 
+7. Логотипы систем
+
+Логотипы iOS, Material Design, Nothing OS, OriginOS, Xiaomi HyperOS, HarmonyOS, One UI и OxygenOS на странице «Оформление» — товарные знаки их владельцев: Apple, Google, Nothing Technology, vivo, Xiaomi, Huawei, Samsung и OnePlus. Они только подписывают стили, похожие на эти системы. Фарватер с этими компаниями не связан, и лицензия GPL на логотипы не распространяется. Логотипы взяты из Simple Icons и Wikimedia Commons, символ HyperOS и надпись originOS перерисованы в векторы с картинок.
+
 Спасибо всем этим людям. Без них Фарватера бы не было.

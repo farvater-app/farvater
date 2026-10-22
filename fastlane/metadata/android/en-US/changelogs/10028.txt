@@ -1,0 +1,7 @@
+- Switches to a working node when the connected one stops responding
+- Nodes from your own subscription no longer land in Not responding while the VPN is on, and the group can be turned off
+- Gals no longer connects to a node that passes no data
+- Harmony, One UI and Oxygen styles with their own app icons
+- System logos in Appearance and swipe-like tab transitions
+- More reliable switch to the right node when the network mode changes
+- Updated privacy policy
