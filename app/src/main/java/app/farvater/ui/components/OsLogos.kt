@@ -115,7 +115,7 @@ private val marks = mapOf(
     OsLogo.OXYGEN to Mark(
         600.0f, 600.0f, Color(0xFFD6242F),
         listOf(
-            Part("M132,0h336a132,132 0 0 1 132,132v336a132,132 0 0 1 -132,132h-336a132,132 0 0 1 -132,-132v-336a132,132 0 0 1 132,-132z", Ink.BRAND),
+            Part("M0,0h600v600h-600z", Ink.BRAND),
             Part("M300,162.5a137.5,137.5 0 1,1 0,275a137.5,137.5 0 1,1 0,-275zM300,220a80,80 0 1,0 0,160a80,80 0 1,0 0,-160z", Ink.WHITE),
         ),
     ),
