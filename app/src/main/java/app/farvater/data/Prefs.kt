@@ -44,6 +44,7 @@ data class AppSettings(
     val modeNodes: Boolean = true,
     val autoStart: Boolean = false,
     val groupDead: Boolean = true,
+    val autoSwitch: Boolean = true,
 )
 
 @Serializable
@@ -54,6 +55,9 @@ data class UserSource(val id: String, val url: String, val title: String)
 
 @Serializable
 data class DayTraffic(val day: Long = 0, val bytes: Long = 0)
+
+@Serializable
+data class BackupNodes(val mode: String = "", val nodes: List<ProxyNode> = emptyList())
 
 class Prefs(context: Context) {
     private val sp = context.getSharedPreferences("farvater", Context.MODE_PRIVATE)
@@ -150,6 +154,10 @@ class Prefs(context: Context) {
             cachedModeNodes = value
             write("mode_nodes", value)
         }
+
+    var backupNodes: BackupNodes
+        get() = read<BackupNodes>("backup_nodes") ?: BackupNodes()
+        set(value) = write("backup_nodes", value)
 
     fun nodeForMode(mode: NetMode): ProxyNode? = modeNodes[mode.name]
 

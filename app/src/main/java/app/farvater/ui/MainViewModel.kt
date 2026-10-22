@@ -16,6 +16,7 @@ import app.farvater.core.model.onePerEndpoint
 import app.farvater.core.parser.SubscriptionParser
 import app.farvater.core.parser.Usage
 import app.farvater.data.AppSettings
+import app.farvater.data.BackupNodes
 import app.farvater.data.LEGAL_VERSION
 import app.farvater.data.NodeCheck
 import app.farvater.data.NodeHealth
@@ -23,6 +24,7 @@ import app.farvater.data.SourceConfig
 import app.farvater.data.SourceSnapshot
 import app.farvater.data.UpdateInfo
 import app.farvater.data.UserSource
+import app.farvater.engine.Failover
 import app.farvater.engine.GalsPlan
 import app.farvater.engine.NetModeDetector
 import app.farvater.engine.NodeTester
@@ -541,8 +543,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         val settings = prefs.settings
         val vpn = VpnBus.state.value
-        val vpnOn = vpn is VpnState.Connected || vpn is VpnState.Connecting
         val connected = (vpn as? VpnState.Connected)?.node?.takeIf { node -> nodes.any { it.id == node.id } }
+        val exempt = sameAccount(nodes)
         testing = true
         testJob = viewModelScope.launch {
             val me = coroutineContext.job
@@ -591,7 +593,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     testing = false
                     flush(finished = true)
                 }
-                recordHealth(finished, countFailures = !vpnOn)
+                recordHealth(finished, exempt)
             }
             rebuildNow()
             _state.update { it.copy(progress = null) }
@@ -614,7 +616,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val r = testOne(node)
                 results.update { it + (r.nodeId to r) }
                 _state.update { it.copy(results = results.value) }
-                recordHealth(listOf(r), countFailures = !vpnActive())
+                recordHealth(listOf(r), sameAccount(listOf(node)))
                 val name = splitFlag(node.name).second
                 toast(if (r.alive) "«$name» отвечает: ${r.delayMs} мс" else "«$name» не отвечает")
             } finally {
@@ -783,7 +785,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun deadFor(history: Map<String, NodeCheck>, mode: String): Set<String> =
         if (prefs.settings.groupDead) NodeHealth.dead(history, mode) else emptySet()
 
-    private fun vpnActive(): Boolean = VpnBus.state.value.let { it is VpnState.Connected || it is VpnState.Connecting }
+    private fun sameAccount(nodes: List<ProxyNode>): Set<String> {
+        val current = when (val vpn = VpnBus.state.value) {
+            is VpnState.Connected -> vpn.node
+            is VpnState.Connecting -> vpn.node
+            else -> return emptySet()
+        }
+        return nodes.filter { it.sourceId == current.sourceId }.mapTo(HashSet()) { it.id }
+    }
 
     private suspend fun testOne(node: ProxyNode): TestResult {
         val url = prefs.settings.testUrl
@@ -792,18 +801,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return tunnel ?: NodeTester.testAll(listOf(node), url, 1).first()
     }
 
-    private fun recordHealth(checked: Collection<TestResult>, countFailures: Boolean = true) {
+    private fun recordHealth(checked: Collection<TestResult>, exempt: Set<String> = emptySet()) {
         if (checked.isEmpty()) return
         val mode = modeKey()
         val batch = checked.toList()
         viewModelScope.launch(Dispatchers.Default) {
             val dead = healthLock.withLock {
-                val history = NodeHealth.record(prefs.nodeHealth, mode, batch, countFailures = countFailures)
+                val history = NodeHealth.record(prefs.nodeHealth, mode, batch, exempt = exempt)
                 prefs.nodeHealth = history
                 deadFor(history, mode)
             }
             _state.update { it.copy(dead = dead) }
             rebuild()
+            prefs.backupNodes = BackupNodes(mode, Failover.pick(_state.value.nodes, results.value, dead))
         }
     }
 
@@ -848,7 +858,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun reportDeadNode() {
         val current = (VpnBus.state.value as? VpnState.Connected)?.node ?: return
-        toast("Узел «${current.name}» не отвечает. Проверьте интернет или выберите другой узел.")
+        toast(
+            if (prefs.settings.autoSwitch) "Узел «${current.name}» не отвечает. Ищу другой рабочий узел."
+            else "Узел «${current.name}» не отвечает. Проверьте интернет или выберите другой узел.",
+        )
     }
 
     fun toggleConnection() {

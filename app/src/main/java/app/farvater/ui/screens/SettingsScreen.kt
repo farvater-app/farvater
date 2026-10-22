@@ -69,6 +69,7 @@ import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.PhoneIphone
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Speed
@@ -633,6 +634,20 @@ private fun ConnectionPage(settings: AppSettings, onChange: ((AppSettings) -> Ap
         )
     }
     IosSection(
+        header = "При сбое",
+        footer = "Если подключённый узел перестал отвечать, Фарватер сам проверит запасные узлы из последней проверки " +
+            "и переключится на рабочий: сначала из той же подписки, потом из остальных. Не чаще раза в две минуты.",
+    ) {
+        IosRow(
+            title = "Переключаться на рабочий узел",
+            titleLines = 2,
+            icon = Icons.Rounded.SyncAlt,
+            iconTint = c.green,
+            checked = settings.autoSwitch,
+            onCheckedChange = { v -> onChange { it.copy(autoSwitch = v) } },
+        )
+    }
+    IosSection(
         header = "Автозапуск",
         footer = "Как включить постоянный VPN: в открывшихся настройках нажмите на значок настроек рядом с Фарватером " +
             "и включите переключатель «Постоянная VPN». У некоторых производителей он называется немного иначе. " +
@@ -750,7 +765,8 @@ private fun TestingPage(settings: AppSettings, onChange: ((AppSettings) -> AppSe
     val c = Ios.colors
     IosSection(
         footer = "Узлы, которые дважды подряд не ответили, собираются в свёрнутую группу «Не отвечают» и сами не выбираются. " +
-            "Проверки при включённом VPN в этот счёт не идут, а узел, к которому вы подключены, проверяется через сам туннель. " +
+            "Узел, к которому вы подключены, проверяется через сам туннель, а неответы других узлов той же подписки при включённом VPN " +
+            "в этот счёт не идут: платные подписки часто не пускают второе подключение. " +
             "Если выключить, такие узлы остаются в своих подписках.",
     ) {
         IosRow(

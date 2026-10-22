@@ -27,6 +27,7 @@ import app.farvater.core.xray.XrayConfigBuilder
 import app.farvater.data.DayTraffic
 import app.farvater.data.UpdateWorker
 import app.farvater.engine.DohProbe
+import app.farvater.engine.Failover
 import app.farvater.engine.ModeStep
 import app.farvater.engine.ModeSwitch
 import app.farvater.engine.NetModeDetector
@@ -106,6 +107,8 @@ class FarvaterVpnService : VpnService() {
     @Volatile private var stopped = false
     @Volatile private var modeJob: Job? = null
     @Volatile private var lastModeSwitch = 0L
+    @Volatile private var failoverJob: Job? = null
+    @Volatile private var lastFailover = 0L
     @Volatile private var networkCallback: ConnectivityManager.NetworkCallback? = null
     @Volatile private var dayTraffic: DayTraffic? = null
 
@@ -242,6 +245,7 @@ class FarvaterVpnService : VpnService() {
         dayTraffic = day
         var tick = 0
         var failures = 0
+        var lastProbe = 0
         var check: Job? = null
         val outcome = AtomicReference<Boolean?>(null)
         val history = ArrayDeque<Long>()
@@ -294,14 +298,17 @@ class FarvaterVpnService : VpnService() {
                     )
                 }
             }
-            if (check?.isActive != true && (tick in EARLY_PROBES || tick % PROBE_EVERY == 0)) {
+            if (check?.isActive != true && Failover.probeDue(tick, lastProbe, failures, PROBE_EVERY, EARLY_PROBES)) {
+                lastProbe = tick
                 check = scope.launch { outcome.set(probe(node)) }
             }
             outcome.getAndSet(null)?.let { ok ->
                 if (!currentCoroutineContext().isActive) return
                 failures = if (ok) 0 else failures + 1
                 VpnBus.failedChecks.value = failures
-                if (ModeSwitch.recheckAfter(failures, VpnBus.STALL_CHECKS)) checkMode()
+                if (ModeSwitch.recheckAfter(failures, VpnBus.STALL_CHECKS)) {
+                    if (App.prefs.settings.autoSwitch) failover(node) else checkMode()
+                }
                 maybeCheckUpdates()
             }
         }
@@ -368,6 +375,33 @@ class FarvaterVpnService : VpnService() {
         }
     }
 
+    private fun failover(stalled: ProxyNode) {
+        if (failoverJob?.isActive == true) return
+        failoverJob = scope.launch {
+            checkMode()
+            modeJob?.join()
+            val current = (VpnBus.state.value as? VpnState.Connected)?.node ?: return@launch
+            if (current.id != stalled.id || VpnBus.failedChecks.value < VpnBus.STALL_CHECKS) return@launch
+            if (System.currentTimeMillis() - lastFailover < Failover.GAP_MS) return@launch
+            val backups = App.prefs.backupNodes
+            val choice = App.prefs.settings.netMode
+            val mode = if (choice == NetModeChoice.AUTO) App.prefs.lastNetMode else choice.name
+            if (backups.mode != "ANY" && mode != null && backups.mode != mode) return@launch
+            val url = App.prefs.settings.testUrl
+            for (next in Failover.order(backups.nodes, current).filter { App.prefs.allowedForAuto(it) }.take(Failover.TRIES)) {
+                updateNotification(current.name, "Узел не отвечает, проверяю «${next.name}»")
+                val alive = runInterruptible { NodeTester.test(next, url) }.alive
+                ensureActive()
+                if (!alive) continue
+                val still = (VpnBus.state.value as? VpnState.Connected)?.node
+                if (still?.id != current.id || VpnBus.failedChecks.value < VpnBus.STALL_CHECKS) return@launch
+                lastFailover = System.currentTimeMillis()
+                startVpn(next, restart = true, fallback = current)
+                return@launch
+            }
+        }
+    }
+
     private fun maybeCheckUpdates() {
         val now = System.currentTimeMillis()
         if (now - maxOf(App.prefs.lastUpdateCheck, lastUpdateAttempt) < UPDATE_GAP_MS) return
@@ -401,6 +435,7 @@ class FarvaterVpnService : VpnService() {
     private fun stopVpn() {
         unwatchNetwork()
         modeJob?.cancel()
+        failoverJob?.cancel()
         synchronized(this) {
             stopped = true
             teardown()

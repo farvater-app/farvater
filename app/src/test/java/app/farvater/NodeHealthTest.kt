@@ -46,11 +46,11 @@ class NodeHealthTest {
         assertEquals(120L, NodeHealth.results(h, "BLACK", now)["b"]?.delayMs)
     }
 
-    @Test fun failuresWhileVpnIsOnDoNotPileUp() {
-        var h = NodeHealth.record(emptyMap(), "WHITE", listOf(dead("a")), now, countFailures = false)
-        h = NodeHealth.record(h, "WHITE", listOf(dead("a")), now, countFailures = false)
-        assertTrue(NodeHealth.dead(h, "WHITE", now).isEmpty())
-        assertEquals(-1L, NodeHealth.results(h, "WHITE", now)["a"]?.delayMs)
+    @Test fun exemptFailuresDoNotPileUpButOthersDo() {
+        var h = NodeHealth.record(emptyMap(), "WHITE", listOf(dead("paid"), dead("public")), now, exempt = setOf("paid"))
+        h = NodeHealth.record(h, "WHITE", listOf(dead("paid"), dead("public")), now, exempt = setOf("paid"))
+        assertEquals(setOf("public"), NodeHealth.dead(h, "WHITE", now))
+        assertEquals(-1L, NodeHealth.results(h, "WHITE", now)["paid"]?.delayMs)
     }
 
     @Test fun pruneDropsChecksOlderThanADay() {

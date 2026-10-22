@@ -17,7 +17,7 @@ object NodeHealth {
         mode: String,
         results: Collection<TestResult>,
         now: Long = System.currentTimeMillis(),
-        countFailures: Boolean = true,
+        exempt: Set<String> = emptySet(),
     ): Map<String, NodeCheck> {
         val out = prune(history, now).toMutableMap()
         results.forEach { r ->
@@ -25,8 +25,8 @@ object NodeHealth {
             val before = out[key]?.fails ?: 0
             val fails = when {
                 r.alive -> 0
-                countFailures -> before + 1
-                else -> before
+                r.nodeId in exempt -> before
+                else -> before + 1
             }
             out[key] = NodeCheck(r.delayMs, r.method, r.at, fails)
         }

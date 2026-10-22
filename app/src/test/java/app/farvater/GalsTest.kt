@@ -5,6 +5,7 @@ import app.farvater.core.model.Protocol
 import app.farvater.core.model.ProxyNode
 import app.farvater.core.xray.XrayConfigBuilder
 import app.farvater.engine.DohProbe
+import app.farvater.engine.Failover
 import app.farvater.core.model.NetMode
 import app.farvater.engine.GalsPlan
 import app.farvater.engine.ModeStep
@@ -173,5 +174,26 @@ class GalsTest {
         assertTrue(ModeSwitch.recheckAfter(3, 3))
         assertFalse(ModeSwitch.recheckAfter(4, 3))
         assertTrue(ModeSwitch.recheckAfter(6, 3))
+    }
+
+    @Test
+    fun failoverPrefersSameSubscriptionThenFastest() {
+        val a = node("a").copy(sourceId = "paid")
+        val b = node("b").copy(sourceId = "public")
+        val c = node("c").copy(sourceId = "paid")
+        val d = node("d").copy(sourceId = "paid")
+        val results = mapOf(alive("a", 50), alive("b", 20), alive("c", 90), alive("d", 10, method = TestMethod.TCP))
+        val backups = Failover.pick(listOf(a, b, c, d), results, dead = setOf("c"))
+        assertEquals(listOf("b", "a", "d"), backups.map { it.id })
+        assertEquals(listOf("d", "b"), Failover.order(backups, current = a).map { it.id })
+    }
+
+    @Test
+    fun probesComeFasterAfterAFailure() {
+        val early = setOf(5, 15, 30)
+        assertTrue(Failover.probeDue(tick = 60, lastProbe = 30, failures = 0, every = 60, early = early))
+        assertFalse(Failover.probeDue(tick = 70, lastProbe = 60, failures = 0, every = 60, early = early))
+        assertTrue(Failover.probeDue(tick = 70, lastProbe = 60, failures = 1, every = 60, early = early))
+        assertFalse(Failover.probeDue(tick = 65, lastProbe = 60, failures = 1, every = 60, early = early))
     }
 }
