@@ -215,6 +215,42 @@ class ScreenshotTest {
         Settings(Fake.state.settings.copy(uiStyle = UiStyle.HARMONY))
     }
 
+    @Test fun oneUiIdleLight() = shot("91_oneui_home_idle_light", dark = false, style = UiStyle.ONEUI) { Home(VpnState.Idle) }
+    @Test fun oneUiIdleDark() = shot("91_oneui_home_idle_dark", dark = true, style = UiStyle.ONEUI) { Home(VpnState.Idle) }
+    @Test fun oneUiConnectedLight() = shot("92_oneui_home_connected_light", dark = false, style = UiStyle.ONEUI) { Home(Fake.connected) }
+    @Test fun oneUiConnectedDark() = shot("92_oneui_home_connected_dark", dark = true, style = UiStyle.ONEUI) { Home(Fake.connected) }
+    @Test fun oneUiSearchingLight() = shot("93_oneui_home_searching_light", dark = false, style = UiStyle.ONEUI) {
+        Home(VpnState.Idle, Fake.state.copy(progress = TestProgress(37, 120, 9)))
+    }
+    @Test fun oneUiErrorDark() = shot("94_oneui_home_error_dark", dark = true, style = UiStyle.ONEUI) {
+        Home(VpnState.Failed("Узел не ответил", Fake.state.nodes.first()))
+    }
+    @Test fun oneUiServersLight() = shot("95_oneui_servers_light", dark = false, style = UiStyle.ONEUI) { Servers() }
+    @Test fun oneUiAppearanceDark() = shot("97_oneui_appearance_dark", dark = true, style = UiStyle.ONEUI, act = ::openAppearance) {
+        Settings(Fake.state.settings.copy(uiStyle = UiStyle.ONEUI))
+    }
+    @Test fun oneUiAppIconsLight() = shot("98_oneui_app_icons_light", dark = false, style = UiStyle.ONEUI, act = { openAppIcons(aboveBar = true) }) {
+        Settings(Fake.state.settings.copy(uiStyle = UiStyle.ONEUI))
+    }
+
+    @Test fun oxygenIdleLight() = shot("A1_oxygen_home_idle_light", dark = false, style = UiStyle.OXYGEN) { Home(VpnState.Idle) }
+    @Test fun oxygenIdleDark() = shot("A1_oxygen_home_idle_dark", dark = true, style = UiStyle.OXYGEN) { Home(VpnState.Idle) }
+    @Test fun oxygenConnectedLight() = shot("A2_oxygen_home_connected_light", dark = false, style = UiStyle.OXYGEN) { Home(Fake.connected) }
+    @Test fun oxygenConnectedDark() = shot("A2_oxygen_home_connected_dark", dark = true, style = UiStyle.OXYGEN) { Home(Fake.connected) }
+    @Test fun oxygenSearchingLight() = shot("A3_oxygen_home_searching_light", dark = false, style = UiStyle.OXYGEN) {
+        Home(VpnState.Idle, Fake.state.copy(progress = TestProgress(37, 120, 9)))
+    }
+    @Test fun oxygenErrorDark() = shot("A4_oxygen_home_error_dark", dark = true, style = UiStyle.OXYGEN) {
+        Home(VpnState.Failed("Узел не ответил", Fake.state.nodes.first()))
+    }
+    @Test fun oxygenServersLight() = shot("A5_oxygen_servers_light", dark = false, style = UiStyle.OXYGEN) { Servers() }
+    @Test fun oxygenAppearanceDark() = shot("A7_oxygen_appearance_dark", dark = true, style = UiStyle.OXYGEN, act = ::openAppearance) {
+        Settings(Fake.state.settings.copy(uiStyle = UiStyle.OXYGEN))
+    }
+    @Test fun oxygenAppIconsLight() = shot("A8_oxygen_app_icons_light", dark = false, style = UiStyle.OXYGEN, act = { openAppIcons(aboveBar = true) }) {
+        Settings(Fake.state.settings.copy(uiStyle = UiStyle.OXYGEN))
+    }
+
     @Test fun nothingConnectionLargeFontDark() = shot(
         "54_nothing_connection_large_font_dark", dark = true, nothing = true, fontScale = 1.3f, act = { openConnection(swipes = 2) },
     ) { Settings(Fake.state.settings.copy(uiStyle = UiStyle.NOTHING)) }

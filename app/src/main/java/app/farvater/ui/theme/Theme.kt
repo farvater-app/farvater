@@ -152,6 +152,12 @@ object Ios {
 
     val harmony: Boolean
         @Composable @ReadOnlyComposable get() = LocalUiStyle.current == UiStyle.HARMONY
+
+    val oneUi: Boolean
+        @Composable @ReadOnlyComposable get() = LocalUiStyle.current == UiStyle.ONEUI
+
+    val oxygen: Boolean
+        @Composable @ReadOnlyComposable get() = LocalUiStyle.current == UiStyle.OXYGEN
 }
 
 private val OrangeLight = lightColorScheme(
@@ -500,6 +506,130 @@ private fun harmonyColors(s: ColorScheme, dark: Boolean): IosColors = materialCo
     blue = s.primary,
 )
 
+val OneUiBlue = Color(0xFF2A62E0)
+val OneUiBlueNight = Color(0xFF6B9BFF)
+
+val OneUiFont = FontFamily(
+    Font(R.font.farvater_rubik_regular, FontWeight.Normal),
+    Font(R.font.farvater_rubik_medium, FontWeight.Medium),
+    Font(R.font.farvater_rubik_semibold, FontWeight.SemiBold),
+    Font(R.font.farvater_rubik_bold, FontWeight.Bold),
+)
+
+private val OneUiLight = lightColorScheme(
+    primary = OneUiBlue, onPrimary = Color.White,
+    primaryContainer = Color(0xFFDCE5FF), onPrimaryContainer = Color(0xFF001B57),
+    secondary = Color(0xFF5D6068), onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFFE6E7EB), onSecondaryContainer = Color(0xFF1A1B1F),
+    tertiary = Color(0xFF167A3F), onTertiary = Color(0xFFFFFFFF),
+    tertiaryContainer = Color(0xFFC9EFD6), onTertiaryContainer = Color(0xFF00210C),
+    error = Color(0xFFC9352A), onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFFFDAD4), onErrorContainer = Color(0xFF410001),
+    background = Color(0xFFF4F4F4), onBackground = Color(0xFF1A1A1C),
+    surface = Color(0xFFF4F4F4), onSurface = Color(0xFF1A1A1C),
+    surfaceVariant = Color(0xFFE6E6E8), onSurfaceVariant = Color(0xFF6B6B70),
+    outline = Color(0xFFA1A1A6), outlineVariant = Color(0xFFE2E2E4),
+    inverseSurface = Color(0xFF2A2A2C), inverseOnSurface = Color(0xFFF4F4F4), inversePrimary = Color(0xFFA9C2FF),
+    surfaceTint = Color.Transparent, scrim = Color.Black,
+    surfaceDim = Color(0xFFE1E1E3), surfaceBright = Color(0xFFFFFFFF),
+    surfaceContainerLowest = Color(0xFFFFFFFF), surfaceContainerLow = Color(0xFFFAFAFA),
+    surfaceContainer = Color(0xFFF4F4F4), surfaceContainerHigh = Color(0xFFEDEDEF),
+    surfaceContainerHighest = Color(0xFFE6E6E8),
+)
+private val OneUiDark = darkColorScheme(
+    primary = OneUiBlueNight, onPrimary = Color(0xFF002A78),
+    primaryContainer = Color(0xFF123E9C), onPrimaryContainer = Color(0xFFDCE5FF),
+    secondary = Color(0xFFB3B5BD), onSecondary = Color(0xFF202227),
+    secondaryContainer = Color(0xFF2A2B30), onSecondaryContainer = Color(0xFFE3E4E9),
+    tertiary = Color(0xFF4FC27A), onTertiary = Color(0xFF003915),
+    tertiaryContainer = Color(0xFF105227), onTertiaryContainer = Color(0xFFB3F2C6),
+    error = Color(0xFFFF6E5E), onError = Color(0xFF5E0B03),
+    errorContainer = Color(0xFF7E1B10), onErrorContainer = Color(0xFFFFDAD4),
+    background = Color(0xFF000000), onBackground = Color(0xFFEDEDED),
+    surface = Color(0xFF000000), onSurface = Color(0xFFEDEDED),
+    surfaceVariant = Color(0xFF171717), onSurfaceVariant = Color(0xFFA0A0A6),
+    outline = Color(0xFF5F5F64), outlineVariant = Color(0xFF262626),
+    inverseSurface = Color(0xFFF4F4F4), inverseOnSurface = Color(0xFF1A1A1C), inversePrimary = Color(0xFF2A62E0),
+    surfaceTint = Color.Transparent, scrim = Color.Black,
+    surfaceDim = Color(0xFF000000), surfaceBright = Color(0xFF2C2C2E),
+    surfaceContainerLowest = Color(0xFF000000), surfaceContainerLow = Color(0xFF0C0C0C),
+    surfaceContainer = Color(0xFF121212), surfaceContainerHigh = Color(0xFF171717),
+    surfaceContainerHighest = Color(0xFF222224),
+)
+private fun oneUiColors(s: ColorScheme, dark: Boolean): IosColors = materialColors(s, dark).copy(
+    background = if (dark) Color.Black else Color(0xFFF4F4F4),
+    cell = if (dark) Color(0xFF171717) else Color.White,
+    cellRaised = if (dark) Color(0xFF222224) else Color(0xFFF4F4F4),
+    highlight = if (dark) Color(0xFF26262A) else Color(0xFFEDEDEF),
+    fill = if (dark) Color(0xFF222224) else Color(0xFFE6E6E8),
+    bar = if (dark) Color(0xF2000000) else Color(0xF2F4F4F4),
+    tint = s.primary,
+    green = if (dark) Color(0xFF4FC27A) else Color(0xFF167A3F),
+    blue = s.primary,
+)
+
+val OxygenRed = Color(0xFFD10024)
+val OxygenRedNight = Color(0xFFFF4D5E)
+
+val OxygenFont = FontFamily(
+    Font(R.font.farvater_jost_regular, FontWeight.Normal),
+    Font(R.font.farvater_jost_medium, FontWeight.Medium),
+    Font(R.font.farvater_jost_semibold, FontWeight.SemiBold),
+    Font(R.font.farvater_jost_bold, FontWeight.Bold),
+)
+
+private val OxygenLight = lightColorScheme(
+    primary = OxygenRed, onPrimary = Color.White,
+    primaryContainer = Color(0xFFFFDADC), onPrimaryContainer = Color(0xFF40000A),
+    secondary = Color(0xFF5E5E63), onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFFE7E7EA), onSecondaryContainer = Color(0xFF1B1B1F),
+    tertiary = Color(0xFF1C7D45), onTertiary = Color(0xFFFFFFFF),
+    tertiaryContainer = Color(0xFFC6F0D4), onTertiaryContainer = Color(0xFF00210D),
+    error = Color(0xFFB8001C), onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFFFDAD6), onErrorContainer = Color(0xFF410004),
+    background = Color(0xFFF2F2F2), onBackground = Color(0xFF161618),
+    surface = Color(0xFFF2F2F2), onSurface = Color(0xFF161618),
+    surfaceVariant = Color(0xFFE6E6E8), onSurfaceVariant = Color(0xFF646469),
+    outline = Color(0xFFA1A1A6), outlineVariant = Color(0xFFE1E1E3),
+    inverseSurface = Color(0xFF2A2A2C), inverseOnSurface = Color(0xFFF2F2F2), inversePrimary = Color(0xFFFFB3B8),
+    surfaceTint = Color.Transparent, scrim = Color.Black,
+    surfaceDim = Color(0xFFDFDFE1), surfaceBright = Color(0xFFFFFFFF),
+    surfaceContainerLowest = Color(0xFFFFFFFF), surfaceContainerLow = Color(0xFFF9F9F9),
+    surfaceContainer = Color(0xFFF2F2F2), surfaceContainerHigh = Color(0xFFEBEBED),
+    surfaceContainerHighest = Color(0xFFE6E6E8),
+)
+private val OxygenDark = darkColorScheme(
+    primary = OxygenRedNight, onPrimary = Color(0xFF5F0010),
+    primaryContainer = Color(0xFF8C0018), onPrimaryContainer = Color(0xFFFFDADC),
+    secondary = Color(0xFFB4B4B9), onSecondary = Color(0xFF212124),
+    secondaryContainer = Color(0xFF2B2B2E), onSecondaryContainer = Color(0xFFE4E4E7),
+    tertiary = Color(0xFF4CC27F), onTertiary = Color(0xFF003916),
+    tertiaryContainer = Color(0xFF0F5228), onTertiaryContainer = Color(0xFFB5F2C8),
+    error = Color(0xFFFF5C6B), onError = Color(0xFF5F0012),
+    errorContainer = Color(0xFF82101F), onErrorContainer = Color(0xFFFFDAD6),
+    background = Color(0xFF000000), onBackground = Color(0xFFEDEDED),
+    surface = Color(0xFF000000), onSurface = Color(0xFFEDEDED),
+    surfaceVariant = Color(0xFF1A1A1A), onSurfaceVariant = Color(0xFFA3A3A8),
+    outline = Color(0xFF5F5F64), outlineVariant = Color(0xFF272727),
+    inverseSurface = Color(0xFFF2F2F2), inverseOnSurface = Color(0xFF161618), inversePrimary = Color(0xFFD10024),
+    surfaceTint = Color.Transparent, scrim = Color.Black,
+    surfaceDim = Color(0xFF000000), surfaceBright = Color(0xFF2D2D2F),
+    surfaceContainerLowest = Color(0xFF000000), surfaceContainerLow = Color(0xFF0D0D0D),
+    surfaceContainer = Color(0xFF131313), surfaceContainerHigh = Color(0xFF1A1A1A),
+    surfaceContainerHighest = Color(0xFF242426),
+)
+private fun oxygenColors(s: ColorScheme, dark: Boolean): IosColors = materialColors(s, dark).copy(
+    background = if (dark) Color.Black else Color(0xFFF2F2F2),
+    cell = if (dark) Color(0xFF1A1A1A) else Color.White,
+    cellRaised = if (dark) Color(0xFF242426) else Color(0xFFF2F2F2),
+    highlight = if (dark) Color(0xFF27272A) else Color(0xFFEBEBED),
+    fill = if (dark) Color(0xFF242426) else Color(0xFFE6E6E8),
+    bar = if (dark) Color(0xF2000000) else Color(0xF2F2F2F2),
+    tint = s.primary,
+    green = if (dark) Color(0xFF4CC27F) else Color(0xFF1C7D45),
+    blue = if (dark) Color(0xFF6B9BFF) else Color(0xFF2A62E0),
+)
+
 private fun nothingColors(s: ColorScheme, dark: Boolean): IosColors = materialColors(s, dark).copy(
     cell = if (dark) Color(0xFF111111) else Color.White,
     highlight = if (dark) Color(0xFF1E1E1E) else Color(0xFFEDEDED),
@@ -672,6 +802,50 @@ private val HarmonyType = MaterialType.copy(
     labelLarge = TextStyle(fontFamily = HarmonyFont, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
 )
 
+private val OneUiType = MaterialType.copy(
+    displaySmall = TextStyle(fontFamily = OneUiFont, fontWeight = FontWeight.Bold, fontSize = 36.sp, lineHeight = 44.sp),
+    headlineLarge = TextStyle(fontFamily = OneUiFont, fontWeight = FontWeight.Bold, fontSize = 32.sp, lineHeight = 40.sp),
+    headlineMedium = TextStyle(fontFamily = OneUiFont, fontWeight = FontWeight.Bold, fontSize = 27.sp, lineHeight = 34.sp),
+    headlineSmall = TextStyle(fontFamily = OneUiFont, fontWeight = FontWeight.SemiBold, fontSize = 23.sp, lineHeight = 30.sp),
+    titleLarge = TextStyle(fontFamily = OneUiFont, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 27.sp),
+    titleMedium = TextStyle(fontFamily = OneUiFont, fontWeight = FontWeight.Medium, fontSize = 16.sp, lineHeight = 22.sp),
+    titleSmall = TextStyle(fontFamily = OneUiFont, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
+    bodyLarge = TextStyle(fontFamily = OneUiFont, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 22.sp),
+    bodyMedium = TextStyle(fontFamily = OneUiFont, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp),
+    bodySmall = TextStyle(fontFamily = OneUiFont, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp),
+    labelLarge = TextStyle(fontFamily = OneUiFont, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
+)
+
+private val OxygenType = MaterialType.copy(
+    displaySmall = TextStyle(fontFamily = OxygenFont, fontWeight = FontWeight.Bold, fontSize = 36.sp, lineHeight = 44.sp),
+    headlineLarge = TextStyle(fontFamily = OxygenFont, fontWeight = FontWeight.SemiBold, fontSize = 32.sp, lineHeight = 40.sp),
+    headlineMedium = TextStyle(fontFamily = OxygenFont, fontWeight = FontWeight.SemiBold, fontSize = 27.sp, lineHeight = 34.sp),
+    headlineSmall = TextStyle(fontFamily = OxygenFont, fontWeight = FontWeight.SemiBold, fontSize = 23.sp, lineHeight = 30.sp),
+    titleLarge = TextStyle(fontFamily = OxygenFont, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 27.sp),
+    titleMedium = TextStyle(fontFamily = OxygenFont, fontWeight = FontWeight.Medium, fontSize = 16.sp, lineHeight = 22.sp),
+    titleSmall = TextStyle(fontFamily = OxygenFont, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
+    bodyLarge = TextStyle(fontFamily = OxygenFont, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 22.sp),
+    bodyMedium = TextStyle(fontFamily = OxygenFont, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp),
+    bodySmall = TextStyle(fontFamily = OxygenFont, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp),
+    labelLarge = TextStyle(fontFamily = OxygenFont, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
+)
+
+private val OneUiShapes = Shapes(
+    extraSmall = RoundedCornerShape(10.dp),
+    small = RoundedCornerShape(16.dp),
+    medium = RoundedCornerShape(22.dp),
+    large = RoundedCornerShape(26.dp),
+    extraLarge = RoundedCornerShape(32.dp),
+)
+
+private val OxygenShapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(18.dp),
+    extraLarge = RoundedCornerShape(24.dp),
+)
+
 private val HarmonyShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),
     small = RoundedCornerShape(12.dp),
@@ -825,6 +999,10 @@ fun FarvaterTheme(
             if (dark) HyperDark else HyperLight
         } else if (style == UiStyle.HARMONY) {
             if (dark) HarmonyDark else HarmonyLight
+        } else if (style == UiStyle.ONEUI) {
+            if (dark) OneUiDark else OneUiLight
+        } else if (style == UiStyle.OXYGEN) {
+            if (dark) OxygenDark else OxygenLight
         } else if (!material) {
             scheme(if (dark) IosDark else IosLight)
         } else if (dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -842,6 +1020,8 @@ fun FarvaterTheme(
             style == UiStyle.ORIGIN -> originColors(targetScheme, dark)
             style == UiStyle.HYPER -> hyperColors(targetScheme, dark)
             style == UiStyle.HARMONY -> harmonyColors(targetScheme, dark)
+            style == UiStyle.ONEUI -> oneUiColors(targetScheme, dark)
+            style == UiStyle.OXYGEN -> oxygenColors(targetScheme, dark)
             material -> materialColors(targetScheme, dark)
             dark -> IosDark
             else -> IosLight
@@ -858,6 +1038,8 @@ fun FarvaterTheme(
                 style == UiStyle.ORIGIN -> OriginType
                 style == UiStyle.HYPER -> HyperType
                 style == UiStyle.HARMONY -> HarmonyType
+                style == UiStyle.ONEUI -> OneUiType
+                style == UiStyle.OXYGEN -> OxygenType
                 material -> MaterialType
                 else -> Type
             },
@@ -867,6 +1049,8 @@ fun FarvaterTheme(
                 style == UiStyle.ORIGIN -> OriginShapes
                 style == UiStyle.HYPER -> HyperShapes
                 style == UiStyle.HARMONY -> HarmonyShapes
+                style == UiStyle.ONEUI -> OneUiShapes
+                style == UiStyle.OXYGEN -> OxygenShapes
                 material -> M3Shapes
                 else -> IosShapes
             },

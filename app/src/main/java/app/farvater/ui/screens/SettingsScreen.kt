@@ -51,6 +51,7 @@ import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.DataUsage
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.DonutLarge
@@ -70,6 +71,7 @@ import androidx.compose.material.icons.rounded.PhoneIphone
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.SyncAlt
+import androidx.compose.material.icons.rounded.ToggleOn
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Speed
@@ -142,7 +144,9 @@ import app.farvater.ui.theme.HyperBlue
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.IosType
 import app.farvater.ui.theme.NothingRed
+import app.farvater.ui.theme.OneUiBlue
 import app.farvater.ui.theme.OriginBlue
+import app.farvater.ui.theme.OxygenRed
 import app.farvater.ui.theme.RkpBlue
 import app.farvater.ui.theme.SumieSeal
 import kotlinx.coroutines.Dispatchers
@@ -303,6 +307,8 @@ private fun SettingsRoot(
                         UiStyle.ORIGIN -> "Origin"
                         UiStyle.HYPER -> "Hyper"
                         UiStyle.HARMONY -> "Harmony"
+                        UiStyle.ONEUI -> "One UI"
+                        UiStyle.OXYGEN -> "Oxygen"
                     },
                     chevron = true,
                     onClick = { onOpen(SettingsPage.Appearance) },
@@ -548,6 +554,24 @@ private fun AppearancePage(
             icon = Icons.Rounded.DonutLarge,
             iconTint = HarmonyBlue,
             onClick = { onChange { it.copy(uiStyle = UiStyle.HARMONY) } },
+        )
+        IosDivider(start = divider)
+        IosChoiceRow(
+            title = "One UI",
+            subtitle = "Большое кольцо подключения, вкладки-надписи и спокойные цвета, как в One UI",
+            selected = settings.uiStyle == UiStyle.ONEUI,
+            icon = Icons.Rounded.DataUsage,
+            iconTint = OneUiBlue,
+            onClick = { onChange { it.copy(uiStyle = UiStyle.ONEUI) } },
+        )
+        IosDivider(start = divider)
+        IosChoiceRow(
+            title = "Oxygen",
+            subtitle = "Переключатель-ползунок, капсула статуса сверху и красный акцент, как в OxygenOS",
+            selected = settings.uiStyle == UiStyle.OXYGEN,
+            icon = Icons.Rounded.ToggleOn,
+            iconTint = OxygenRed,
+            onClick = { onChange { it.copy(uiStyle = UiStyle.OXYGEN) } },
         )
     }
 

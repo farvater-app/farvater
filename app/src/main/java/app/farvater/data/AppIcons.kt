@@ -71,6 +71,16 @@ enum class AppIcon(
         R.drawable.ic_launcher_harmony_background, R.drawable.ic_launcher_harmony_foreground,
         R.drawable.ic_launcher_harmony_monochrome, R.drawable.widget_on_harmony,
     ),
+    ONEUI(
+        "IconOneUi", "One UI",
+        R.drawable.ic_launcher_oneui_background, R.drawable.ic_launcher_oneui_foreground,
+        R.drawable.ic_launcher_oneui_monochrome, R.drawable.widget_on_oneui,
+    ),
+    OXYGEN(
+        "IconOxygen", "Oxygen",
+        R.drawable.ic_launcher_oxygen_background, R.drawable.ic_launcher_oxygen_foreground,
+        R.drawable.ic_launcher_oxygen_monochrome, R.drawable.widget_on_oxygen,
+    ),
 }
 
 object AppIcons {

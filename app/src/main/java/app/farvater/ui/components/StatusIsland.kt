@@ -53,6 +53,7 @@ import app.farvater.ui.theme.HyperFont
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.Numeric
 import app.farvater.ui.theme.OriginFont
+import app.farvater.ui.theme.OxygenFont
 import kotlinx.coroutines.delay
 
 private enum class Island { Off, Busy, On, Big, Fail }
@@ -74,6 +75,7 @@ fun StatusIsland(
     val font = when {
         hyper -> HyperFont
         Ios.harmony -> HarmonyFont
+        Ios.oxygen -> OxygenFont
         else -> OriginFont
     }
     val text = TextStyle(fontFamily = font, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, lineHeight = 16.sp, color = Color.White)

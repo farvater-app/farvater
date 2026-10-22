@@ -70,9 +70,11 @@ import app.farvater.ui.components.DotConnectButton
 import app.farvater.ui.components.HarmonyConnect
 import app.farvater.ui.components.HyperConnect
 import app.farvater.ui.components.NodeAvatar
+import app.farvater.ui.components.OneUiConnect
 import app.farvater.ui.components.OriginBars
 import app.farvater.ui.components.OriginConnect
 import app.farvater.ui.components.OriginTile
+import app.farvater.ui.components.OxygenConnect
 import app.farvater.ui.components.Sparkline
 import app.farvater.ui.components.StatusIsland
 import app.farvater.ui.components.SumieHero
@@ -132,7 +134,9 @@ fun HomeScreen(
     val origin = Ios.origin
     val hyper = Ios.hyper
     val harmony = Ios.harmony
-    val island = origin || hyper || harmony
+    val oneUi = Ios.oneUi
+    val oxygen = Ios.oxygen
+    val island = origin || hyper || harmony || oxygen
     val scroll = rememberScrollState()
     EdgeHaptics(scroll)
     val collapsed by remember { derivedStateOf { scroll.value > 70 } }
@@ -193,7 +197,7 @@ fun HomeScreen(
                 .glassSource(backdrop)
                 .verticalScroll(scroll)
                 .drawBehind {
-                    if (!sumie && !nothing && !hyper && !harmony) drawRect(
+                    if (!sumie && !nothing && !hyper && !harmony && !oneUi && !oxygen) drawRect(
                         Brush.radialGradient(
                             listOf(glow, Color.Transparent),
                             center = Offset(size.width / 2, if (origin) 260.dp.toPx() else 190.dp.toPx()),
@@ -260,6 +264,8 @@ fun HomeScreen(
                             status = tileStatus(mode, state, connectedNode),
                             onClick = onToggle,
                         )
+                        oneUi -> OneUiConnect(mode = mode, onClick = onToggle)
+                        oxygen -> OxygenConnect(mode = mode, onClick = onToggle)
                         else -> ConnectButton(mode = mode, onClick = onToggle, size = 184.dp)
                     }
                 }
