@@ -2,6 +2,7 @@ package app.farvater.ui.components
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -76,12 +77,8 @@ fun OxygenConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = M
         }
     }
     val position by animateFloatAsState(
-        when {
-            on -> 1f
-            busy -> 0.5f
-            else -> 0f
-        },
-        if (still) tween(0) else spring(dampingRatio = 0.62f, stiffness = 320f),
+        if (on) 1f else 0f,
+        if (still) tween(0) else tween(420, easing = FastOutSlowInEasing),
         label = "slide",
     )
     val track by animateColorAsState(
@@ -90,7 +87,7 @@ fun OxygenConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = M
             ConnectMode.Error -> c.red.copy(alpha = 0.16f).compositeOver(c.cell)
             else -> c.fill
         },
-        tween(360),
+        tween(420, easing = FastOutSlowInEasing),
         label = "track",
     )
     val glyph by animateColorAsState(
@@ -132,13 +129,24 @@ fun OxygenConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = M
                 .padding(8.dp),
         ) {
             val travel = maxWidth - 80.dp
+            val caption = TextStyle(fontFamily = OxygenFont, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, letterSpacing = 1.5.sp)
             Text(
-                if (on) "ВКЛ" else "ВЫКЛ",
-                style = TextStyle(fontFamily = OxygenFont, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, letterSpacing = 1.5.sp),
+                "ВКЛ",
+                style = caption,
                 color = label,
                 modifier = Modifier
-                    .align(if (on) Alignment.CenterStart else Alignment.CenterEnd)
-                    .padding(horizontal = 22.dp),
+                    .align(Alignment.CenterStart)
+                    .padding(horizontal = 22.dp)
+                    .graphicsLayer { alpha = position },
+            )
+            Text(
+                "ВЫКЛ",
+                style = caption,
+                color = label,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(horizontal = 22.dp)
+                    .graphicsLayer { alpha = 1f - position },
             )
             Box(
                 Modifier

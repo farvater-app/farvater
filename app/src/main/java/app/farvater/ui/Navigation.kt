@@ -439,7 +439,7 @@ private fun OneUiFrame(
                     )
                 }
             }
-            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(c.bar)) {
+            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(c.background)) {
                 Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 12.dp)) {
                     Tab.entries.forEach { t ->
                         OneUiTab(t, selected = t == tab, modifier = Modifier.weight(1f)) {
@@ -518,7 +518,7 @@ private fun OxygenFrame(
                     )
                 }
             }
-            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(c.bar)) {
+            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(c.background)) {
                 Row(Modifier.fillMaxWidth().height(62.dp).padding(horizontal = 8.dp)) {
                     Tab.entries.forEach { t ->
                         OxygenTab(t, selected = t == tab, modifier = Modifier.weight(1f)) {

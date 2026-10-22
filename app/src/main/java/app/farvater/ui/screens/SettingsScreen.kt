@@ -51,7 +51,6 @@ import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.DataUsage
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.DonutLarge
@@ -70,6 +69,7 @@ import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.PhoneIphone
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material.icons.rounded.RoundedCorner
 import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material.icons.rounded.ToggleOn
 import androidx.compose.material.icons.rounded.Tune
@@ -560,7 +560,7 @@ private fun AppearancePage(
             title = "One UI",
             subtitle = "Большое кольцо подключения, вкладки-надписи и спокойные цвета, как в One UI",
             selected = settings.uiStyle == UiStyle.ONEUI,
-            icon = Icons.Rounded.DataUsage,
+            icon = Icons.Rounded.RoundedCorner,
             iconTint = OneUiBlue,
             onClick = { onChange { it.copy(uiStyle = UiStyle.ONEUI) } },
         )

@@ -102,6 +102,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
@@ -207,6 +208,42 @@ fun IosLargeTitle(
 ) {
     val c = Ios.colors
     val material = Ios.material
+    if (Ios.oneUi) {
+        val height = (LocalConfiguration.current.screenHeightDp * 0.3f).dp.coerceIn(190.dp, 300.dp)
+        Column(
+            modifier.fillMaxWidth().height(height).padding(start = 24.dp, end = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Spacer(Modifier.weight(1f))
+            Text(
+                title,
+                style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Medium, fontSize = 34.sp, lineHeight = 41.sp),
+                color = c.label,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                modifier = Modifier.padding(end = 12.dp),
+            )
+            if (subtitle != null) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = c.secondaryLabel,
+                    textAlign = TextAlign.Center,
+                    maxLines = 3,
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            Row(
+                Modifier.fillMaxWidth().height(52.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+                content = trailing,
+            )
+        }
+        return
+    }
     Row(
         modifier
             .fillMaxWidth()

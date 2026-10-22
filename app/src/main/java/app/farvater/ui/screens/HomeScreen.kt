@@ -215,8 +215,11 @@ fun HomeScreen(
                     progress = state.progress?.let { it.done to it.total },
                 )
             }
-            IosLargeTitle("Фарватер") {
-                if (!island) {
+            IosLargeTitle(
+                title = if (oneUi) headline(mode, state) else "Фарватер",
+                subtitle = if (!oneUi) null else if (mode == ConnectMode.Connected && stalled) "Узел не отвечает. Проверьте интернет или выберите другой узел" else supporting(mode, vpn, state, sumie),
+            ) {
+                if (!island && !oneUi) {
                     Badge(shortStatus(mode), statusColor(mode), active = mode != ConnectMode.Idle)
                     Spacer(Modifier.width(10.dp))
                 }
@@ -270,7 +273,7 @@ fun HomeScreen(
                     }
                 }
                 Spacer(Modifier.height(if (hyper || harmony) 16.dp else 8.dp))
-                status()
+                if (!oneUi) status()
             }
 
             val progress = state.progress
