@@ -169,11 +169,14 @@ class GalsTest {
     }
 
     @Test
-    fun stalledNodeRechecksModeEveryThreeFailures() {
+    fun stalledNodeRechecksWithGrowingPauses() {
         assertFalse(ModeSwitch.recheckAfter(2, 3))
         assertTrue(ModeSwitch.recheckAfter(3, 3))
         assertFalse(ModeSwitch.recheckAfter(4, 3))
         assertTrue(ModeSwitch.recheckAfter(6, 3))
+        assertFalse(ModeSwitch.recheckAfter(9, 3))
+        assertTrue(ModeSwitch.recheckAfter(12, 3))
+        assertTrue(ModeSwitch.recheckAfter(24, 3))
     }
 
     @Test
@@ -191,9 +194,21 @@ class GalsTest {
     @Test
     fun probesComeFasterAfterAFailure() {
         val early = setOf(5, 15, 30)
-        assertTrue(Failover.probeDue(tick = 60, lastProbe = 30, failures = 0, every = 60, early = early))
-        assertFalse(Failover.probeDue(tick = 70, lastProbe = 60, failures = 0, every = 60, early = early))
-        assertTrue(Failover.probeDue(tick = 70, lastProbe = 60, failures = 1, every = 60, early = early))
-        assertFalse(Failover.probeDue(tick = 65, lastProbe = 60, failures = 1, every = 60, early = early))
+        assertTrue(Failover.probeDue(tick = 60, lastProbe = 30, failures = 0, every = 60, early = early, stall = 3))
+        assertFalse(Failover.probeDue(tick = 70, lastProbe = 60, failures = 0, every = 60, early = early, stall = 3))
+        assertTrue(Failover.probeDue(tick = 70, lastProbe = 60, failures = 1, every = 60, early = early, stall = 3))
+        assertFalse(Failover.probeDue(tick = 65, lastProbe = 60, failures = 1, every = 60, early = early, stall = 3))
+        assertFalse(Failover.probeDue(tick = 70, lastProbe = 60, failures = 3, every = 60, early = early, stall = 3))
+    }
+
+    @Test
+    fun failoverMixesInOtherSourcesAndSkipsTriedOnes() {
+        val current = node("cur").copy(sourceId = "paid")
+        val paid = (1..6).map { node("p$it").copy(sourceId = "paid") }
+        val public = listOf(node("c1").copy(sourceId = "catalog"), node("c2").copy(sourceId = "catalog"))
+        val order = Failover.order(paid + public, current)
+        assertEquals(listOf("p1", "p2", "c1", "c2", "p3"), order.take(Failover.TRIES).map { it.id })
+        val next = Failover.order(paid + public, current, skip = setOf("p1", "p2", "c1"))
+        assertEquals(listOf("p3", "p4", "c2"), next.take(3).map { it.id })
     }
 }
