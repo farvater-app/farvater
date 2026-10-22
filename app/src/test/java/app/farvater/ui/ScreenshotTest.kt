@@ -488,7 +488,7 @@ private object Fake {
             homepage = "https://sub.example.net/abc", description = "https://sub.example.net/abc", community = false,
             enabled = true, nodeCount = 12, updatedAt = System.currentTimeMillis() - 3 * 3_600_000, error = null, loading = false,
             intervalHours = 3,
-            usage = Usage(used = 25_876_000_000, total = 0, expire = 1_792_584_000),
+            usage = Usage(used = 25_876_000_000, total = 0, expire = 1_830_297_600),
             announce = "Если узел не работает, выберите другую локацию.\n🐌 нескоростной, 🟩 для торрентов",
         ),
     )
