@@ -687,7 +687,7 @@ flowchart LR
 
 | Компонент | Версия | Где |
 | :-- | :-- | :-- |
-| Xray-core (AndroidLibXrayLite) | 26.10.10 | `app/libs/libv2ray.aar` |
+| Xray-core (AndroidLibXrayLite) | 26.10.21 | `app/libs/libv2ray.aar` |
 | hev-socks5-tunnel | 2.18.0 | собирается из исходников через NDK |
 | Kotlin | 2.2.0 | |
 | Jetpack Compose BOM | 2025.12.00 | |

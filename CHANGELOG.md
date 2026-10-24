@@ -4,6 +4,13 @@
 
 ## [Не выпущено]
 
+## [1.0.29] — 2026-10-24
+
+### Исправлено
+
+- Срочное обновление безопасности: ядро Xray обновлено до 26.10.21. У нескольких промежуточных сертификатов взломали ключи, и с ними можно было подменить сервер, к которому идёт TLS-соединение. Новое ядро больше не доверяет их корневым сертификатам, даже если в Android хранилище сертификатов старое. Узлов с Reality это не касалось.
+- В ядре исправлены ошибки Hysteria2 и Shadowsocks 2022.
+
 ## [1.0.28] — 2026-10-22
 
 ### Добавлено
@@ -412,7 +419,8 @@
 - Интерфейс в стиле iOS, светлая и тёмная темы.
 - Импорт подписки по ссылке `farvater://import`.
 
-[Не выпущено]: https://github.com/lutzashl290788-cell/farvater/compare/v1.0.28...HEAD
+[Не выпущено]: https://github.com/lutzashl290788-cell/farvater/compare/v1.0.29...HEAD
+[1.0.29]: https://github.com/lutzashl290788-cell/farvater/compare/v1.0.28...v1.0.29
 [1.0.28]: https://github.com/lutzashl290788-cell/farvater/compare/v1.0.27...v1.0.28
 [1.0.27]: https://github.com/lutzashl290788-cell/farvater/compare/v1.0.26...v1.0.27
 [1.0.26]: https://github.com/lutzashl290788-cell/farvater/compare/v1.0.25...v1.0.26

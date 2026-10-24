@@ -1,0 +1,2 @@
+- Urgent security update: Xray core 26.10.21 no longer trusts certificates with compromised keys
+- Fixed Hysteria2 and Shadowsocks 2022 bugs in the core
