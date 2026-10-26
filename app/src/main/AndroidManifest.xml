@@ -37,6 +37,9 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="farvater" android:host="import" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+            </intent-filter>
         </activity>
 
         <activity-alias
@@ -201,6 +204,42 @@
             android:exported="true"
             android:icon="@mipmap/ic_launcher_oxygen"
             android:roundIcon="@mipmap/ic_launcher_oxygen"
+            android:targetActivity=".FarvaterActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconPumpkin"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_pumpkin"
+            android:roundIcon="@mipmap/ic_launcher_pumpkin"
+            android:targetActivity=".FarvaterActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconGhost"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_ghost"
+            android:roundIcon="@mipmap/ic_launcher_ghost"
+            android:targetActivity=".FarvaterActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconWitch"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_witch"
+            android:roundIcon="@mipmap/ic_launcher_witch"
             android:targetActivity=".FarvaterActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

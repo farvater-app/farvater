@@ -162,10 +162,8 @@ private fun NothingFrame(
                 Row(Modifier.fillMaxWidth().height(65.dp).padding(horizontal = 6.dp)) {
                     Tab.entries.forEach { t ->
                         NothingTab(t, selected = t == tab, modifier = Modifier.weight(1f)) {
-                            if (t != tab) {
-                                haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                                onTab(t)
-                            }
+                            if (t != tab) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                            onTab(t)
                         }
                     }
                 }
@@ -277,10 +275,8 @@ private fun OriginFrame(
                     Row(Modifier.fillMaxSize()) {
                         Tab.entries.forEach { t ->
                             OriginTab(t, selected = t == tab, modifier = Modifier.weight(1f)) {
-                                if (t != tab) {
-                                    haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                                    onTab(t)
-                                }
+                                if (t != tab) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                                onTab(t)
                             }
                         }
                     }
@@ -354,10 +350,8 @@ private fun HyperFrame(
                 Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 8.dp)) {
                     Tab.entries.forEach { t ->
                         HyperTab(t, selected = t == tab, modifier = Modifier.weight(1f)) {
-                            if (t != tab) {
-                                haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                                onTab(t)
-                            }
+                            if (t != tab) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                            onTab(t)
                         }
                     }
                 }
@@ -443,10 +437,8 @@ private fun OneUiFrame(
                 Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 12.dp)) {
                     Tab.entries.forEach { t ->
                         OneUiTab(t, selected = t == tab, modifier = Modifier.weight(1f)) {
-                            if (t != tab) {
-                                haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                                onTab(t)
-                            }
+                            if (t != tab) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                            onTab(t)
                         }
                     }
                 }
@@ -522,10 +514,8 @@ private fun OxygenFrame(
                 Row(Modifier.fillMaxWidth().height(62.dp).padding(horizontal = 8.dp)) {
                     Tab.entries.forEach { t ->
                         OxygenTab(t, selected = t == tab, modifier = Modifier.weight(1f)) {
-                            if (t != tab) {
-                                haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                                onTab(t)
-                            }
+                            if (t != tab) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                            onTab(t)
                         }
                     }
                 }
@@ -597,10 +587,8 @@ private fun HarmonyFrame(
                 Row(Modifier.fillMaxWidth().height(60.dp).padding(horizontal = 12.dp)) {
                     Tab.entries.forEach { t ->
                         HarmonyTab(t, selected = t == tab, modifier = Modifier.weight(1f)) {
-                            if (t != tab) {
-                                haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                                onTab(t)
-                            }
+                            if (t != tab) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                            onTab(t)
                         }
                     }
                 }
@@ -717,10 +705,8 @@ private fun MaterialFrame(
                     ShortNavigationBarItem(
                         selected = t == tab,
                         onClick = {
-                            if (t != tab) {
-                                haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                                onTab(t)
-                            }
+                            if (t != tab) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                            onTab(t)
                         },
                         icon = { Icon(if (t == tab) t.icon else t.iconIdle, contentDescription = null) },
                         label = { Text(t.title, maxLines = 1) },
@@ -753,10 +739,8 @@ private fun TabBar(current: Tab, onTab: (Tab) -> Unit, backdrop: GlassBackdrop, 
             Row(Modifier.fillMaxSize()) {
                 Tab.entries.forEach { t ->
                     TabItem(t, selected = t == current, modifier = Modifier.weight(1f)) {
-                        if (t != current) {
-                            haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                            onTab(t)
-                        }
+                        if (t != current) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                        onTab(t)
                     }
                 }
             }

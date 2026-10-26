@@ -81,6 +81,21 @@ enum class AppIcon(
         R.drawable.ic_launcher_oxygen_background, R.drawable.ic_launcher_oxygen_foreground,
         R.drawable.ic_launcher_oxygen_monochrome, R.drawable.widget_on_oxygen,
     ),
+    PUMPKIN(
+        "IconPumpkin", "Тыква",
+        R.drawable.ic_launcher_pumpkin_background, R.drawable.ic_launcher_pumpkin_foreground,
+        R.drawable.ic_launcher_pumpkin_monochrome, R.drawable.widget_on_pumpkin,
+    ),
+    GHOST(
+        "IconGhost", "Призрак",
+        R.drawable.ic_launcher_ghost_background, R.drawable.ic_launcher_ghost_foreground,
+        R.drawable.ic_launcher_ghost_monochrome, R.drawable.widget_on_ghost,
+    ),
+    WITCH(
+        "IconWitch", "Ведьмин кот",
+        R.drawable.ic_launcher_witch_background, R.drawable.ic_launcher_witch_foreground,
+        R.drawable.ic_launcher_witch_monochrome, R.drawable.widget_on_witch,
+    ),
 }
 
 object AppIcons {

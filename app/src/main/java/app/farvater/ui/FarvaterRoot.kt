@@ -54,7 +54,14 @@ fun FarvaterRoot(vm: MainViewModel) {
     }
 
     val still = rememberReduceMotion()
-    FarvaterFrame(tab = tab, onTab = { tab = it }, snackbar = snackbar) { padding ->
+    FarvaterFrame(
+        tab = tab,
+        onTab = {
+            if (it == Tab.Settings && tab == Tab.Settings) settingsPage = null
+            tab = it
+        },
+        snackbar = snackbar,
+    ) { padding ->
         AnimatedContent(
             targetState = tab,
             modifier = Modifier.padding(padding).consumeWindowInsets(padding),
