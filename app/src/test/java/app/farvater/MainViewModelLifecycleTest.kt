@@ -130,6 +130,20 @@ class MainViewModelLifecycleTest {
     }
 
     @Test
+    fun deletingFromOldViewModelPreservesNewerSharedSelection() {
+        val node = LinkParser.parse("vless://test@delete.example.test:443?security=tls")!!
+        val newer = LinkParser.parse("vless://test@keep.example.test:443?security=tls")!!
+        App.repo.appendManual(listOf(node, newer))
+        App.prefs.selectNode(node)
+        state.value = state.value.copy(nodes = listOf(node, newer), selectedId = node.id, savedNode = node)
+        Repository.afterRemoval = { App.prefs.selectNode(newer) }
+        vm.deleteManualNode(node)
+        awaitCondition { state.value.nodes == listOf(newer) }
+        assertEquals(newer.id, App.prefs.selectedNodeId)
+        assertEquals(newer, App.prefs.lastNode)
+    }
+
+    @Test
     fun safeModeHidesMixedJsonOnlyInCommunitySources() {
         vm.viewModelScope.cancel()
         val source = BuiltInCatalog.sources.first { it.mode.fits(NetMode.BLACK) }.id

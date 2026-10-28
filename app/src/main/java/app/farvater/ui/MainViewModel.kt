@@ -926,8 +926,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (vpn is VpnState.Connected && vpn.node.id != node.id) connect(node)
     }
 
-    @Synchronized
-    private fun setSelected(node: ProxyNode, rememberFor: NetMode? = null) {
+    private fun setSelected(node: ProxyNode, rememberFor: NetMode? = null): Unit = synchronized(selectionLock) {
         prefs.selectNode(node)
         if (rememberFor != null && prefs.settings.modeNodes) prefs.rememberForMode(rememberFor, node)
         _state.update { it.copy(selectedId = node.id, savedNode = node) }
@@ -946,12 +945,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (updated != remembered) prefs.modeNodes = updated
     }
 
-    @Synchronized
-    private fun dropSelectionIf(predicate: (ProxyNode) -> Boolean) {
+    private fun dropSelectionIf(predicate: (ProxyNode) -> Boolean): Unit = synchronized(selectionLock) {
         prefs.forgetModeNodes(predicate)
         val backups = prefs.backupNodes
         if (backups.nodes.any(predicate)) prefs.backupNodes = backups.copy(nodes = backups.nodes.filterNot(predicate))
-        val current = _state.value.selectedNode ?: return
+        val current = prefs.lastNode ?: return
         if (!predicate(current)) return
         prefs.clearSelection()
         _state.update { it.copy(selectedId = null, savedNode = null) }
@@ -1045,8 +1043,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun rebuildNow() = withContext(Dispatchers.Default) { rebuildLocked() }
 
-    @Synchronized
-    private fun rebuildLocked() {
+    private fun rebuildLocked(): Unit = synchronized(selectionLock) {
         val settings = prefs.settings
         val enabled = prefs.enabledSources
         val snaps = snapshots.value
@@ -1163,6 +1160,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         private const val PATH_CANDIDATES = 8
         private const val SCOUT_MS = 300L
 
+        private val selectionLock = Any()
         private val rebuildVersion = MutableStateFlow(0L)
         private val cachedSnapshots = MutableStateFlow<Map<String, SourceSnapshot>>(emptyMap())
         private val cachedResults = MutableStateFlow<Map<String, TestResult>>(emptyMap())
