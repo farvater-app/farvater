@@ -1178,7 +1178,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         private const val PATH_CANDIDATES = 8
         private const val SCOUT_MS = 300L
 
-        private val selectionLock = Any()
+        private val selectionLock = app.farvater.data.Prefs.selectionLock
         private val rebuildVersion = MutableStateFlow(0L)
         private val cachedSnapshots = MutableStateFlow<Map<String, SourceSnapshot>>(emptyMap())
         private val cachedResults = MutableStateFlow<Map<String, TestResult>>(emptyMap())

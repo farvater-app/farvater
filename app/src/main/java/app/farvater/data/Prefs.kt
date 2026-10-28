@@ -1,6 +1,7 @@
 package app.farvater.data
 
 import android.content.Context
+import androidx.core.content.edit
 import app.farvater.core.catalog.BuiltInCatalog
 import app.farvater.core.model.NetMode
 import app.farvater.core.model.NetModeChoice
@@ -144,7 +145,7 @@ class Prefs(context: Context) {
             write("last_node", value)
         }
 
-    fun selectNode(node: ProxyNode) {
+    fun selectNode(node: ProxyNode): Unit = synchronized(selectionLock) {
         if (selectedNodeId != node.id) selectedNodeId = node.id
         lastNode = node
     }
@@ -232,10 +233,10 @@ class Prefs(context: Context) {
             val reading = if (old.day == value.day) value.copy(bytes = maxOf(old.bytes, value.bytes)) else value
             val today = java.time.LocalDate.now().toEpochDay()
             val history = TrafficHistory.merge(read<List<DayTraffic>>("traffic_history") ?: emptyList(), old, today)
-            sp.edit()
-                .putString("day_traffic", json.encodeToString(reading))
-                .putString("traffic_history", json.encodeToString(TrafficHistory.merge(history, reading, today)))
-                .apply()
+            sp.edit {
+                putString("day_traffic", json.encodeToString(reading))
+                putString("traffic_history", json.encodeToString(TrafficHistory.merge(history, reading, today)))
+            }
         }
 
     fun trafficForDay(day: Long): DayTraffic = trafficHistory.firstOrNull { it.day == day } ?: DayTraffic(day, 0)
@@ -248,16 +249,17 @@ class Prefs(context: Context) {
             recent
         }
 
-    fun clearSelection() {
+    fun clearSelection(): Unit = synchronized(selectionLock) {
         selectedNodeId = null
         lastNode = null
     }
 
-    private companion object {
-        val trafficLock = Any()
-        const val MAX_PROFILES = 300
-        const val HEALTH_KEY = "node_health"
-        val OLD_CATALOG = setOf(
+    companion object {
+        internal val selectionLock = Any()
+        private val trafficLock = Any()
+        private const val MAX_PROFILES = 300
+        private const val HEALTH_KEY = "node_health"
+        private val OLD_CATALOG = setOf(
             "zieng2-universal", "igareck-mobile", "igareck-cidr", "rjsxrd-bypass", "rkp-whitelist", "byewhitelists2",
         )
     }

@@ -130,6 +130,47 @@ class MainViewModelLifecycleTest {
     }
 
     @Test
+    fun serviceSelectionCannotBeOverwrittenByAnOlderReconciliation() {
+        val old = LinkParser.parse("vless://test@old.example.test:443?security=tls")!!
+        val newer = LinkParser.parse("vless://test@new.example.test:443?security=tls")!!
+        App.prefs.selectNode(old)
+        val lock = field("selectionLock").get(null)!!
+        val read = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val requested = java.util.concurrent.CountDownLatch(1)
+        val completed = java.util.concurrent.CountDownLatch(1)
+        val rebuilding = kotlin.concurrent.thread {
+            synchronized(lock) {
+                val snapshot = App.prefs.lastNode!!
+                read.countDown()
+                check(release.await(5, TimeUnit.SECONDS))
+                App.prefs.selectNode(snapshot)
+            }
+        }
+        assertTrue(read.await(5, TimeUnit.SECONDS))
+        val selecting = kotlin.concurrent.thread {
+            requested.countDown()
+            App.prefs.selectNode(newer)
+            completed.countDown()
+        }
+        try {
+            assertTrue(requested.await(5, TimeUnit.SECONDS))
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+            while (completed.count != 0L && System.nanoTime() < deadline) {
+                if (selecting.state == Thread.State.BLOCKED && selecting.stackTrace.firstOrNull()?.methodName == "selectNode") break
+                Thread.yield()
+            }
+        } finally {
+            release.countDown()
+            rebuilding.join(5000)
+            selecting.join(5000)
+        }
+        assertFalse(rebuilding.isAlive || selecting.isAlive)
+        assertEquals(newer.id, App.prefs.selectedNodeId)
+        assertEquals(newer, App.prefs.lastNode)
+    }
+
+    @Test
     fun deletingFromOldViewModelPreservesNewerSharedSelection() {
         val node = LinkParser.parse("vless://test@delete.example.test:443?security=tls")!!
         val newer = LinkParser.parse("vless://test@keep.example.test:443?security=tls")!!
