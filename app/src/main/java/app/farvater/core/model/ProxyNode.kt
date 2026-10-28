@@ -28,7 +28,7 @@ data class ProxyNode(
     val transport: String get() = params["type"].orEmpty().ifBlank { "tcp" }.lowercase()
 
     val securityIssue: String?
-        get() = protocolSecurityIssue ?: jsonSecurityIssue
+        get() = protocolSecurityIssue ?: jsonSecurityIssue ?: downloadSecurityIssue
 
     private val protocolSecurityIssue: String?
         get() = when {
@@ -49,6 +49,10 @@ data class ProxyNode(
 
     private val jsonSecurityIssue by lazy {
         if (isJson) params["jsonSecurityIssue"] ?: XrayJsonParser.securityIssue(raw) else null
+    }
+
+    private val downloadSecurityIssue by lazy {
+        XrayJsonParser.xhttpSecurityIssue(protocol, params)
     }
 
     val isInsecure: Boolean get() = securityIssue != null

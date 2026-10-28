@@ -140,6 +140,35 @@ object XrayJsonParser {
     internal fun securityIssue(raw: String): String? =
         (runCatching { Json.parseToJsonElement(raw) }.getOrNull() as? JsonObject)?.let(::securityIssue)
 
+    internal fun xhttpSecurityIssue(protocol: Protocol, params: Map<String, String>): String? {
+        if (params["type"]?.lowercase() !in setOf("xhttp", "splithttp")) return null
+        val extra = params["extra"]?.let { runCatching { Json.parseToJsonElement(it) }.getOrNull() } as? JsonObject ?: return null
+        return downloadSecurityIssue(extra.obj("downloadSettings"), protocol, params)
+    }
+
+    private fun streamDownloadSecurityIssue(stream: JsonObject?, protocol: Protocol, params: Map<String, String>): String? {
+        if (stream == null) return null
+        val network = (stream.value("method") as? JsonPrimitive)?.contentOrNull
+            ?: (stream.value("network") as? JsonPrimitive)?.contentOrNull
+        if (network?.lowercase() !in setOf("xhttp", "splithttp")) return null
+        val xhttp = stream.obj("xhttpSettings") ?: stream.obj("splithttpSettings")
+        val extra = if (xhttp?.value("extra") != null) xhttp.obj("extra") else xhttp
+        return downloadSecurityIssue(extra?.obj("downloadSettings"), protocol, params)
+    }
+
+    private fun downloadSecurityIssue(stream: JsonObject?, protocol: Protocol, params: Map<String, String>): String? {
+        if (stream == null) return null
+        val tls = stream.obj("tlsSettings")
+        val download = buildMap {
+            params["scy"]?.let { put("scy", it) }
+            params["method"]?.let { put("method", it) }
+            put("security", stream.str("security") ?: "none")
+            if (tls?.bool("allowInsecure") == true) put("allowInsecure", "1")
+            tls?.str("pinnedPeerCertSha256")?.let { put("pcs", it) }
+        }
+        return ProxyNode("", protocol, "", "", 0, "", download, "").securityIssue
+    }
+
     private fun securityIssue(config: JsonObject): String? {
         val outbounds = config.array("outbounds").filterIsInstance<JsonObject>()
         val pending = ArrayDeque<JsonObject>()
@@ -172,6 +201,7 @@ object XrayJsonParser {
                             tls?.str("pinnedPeerCertSha256")?.let { put("pcs", it) }
                         }
                         ProxyNode("", protocol, "", "", 0, "", params, "").securityIssue?.let { return it }
+                        streamDownloadSecurityIssue(stream, protocol, params)?.let { return it }
                     }
                 }
             }

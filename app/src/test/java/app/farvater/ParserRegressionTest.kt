@@ -24,6 +24,32 @@ import kotlin.random.Random
 
 class ParserRegressionTest {
     @Test
+    fun xhttpDownloadEncryptionIsCheckedForLinksAndSavedJson() {
+        for (security in listOf(null, "none", "tls", "reality")) {
+            val securityField = security?.let { "\"security\":\"$it\"," }.orEmpty()
+            val extra = """{"downloadSettings":{$securityField"address":"download.example.test","port":443,"network":"xhttp","xhttpSettings":{"path":"/"}}}"""
+            val link = LinkParser.parse("$validLink&type=xhttp&extra=${URLEncoder.encode(extra, "UTF-8")}")!!
+            val raw = """{"outbounds":[{"protocol":"vless","settings":{"vnext":[{"address":"node.example.test","port":443,"users":[{"id":"11111111-2222-3333-4444-555555555555"}]}]},"streamSettings":{"security":"tls","network":"xhttp","xhttpSettings":{"extra":$extra}}}]}"""
+            val parsed = SubscriptionParser.parse(raw, "public").nodes.single()
+            val insecure = security == null || security == "none"
+            for (node in listOf(link, parsed, parsed.copy(params = parsed.params - "jsonSecurityIssue"))) {
+                assertEquals("Нисходящий поток $security: ${node.raw}", insecure, node.isInsecure)
+            }
+        }
+    }
+
+    @Test
+    fun xhttpDownloadKeepsPayloadEncryptionAndIgnoresInactiveExtras() {
+        val extra = """{"downloadSettings":{"security":"none","network":"xhttp","xhttpSettings":{}}}"""
+        val node = LinkParser.parse("$validLink&type=xhttp&extra=${URLEncoder.encode(extra, "UTF-8")}")!!
+        assertFalse(node.copy(protocol = Protocol.VMESS, params = node.params + ("scy" to "auto")).isInsecure)
+        assertTrue(node.copy(protocol = Protocol.VMESS, params = node.params + ("scy" to "none")).isInsecure)
+        assertFalse(node.copy(params = node.params + ("type" to "ws")).isInsecure)
+        val nested = """{"downloadSettings":{"security":"tls","network":"xhttp","xhttpSettings":{"extra":$extra}}}"""
+        assertFalse(node.copy(params = node.params + ("extra" to nested)).isInsecure)
+    }
+
+    @Test
     fun trojanJsonWithoutTlsIsUnsafeIncludingSavedAndBalancedNodes() {
         val plain = """{"tag":"plain","protocol":"trojan","settings":{"servers":[{"address":"node.example.test","port":443,"password":"test"}]}}"""
         val secure = plain.replace("plain", "proxy").dropLast(1) + """, "streamSettings":{"security":"tls"}}"""
