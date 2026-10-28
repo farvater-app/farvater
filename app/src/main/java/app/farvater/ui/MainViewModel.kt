@@ -205,6 +205,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 delay(REBUILD_GAP_MS)
             }
         }
+        viewModelScope.launch { rebuildVersion.collect { rebuildRequests.trySend(Unit) } }
         viewModelScope.launch { _state.collect { cachedState = it } }
         viewModelScope.launch(Dispatchers.IO) {
             if (snapshots.value.isEmpty()) {
@@ -1039,7 +1040,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun rebuild() {
-        rebuildRequests.trySend(Unit)
+        rebuildVersion.update { it + 1 }
     }
 
     private suspend fun rebuildNow() = withContext(Dispatchers.Default) { rebuildLocked() }
@@ -1162,6 +1163,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         private const val PATH_CANDIDATES = 8
         private const val SCOUT_MS = 300L
 
+        private val rebuildVersion = MutableStateFlow(0L)
         private val cachedSnapshots = MutableStateFlow<Map<String, SourceSnapshot>>(emptyMap())
         private val cachedResults = MutableStateFlow<Map<String, TestResult>>(emptyMap())
         @Volatile private var cachedState: UiState? = null

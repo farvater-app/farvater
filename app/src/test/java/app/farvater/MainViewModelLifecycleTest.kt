@@ -155,6 +155,46 @@ class MainViewModelLifecycleTest {
         assertTrue(App.prefs.allowedForAuto(publicNode))
     }
 
+    @Test
+    fun deletionFromCancelledViewModelUpdatesEveryLiveViewModel() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val node = LinkParser.parse("vless://test@delete.example.test:443?security=tls")!!
+        App.repo.appendManual(listOf(node))
+        App.prefs.selectNode(node)
+        val written = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        Repository.afterRemoval = {
+            written.countDown()
+            check(release.await(5, TimeUnit.SECONDS))
+        }
+        state.value = state.value.copy(nodes = listOf(node), selectedId = node.id, savedNode = node)
+        @Suppress("UNCHECKED_CAST")
+        val snapshots = field("snapshots").get(vm) as MutableStateFlow<Map<String, SourceSnapshot>>
+        snapshots.value = mapOf(ProxyNode.MANUAL_SOURCE to App.repo.loadManual())
+        vm.deleteManualNode(node)
+        assertTrue(written.await(5, TimeUnit.SECONDS))
+        vm.viewModelScope.cancel()
+        val replacements = List(2) { MainViewModel(app) }
+        try {
+            awaitCondition { replacements.all { it.state.value.nodes.size == 1 } }
+            release.countDown()
+            awaitCondition { replacements.all { it.state.value.nodes.isEmpty() && it.state.value.selectedId == null } }
+            assertNull(App.prefs.lastNode)
+        } finally {
+            release.countDown()
+            replacements.forEach { it.viewModelScope.cancel() }
+        }
+    }
+
+    private fun awaitCondition(predicate: () -> Boolean) {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (!predicate() && System.nanoTime() < deadline) {
+            shadowOf(Looper.getMainLooper()).idle()
+            Thread.sleep(10)
+        }
+        assertTrue(predicate())
+    }
+
     private fun field(name: String) = MainViewModel::class.java.getDeclaredField(name).apply { isAccessible = true }
 
     @Implements(value = SubscriptionRepository::class, isInAndroidSdk = false)
