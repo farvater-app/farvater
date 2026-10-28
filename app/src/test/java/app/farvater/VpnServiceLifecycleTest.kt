@@ -75,6 +75,50 @@ class VpnServiceLifecycleTest {
         queue.drain()
     }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun screenOffTrafficStaysOnItsDayWithoutNetworkProbes() = kotlinx.coroutines.test.runTest {
+        var date = java.time.LocalDate.now().toEpochDay()
+        val firstDay = date
+        App.prefs.dayTraffic = app.farvater.data.DayTraffic(date, 10)
+        FarvaterVpnService::class.java.getDeclaredField("trafficDay").apply { isAccessible = true }
+            .set(service, { date })
+        @Suppress("UNCHECKED_CAST")
+        val screen = FarvaterVpnService::class.java.getDeclaredField("screenOn").apply { isAccessible = true }
+            .get(service) as kotlinx.coroutines.flow.MutableStateFlow<Boolean>
+        screen.value = false
+        Bridge.reading = longArrayOf(0, 0, 0, 0)
+        Probe.entered = CountDownLatch(1)
+        Probe.cancelled = CountDownLatch(1)
+        val method = FarvaterVpnService::class.java.getDeclaredMethod("monitorLoop", ProxyNode::class.java, Continuation::class.java).apply { isAccessible = true }
+        val monitor = backgroundScope.launch {
+            suspendCoroutineUninterceptedOrReturn<Unit> { continuation ->
+                method.invoke(service, LinkParser.parse("vless://test@node.example.test:443?security=tls")!!, continuation)
+            }
+        }
+        try {
+            testScheduler.runCurrent()
+            Bridge.reading = longArrayOf(0, 500, 0, 0)
+            testScheduler.advanceTimeBy(30_001)
+            testScheduler.runCurrent()
+            assertEquals(510L, App.prefs.trafficForDay(firstDay).bytes)
+            date++
+            testScheduler.advanceTimeBy(30_001)
+            testScheduler.runCurrent()
+            assertEquals(510L, App.prefs.trafficForDay(firstDay).bytes)
+            assertEquals(0L, App.prefs.trafficForDay(date).bytes)
+            assertEquals(1L, Probe.entered.count)
+            screen.value = true
+            testScheduler.advanceTimeBy(1_001)
+            testScheduler.runCurrent()
+            assertEquals(510L, App.prefs.trafficForDay(firstDay).bytes)
+            assertEquals(0L, App.prefs.trafficForDay(date).bytes)
+        } finally {
+            monitor.cancel()
+            testScheduler.runCurrent()
+            Bridge.reading = null
+        }
+    }
+
     @Test
     fun stopPreventsQueuedStartBeforeDestroy() {
         service.onStartCommand(Intent().setAction(FarvaterVpnService.ACTION_START), 0, 1)
@@ -320,7 +364,9 @@ class VpnServiceLifecycleTest {
         fun stop() = Unit
 
         @Implementation
-        fun stats(): LongArray? = null
+        fun stats(): LongArray? = reading
+
+        companion object { var reading: LongArray? = null }
     }
 
     @Implements(value = NodeTester::class, isInAndroidSdk = false)

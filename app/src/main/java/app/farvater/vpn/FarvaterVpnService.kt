@@ -46,6 +46,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -127,6 +128,7 @@ class FarvaterVpnService : VpnService() {
     @Volatile private var networkCallback: ConnectivityManager.NetworkCallback? = null
     @Volatile private var dayTraffic: DayTraffic? = null
 
+    private val trafficDay: () -> Long = { LocalDate.now().toEpochDay() }
     private val screenOn = MutableStateFlow(true)
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -290,11 +292,32 @@ class FarvaterVpnService : VpnService() {
         var check: Job? = null
         val outcome = AtomicReference<Boolean?>(null)
         val history = ArrayDeque<Long>()
+        fun countTraffic(s: LongArray): Pair<Long, Long> {
+            val b = base ?: longArrayOf(s[1], s[3]).also { base = it }
+            val upTotal = (s[1] - b[0]).coerceAtLeast(0)
+            val downTotal = (s[3] - b[1]).coerceAtLeast(0)
+            val today = trafficDay()
+            if (day.day != today) {
+                App.prefs.dayTraffic = day
+                day = App.prefs.trafficForDay(today)
+            }
+            day = day.copy(bytes = day.bytes + (upTotal + downTotal - counted).coerceAtLeast(0))
+            counted = upTotal + downTotal
+            dayTraffic = day
+            return upTotal to downTotal
+        }
         while (currentCoroutineContext().isActive) {
             if (!screenOn.value) {
                 VpnBus.traffic.value = VpnBus.traffic.value.copy(upBps = 0, downBps = 0)
                 App.prefs.dayTraffic = day
-                screenOn.first { it }
+                if (withTimeoutOrNull(30_000) { screenOn.first { it } } != true) {
+                    TunBridge.stats()?.takeIf { it.size >= 4 }?.let { s ->
+                        val (upTotal, downTotal) = countTraffic(s)
+                        VpnBus.traffic.value = Traffic(0, 0, upTotal, downTotal, day.bytes)
+                    }
+                    App.prefs.dayTraffic = day
+                    continue
+                }
                 lastTx = -1L
                 lastRx = -1L
                 tick = PROBE_EVERY - 3
@@ -303,17 +326,7 @@ class FarvaterVpnService : VpnService() {
             delay(1000)
             tick++
             TunBridge.stats()?.takeIf { it.size >= 4 }?.let { s ->
-                val b = base ?: longArrayOf(s[1], s[3]).also { base = it }
-                val upTotal = (s[1] - b[0]).coerceAtLeast(0)
-                val downTotal = (s[3] - b[1]).coerceAtLeast(0)
-                val today = LocalDate.now().toEpochDay()
-                if (day.day != today) {
-                    App.prefs.dayTraffic = day
-                    day = App.prefs.trafficForDay(today)
-                }
-                day = day.copy(bytes = day.bytes + (upTotal + downTotal - counted).coerceAtLeast(0))
-                counted = upTotal + downTotal
-                dayTraffic = day
+                val (upTotal, downTotal) = countTraffic(s)
                 var up = 0L
                 var down = 0L
                 if (lastTx >= 0) {
