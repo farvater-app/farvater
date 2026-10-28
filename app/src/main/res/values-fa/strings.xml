@@ -435,4 +435,6 @@
     <string name="share_apk_split">"این نصب از چند فایل APK تشکیل شده و نمی‌توان آن را به صورت یک فایل فرستاد."</string>
     <string name="share_apk_unavailable">"آماده‌سازی یا ارسال فایل انجام نشد. فضای خالی را بررسی کنید و دوباره تلاش کنید."</string>
     <string name="share_apk_preparing">"در حال آماده‌سازی فایل"</string>
+    <string name="group_expanded">"باز شده"</string>
+    <string name="group_collapsed">"بسته شده"</string>
 </resources>

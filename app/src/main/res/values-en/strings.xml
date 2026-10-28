@@ -435,4 +435,6 @@
     <string name="share_apk_split">"This installation uses several APK files and cannot be shared as a single file."</string>
     <string name="share_apk_unavailable">"Could not prepare or share the file. Check free space and try again."</string>
     <string name="share_apk_preparing">"Preparing file"</string>
+    <string name="group_expanded">"Expanded"</string>
+    <string name="group_collapsed">"Collapsed"</string>
 </resources>

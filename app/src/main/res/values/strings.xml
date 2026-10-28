@@ -435,4 +435,6 @@
     <string name="share_apk_split">"Эта установка состоит из нескольких APK. Передать её одним файлом нельзя."</string>
     <string name="share_apk_unavailable">"Не удалось подготовить или отправить файл. Проверьте свободное место и попробуйте ещё раз."</string>
     <string name="share_apk_preparing">"Подготовка файла"</string>
+    <string name="group_expanded">"Развёрнуто"</string>
+    <string name="group_collapsed">"Свёрнуто"</string>
 </resources>

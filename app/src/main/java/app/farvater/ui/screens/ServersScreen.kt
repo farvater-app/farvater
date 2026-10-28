@@ -1,5 +1,9 @@
 package app.farvater.ui.screens
 
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.stateDescription
+import app.farvater.ui.components.rememberReduceMotion
+
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
 import androidx.compose.material.icons.rounded.Star
@@ -362,11 +366,16 @@ private const val DeadGroupOpen = "dead:open"
 @Composable
 private fun GroupHeader(title: String, count: Int, alive: Int, collapsed: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val c = Ios.colors
-    val turn by animateFloatAsState(if (collapsed) -90f else 0f, spring(dampingRatio = 0.8f, stiffness = 500f), label = "chevron")
+    val target = if (collapsed) -90f else 0f
+    val turn = if (rememberReduceMotion()) target else animateFloatAsState(target, spring(dampingRatio = 0.8f, stiffness = 500f), label = "chevron").value
+    val groupState = stringResource(if (collapsed) R.string.group_collapsed else R.string.group_expanded)
+    val action = stringResource(if (collapsed) R.string.action_expand else R.string.action_collapse)
     Row(
         modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .heightIn(min = 48.dp)
+            .semantics { stateDescription = groupState }
+            .clickable(role = Role.Button, onClickLabel = action, onClick = onClick)
             .padding(start = 32.dp, end = 24.dp, top = 18.dp, bottom = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -386,7 +395,7 @@ private fun GroupHeader(title: String, count: Int, alive: Int, collapsed: Boolea
         Spacer(Modifier.width(4.dp))
         Icon(
             Icons.Rounded.KeyboardArrowDown,
-            contentDescription = if (collapsed) stringResource(R.string.action_expand) else stringResource(R.string.action_collapse),
+            contentDescription = null,
             tint = c.secondaryLabel,
             modifier = Modifier.size(18.dp).rotate(turn),
         )

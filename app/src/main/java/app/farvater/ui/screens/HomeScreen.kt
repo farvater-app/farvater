@@ -1,5 +1,9 @@
 package app.farvater.ui.screens
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
+
 import kotlinx.coroutines.launch
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -169,6 +173,7 @@ fun HomeScreen(
             Column(Modifier.fillMaxWidth().padding(horizontal = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     headline(m, state).let { if (nothing) it.uppercase() else it },
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     style = if (Ios.material) MaterialTheme.typography.headlineSmall else IosType.title2,
                     color = statusColor(m),
                     textAlign = TextAlign.Center,
