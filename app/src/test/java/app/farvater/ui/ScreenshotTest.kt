@@ -104,6 +104,18 @@ class ScreenshotTest {
         Settings.Global.putFloat(ApplicationProvider.getApplicationContext<Application>().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
     }
 
+    @Test fun witchHalloweenIdle() = shot("B22_halloween_idle", dark = true, style = UiStyle.WITCH, witchDate = java.time.LocalDate.of(2026, 10, 31)) { Home(VpnState.Idle) }
+    @Test fun witchHalloweenSearching() = shot("B23_halloween_searching", dark = true, style = UiStyle.WITCH, witchDate = java.time.LocalDate.of(2026, 10, 31)) { Home(VpnState.Idle, Fake.state.copy(progress = TestProgress(37, 120, 9))) }
+    @Test fun witchHalloweenConnecting() = shot("B24_halloween_connecting", dark = true, style = UiStyle.WITCH, witchDate = java.time.LocalDate.of(2026, 10, 31)) { Home(VpnState.Connecting(Fake.state.nodes.first())) }
+    @Test fun witchHalloweenConnected() = shot("B25_halloween_connected", dark = true, style = UiStyle.WITCH, witchDate = java.time.LocalDate.of(2026, 10, 31)) { Home(Fake.connected) }
+    @Test fun witchHalloweenError() = shot("B26_halloween_error", dark = true, style = UiStyle.WITCH, witchDate = java.time.LocalDate.of(2026, 10, 31)) { Home(VpnState.Failed("Узел не ответил", Fake.state.nodes.first())) }
+    @Test fun witchHalloweenNovember() = shot("B27_halloween_november", dark = true, style = UiStyle.WITCH, witchDate = java.time.LocalDate.of(2026, 11, 1)) { Home(Fake.connected) }
+    @Test fun witchHalloweenStill() {
+        Settings.Global.putFloat(ApplicationProvider.getApplicationContext<Application>().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 0f)
+        shot("B28_halloween_still", dark = true, style = UiStyle.WITCH, witchDate = java.time.LocalDate.of(2026, 10, 31)) { Home(Fake.connected) }
+    }
+    @Test fun witchOrdinaryNight() = shot("B29_ordinary_night", dark = true, style = UiStyle.WITCH, witchDate = java.time.LocalDate.of(2026, 10, 30)) { Home(Fake.connected) }
+
     @Test fun witchEasterEgg() = shot("B20_witch_easter_egg", dark = true, style = UiStyle.WITCH, act = { tapSittingCat() }) { Home(VpnState.Idle) }
 
     @Test fun witchEasterEggStill() {
@@ -479,6 +491,7 @@ class ScreenshotTest {
         style: UiStyle? = null,
         fontScale: Float = 1f,
         language: String? = null,
+        witchDate: java.time.LocalDate = java.time.LocalDate.of(2026, 10, 28),
         act: (() -> Unit)? = null,
         content: @Composable () -> Unit,
     ) {
@@ -495,6 +508,7 @@ class ScreenshotTest {
                 if (language == null) original else original.createConfigurationContext(configuration)
             }
             CompositionLocalProvider(
+                app.farvater.ui.components.LocalWitchDate provides witchDate,
                 androidx.compose.ui.platform.LocalContext provides context,
                 androidx.compose.ui.platform.LocalConfiguration provides configuration,
                 androidx.compose.ui.platform.LocalLayoutDirection provides if (configuration.layoutDirection == 1) androidx.compose.ui.unit.LayoutDirection.Rtl else androidx.compose.ui.unit.LayoutDirection.Ltr,

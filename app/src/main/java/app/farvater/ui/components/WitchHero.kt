@@ -45,12 +45,26 @@ import app.farvater.R
 import kotlin.math.PI
 import kotlin.math.sin
 
+val LocalWitchDate = androidx.compose.runtime.staticCompositionLocalOf<java.time.LocalDate?> { null }
+
 private val WitchInk = Color(0xFF0C0618)
 private val WitchLilac = Color(0xFFB48CFF)
 private val WitchMoon = Color(0xFFF1DFB3)
 
 @Composable
 fun WitchHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val suppliedDate = LocalWitchDate.current
+    val date by androidx.compose.runtime.produceState(suppliedDate ?: java.time.LocalDate.now(), suppliedDate) {
+        if (suppliedDate != null) {
+            value = suppliedDate
+        } else {
+            while (true) {
+                value = java.time.LocalDate.now()
+                kotlinx.coroutines.delay(60_000)
+            }
+        }
+    }
+    val halloween = isHalloweenNight(date)
     val still = rememberReduceMotion()
     val haptics = LocalHapticFeedback.current
     val clock = remember { mutableFloatStateOf(0f) }
@@ -85,7 +99,7 @@ fun WitchHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modif
             val unit = maxWidth / 360f
             Canvas(Modifier.fillMaxSize()) {
                 scale(size.width / 360f, pivot = Offset.Zero) {
-                    witchScene(mode, clock.floatValue, flightStart.floatValue)
+                    witchScene(mode, clock.floatValue, flightStart.floatValue, halloween)
                 }
             }
             Box(
@@ -111,7 +125,7 @@ fun WitchHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modif
     }
 }
 
-private fun DrawScope.witchScene(mode: ConnectMode, time: Float, flightStart: Float) {
+private fun DrawScope.witchScene(mode: ConnectMode, time: Float, flightStart: Float, halloween: Boolean) {
     val busy = mode == ConnectMode.Searching || mode == ConnectMode.Connecting
     val active = busy || mode == ConnectMode.Connected
     val potion = when (mode) {
@@ -132,7 +146,7 @@ private fun DrawScope.witchScene(mode: ConnectMode, time: Float, flightStart: Fl
     drawCircle(WitchMoon, 62f, Offset(142f, 80f))
     drawCircle(Color(0xFFE8CAA1).copy(alpha = 0.55f), 12f, Offset(116f, 52f))
     drawCircle(Color(0xFFE8CAA1).copy(alpha = 0.4f), 7f, Offset(157f, 110f))
-    drawCircle(Color(0xFF160C29), 53f, Offset(165f, 61f))
+    if (halloween) witchBats(time) else drawCircle(Color(0xFF160C29), 53f, Offset(165f, 61f))
     val flight = if (flightStart.isNaN()) ((0.42f + time / if (busy) 6f else 11f) % 1f)
         else ((time - flightStart) / if (busy) 6f else 11f) % 1f
     translate(-32f + 424f * flight, 99f - sin(flight * PI.toFloat()) * 22f) {
@@ -252,6 +266,31 @@ fun WitchStyleMark() {
         scale(size.width / 60f, pivot = Offset.Zero) {
             drawCircle(WitchMoon, 28f, Offset(30f, 30f))
             translate(30f, 55f) { scale(0.45f, pivot = Offset.Zero) { witchCat(Color(0xFF9BE15D), 1f) } }
+        }
+    }
+}
+
+internal fun isHalloweenNight(date: java.time.LocalDate): Boolean =
+    (date.monthValue == 10 && date.dayOfMonth == 31) || (date.monthValue == 11 && date.dayOfMonth == 1)
+
+private fun DrawScope.witchBats(time: Float) {
+    listOf(Offset(100f, 14f), Offset(157f, 8f), Offset(211f, 27f)).forEachIndexed { index, position ->
+        translate(position.x + sin(time * 0.7f + index) * 9f, position.y + sin(time + index) * 3f) {
+            val wing = sin(time * 7f + index) * 3f
+            val shape = Path().apply {
+                moveTo(0f, -2f)
+                lineTo(-3f, -5f); lineTo(-4f, -1f)
+                quadraticTo(-8f, -6f + wing, -15f, -4f + wing)
+                quadraticTo(-11f, 0f, -11f, 4f)
+                quadraticTo(-7f, 1f, -5f, 5f)
+                lineTo(0f, 7f); lineTo(5f, 5f)
+                quadraticTo(7f, 1f, 11f, 4f)
+                quadraticTo(11f, 0f, 15f, -4f + wing)
+                quadraticTo(8f, -6f + wing, 4f, -1f)
+                lineTo(3f, -5f); close()
+            }
+            drawPath(shape, WitchInk)
+            drawPath(shape, WitchLilac.copy(alpha = 0.7f), style = Stroke(0.7f))
         }
     }
 }

@@ -1,5 +1,7 @@
 package app.farvater.ui
 
+import app.farvater.ui.components.LocalWitchDate
+import app.farvater.ui.components.isHalloweenNight
 import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -104,14 +106,29 @@ class WitchStyleTest {
         assertEquals(5, clicks)
     }
 
-    @Test fun disabledAnimationsFreezeScene() {
+    @Test fun disabledAnimationsFreezeScene() = frozenScene(java.time.LocalDate.of(2026, 10, 28))
+
+    @Test fun halloweenWithoutAnimationsFreezesBats() = frozenScene(java.time.LocalDate.of(2026, 10, 31))
+
+    @Test fun halloweenUsesExactlyTwoCalendarDates() {
+        listOf("2026-10-31", "2026-11-01", "2027-10-31", "2027-11-01").forEach {
+            assertTrue(isHalloweenNight(java.time.LocalDate.parse(it)))
+        }
+        listOf("2026-10-30", "2026-11-02", "2026-01-01", "2026-12-31").forEach {
+            assertFalse(isHalloweenNight(java.time.LocalDate.parse(it)))
+        }
+    }
+
+    private fun frozenScene(date: java.time.LocalDate) {
         Settings.Global.putFloat(app.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 0f)
         lateinit var view: View
         rule.mainClock.autoAdvance = false
         rule.setContent {
             view = LocalView.current
             FarvaterTheme(style = UiStyle.WITCH) {
-                Box(Modifier.size(360.dp, 236.dp)) { WitchHero(ConnectMode.Connected, {}) }
+                CompositionLocalProvider(LocalWitchDate provides date) {
+                    Box(Modifier.size(360.dp, 236.dp)) { WitchHero(ConnectMode.Connected, {}) }
+                }
             }
         }
         rule.mainClock.advanceTimeBy(500)
