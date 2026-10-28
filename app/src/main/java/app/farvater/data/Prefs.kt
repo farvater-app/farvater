@@ -46,6 +46,7 @@ data class AppSettings(
     val groupDead: Boolean = true,
     val autoSwitch: Boolean = true,
     val witchSeen: Boolean = false,
+    val favoriteNodeIds: Set<String> = emptySet(),
 )
 
 @Serializable

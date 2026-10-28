@@ -1,5 +1,9 @@
 package app.farvater.ui.screens
 
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarBorder
 import app.farvater.R
 import androidx.compose.ui.res.stringResource
 import android.content.Intent
@@ -108,9 +112,11 @@ fun ServersScreen(
     onDuplicates: (Boolean) -> Unit = {},
     onTestNode: (ProxyNode) -> Unit = {},
     onToggleGroup: (String) -> Unit = {},
+    onToggleFavorite: (String) -> Unit = {},
 ) {
     val c = Ios.colors
     var filter by rememberSaveable { mutableIntStateOf(0) }
+    var favoritesOnly by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var menuFor by remember { mutableStateOf<ProxyNode?>(null) }
     val clipboard = LocalClipboardManager.current
@@ -120,7 +126,7 @@ fun ServersScreen(
     EdgeHaptics(list)
     val collapsed by remember { derivedStateOf { list.firstVisibleItemIndex > 0 || list.firstVisibleItemScrollOffset > 70 } }
 
-    val visible = remember(state.nodes, state.results, filter, state.settings.hideDead, query) {
+    val visible = remember(state.nodes, state.results, filter, state.settings.hideDead, query, favoritesOnly, state.settings.favoriteNodeIds) {
         val needle = query.trim().lowercase()
         state.nodes.filter { node ->
             val r = state.results[node.id]
@@ -133,7 +139,7 @@ fun ServersScreen(
             }
             val passesQuery = needle.isEmpty() || node.name.lowercase().contains(needle) ||
                 node.protocol.title.lowercase().contains(needle) || node.address.contains(needle)
-            passesDead && passesFilter && passesQuery
+            passesDead && passesFilter && passesQuery && (!favoritesOnly || node.id in state.settings.favoriteNodeIds)
         }
     }
     val alive = remember(state.nodes, state.results) { state.nodes.count { state.results[it.id]?.alive == true } }
@@ -180,6 +186,15 @@ fun ServersScreen(
                     IosSearchField(query, { query = it }, stringResource(R.string.node_search_hint))
                     Spacer(Modifier.height(10.dp))
                     IosSegmented(Filters, filter, { filter = it })
+                    Row(
+                        Modifier.fillMaxWidth().height(48.dp)
+                            .toggleable(value = favoritesOnly, role = Role.Checkbox, onValueChange = { favoritesOnly = it }),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(if (favoritesOnly) Icons.Rounded.Star else Icons.Rounded.StarBorder, null, tint = if (favoritesOnly) c.tint else c.secondaryLabel, modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.favorites), style = IosType.subheadline, color = c.label)
+                    }
                 }
             }
             item(key = "progress") {
@@ -231,7 +246,14 @@ fun ServersScreen(
             }
 
             if (visible.isEmpty()) {
-                item(key = "empty") { EmptyState(state.nodes.isEmpty()) }
+                item(key = "empty") {
+                    if (favoritesOnly && state.nodes.none { it.id in state.settings.favoriteNodeIds }) {
+                        Column(Modifier.padding(32.dp)) {
+                            Text(stringResource(R.string.favorites_empty), style = IosType.headline, color = c.label)
+                            Text(stringResource(R.string.favorites_hint), style = IosType.body, color = c.secondaryLabel)
+                        }
+                    } else EmptyState(state.nodes.isEmpty())
+                }
             } else {
                 groups.forEach { (sourceId, nodes) ->
                     val isDead = sourceId == DeadGroup
@@ -266,6 +288,8 @@ fun ServersScreen(
                                     result = state.results[node.id],
                                     selected = node.id == state.selectedId,
                                     checking = node.id in state.checking,
+                                    favorite = node.id in state.settings.favoriteNodeIds,
+                                    onFavorite = { onToggleFavorite(node.id) },
                                     onClick = { onSelect(node) },
                                     onLongClick = { menuFor = node },
                                 )
@@ -375,6 +399,8 @@ private fun NodeRow(
     result: TestResult?,
     selected: Boolean,
     checking: Boolean,
+    favorite: Boolean,
+    onFavorite: () -> Unit,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
@@ -391,6 +417,17 @@ private fun NodeRow(
         onClick = onClick,
         onLongClick = onLongClick,
         trailing = {
+            Box(
+                Modifier.size(48.dp).toggleable(value = favorite, role = Role.Checkbox, onValueChange = { onFavorite() }),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                    stringResource(if (favorite) R.string.favorite_remove else R.string.favorite_add, node.name),
+                    tint = if (favorite) c.tint else c.secondaryLabel,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
             if (checking) IosSpinner(size = 16.dp) else DelayLabel(result)
             AnimatedVisibility(
                 visible = selected,

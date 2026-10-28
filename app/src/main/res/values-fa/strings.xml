@@ -416,4 +416,9 @@
     <string name="vpn_state_off">"خاموش"</string>
     <string name="node_selected">"انتخاب‌شده"</string>
     <string name="new_badge">"جدید"</string>
+    <string name="favorites">"برگزیده‌ها"</string>
+    <string name="favorite_add">"افزودن به برگزیده‌ها: %1$s"</string>
+    <string name="favorite_remove">"حذف از برگزیده‌ها: %1$s"</string>
+    <string name="favorites_empty">"گره برگزیده‌ای ندارید"</string>
+    <string name="favorites_hint">"روی ستاره کنار گره بزنید"</string>
 </resources>

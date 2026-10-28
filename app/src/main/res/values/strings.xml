@@ -416,4 +416,9 @@
     <string name="vpn_state_off">"Выключен"</string>
     <string name="node_selected">"Выбран"</string>
     <string name="new_badge">"Новое"</string>
+    <string name="favorites">"Избранные"</string>
+    <string name="favorite_add">"В избранное: %1$s"</string>
+    <string name="favorite_remove">"Убрать из избранного: %1$s"</string>
+    <string name="favorites_empty">"Избранных узлов нет"</string>
+    <string name="favorites_hint">"Нажмите на звёздочку рядом с узлом"</string>
 </resources>

@@ -995,6 +995,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         else if (!granted) toast(messageText(R.string.vpn_permission_denied))
     }
 
+    fun toggleFavorite(nodeId: String) = updateSettings {
+        it.copy(favoriteNodeIds = if (nodeId in it.favoriteNodeIds) it.favoriteNodeIds - nodeId else it.favoriteNodeIds + nodeId)
+    }
+
     fun updateSettings(transform: (AppSettings) -> AppSettings) {
         val old = prefs.settings
         val new = transform(old)

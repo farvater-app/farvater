@@ -112,6 +112,7 @@ fun FarvaterRoot(vm: MainViewModel) {
                     onTestAll = { vm.testAll() },
                     onTestNode = vm::testNode,
                     onToggleGroup = vm::toggleGroup,
+                    onToggleFavorite = vm::toggleFavorite,
                     onCancelTest = vm::cancelTest,
                     onDeleteManual = vm::deleteManualNode,
                     onCopied = { vm.showMessage(linkCopied) },

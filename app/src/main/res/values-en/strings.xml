@@ -416,4 +416,9 @@
     <string name="vpn_state_off">"Off"</string>
     <string name="node_selected">"Selected"</string>
     <string name="new_badge">"New"</string>
+    <string name="favorites">"Favorites"</string>
+    <string name="favorite_add">"Add to favorites: %1$s"</string>
+    <string name="favorite_remove">"Remove from favorites: %1$s"</string>
+    <string name="favorites_empty">"No favorite nodes"</string>
+    <string name="favorites_hint">"Tap the star next to a node"</string>
 </resources>
