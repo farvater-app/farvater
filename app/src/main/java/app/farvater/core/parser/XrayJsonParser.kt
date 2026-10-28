@@ -85,7 +85,7 @@ object XrayJsonParser {
         }
         val name = config.str("remarks")?.trim().orEmpty().ifEmpty { "$address:$port" }
         val params = buildMap {
-            stream?.str("security")?.let { put("security", it) }
+            put("security", stream?.str("security") ?: "none")
             stream?.str("network")?.takeIf { protocol != Protocol.HYSTERIA2 }?.let { put("type", it) }
             (tls ?: reality)?.str("serverName")?.let { put("sni", it) }
             reality?.str("publicKey")?.let { put("pbk", it) }
@@ -165,7 +165,7 @@ object XrayJsonParser {
                     val users = server.array("users").filterIsInstance<JsonObject>().ifEmpty { listOf(server) }
                     for (user in users) {
                         val params = buildMap {
-                            stream?.str("security")?.let { put("security", it) }
+                            put("security", stream?.str("security") ?: "none")
                             user.str("security")?.let { put("scy", it) }
                             server.str("method")?.let { put("method", it) }
                             if (tls?.bool("allowInsecure") == true) put("allowInsecure", "1")

@@ -24,6 +24,20 @@ import kotlin.random.Random
 
 class ParserRegressionTest {
     @Test
+    fun trojanJsonWithoutTlsIsUnsafeIncludingSavedAndBalancedNodes() {
+        val plain = """{"tag":"plain","protocol":"trojan","settings":{"servers":[{"address":"node.example.test","port":443,"password":"test"}]}}"""
+        val secure = plain.replace("plain", "proxy").dropLast(1) + """, "streamSettings":{"security":"tls"}}"""
+        for (raw in listOf("""{"outbounds":[$plain]}""",
+            """{"outbounds":[$secure,$plain],"routing":{"rules":[{"balancerTag":"pool"}],"balancers":[{"tag":"pool","selector":["proxy","plain"]}]}}""")) {
+            val node = SubscriptionParser.parse(raw, "public").nodes.single()
+            assertEquals("Без шифрования", node.securityIssue)
+            assertEquals("Без шифрования", node.copy(params = node.params - "jsonSecurityIssue").securityIssue)
+        }
+        assertNull(LinkParser.parse("trojan://test@node.example.test:443")!!.securityIssue)
+        assertNull(SubscriptionParser.parse("""{"outbounds":[$secure]}""", "public").nodes.single().securityIssue)
+    }
+
+    @Test
     fun nodeIdsRemainCompatibleWithPersistedIds() {
         val seeds = listOf("", " abc ", "узел\n東京", "\u0000", "a".repeat(10000)) +
             (0..2047).map { "vless://test@node$it.example.test:443?security=tls" }
