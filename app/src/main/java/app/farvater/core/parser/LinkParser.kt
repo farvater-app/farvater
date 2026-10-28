@@ -161,7 +161,12 @@ object LinkParser {
     private fun displayName(fragment: String, host: String, port: Int): String =
         pctDecode(fragment).trim().ifBlank { "$host:$port" }
 
-    internal fun nodeId(seed: String): String =
-        MessageDigest.getInstance("SHA-1").digest(seed.trim().toByteArray())
-            .take(8).joinToString("") { "%02x".format(it) }
+    internal fun nodeId(seed: String): String {
+        val digest = MessageDigest.getInstance("SHA-1").digest(seed.trim().toByteArray())
+        val hex = "0123456789abcdef"
+        return CharArray(16) { index ->
+            val byte = digest[index / 2].toInt() and 0xff
+            hex[if (index % 2 == 0) byte ushr 4 else byte and 0x0f]
+        }.concatToString()
+    }
 }

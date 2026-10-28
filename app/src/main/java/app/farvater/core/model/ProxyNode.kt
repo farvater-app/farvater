@@ -69,6 +69,12 @@ data class ProxyNode(
     }
 }
 
-fun List<ProxyNode>.onePerEndpoint(keepId: String?): List<ProxyNode> =
-    groupBy { if (it.isJson) it.id else Triple(it.protocol, it.address.lowercase(), it.port) }.values
-        .map { same -> same.firstOrNull { it.id == keepId } ?: same.first() }
+fun List<ProxyNode>.onePerEndpoint(keepId: String?): List<ProxyNode> {
+    val chosen = LinkedHashMap<Any, ProxyNode>()
+    for (node in this) {
+        val key = if (node.isJson) node.id else Triple(node.protocol, node.address.lowercase(), node.port)
+        val previous = chosen[key]
+        if (previous == null || (node.id == keepId && previous.id != keepId)) chosen[key] = node
+    }
+    return chosen.values.toList()
+}
