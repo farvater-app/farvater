@@ -63,6 +63,22 @@ import org.robolectric.annotation.GraphicsMode
 class ScreenshotTest {
     @get:Rule val rule = createComposeRule()
 
+    @Test fun feature_share_ios() = shot("F_share_ios", dark = true, style = UiStyle.IOS) { Share() }
+    @Test fun feature_share_material() = shot("F_share_material", dark = true, style = UiStyle.MATERIAL) { Share() }
+    @Test fun feature_share_roskompozor() = shot("F_share_roskompozor", dark = true, style = UiStyle.ROSKOMPOZOR) { Share() }
+    @Test fun feature_share_sumie() = shot("F_share_sumie", dark = true, style = UiStyle.SUMIE) { Share() }
+    @Test fun feature_share_nothing() = shot("F_share_nothing", dark = true, style = UiStyle.NOTHING) { Share() }
+    @Test fun feature_share_origin() = shot("F_share_origin", dark = true, style = UiStyle.ORIGIN) { Share() }
+    @Test fun feature_share_hyper() = shot("F_share_hyper", dark = true, style = UiStyle.HYPER) { Share() }
+    @Test fun feature_share_harmony() = shot("F_share_harmony", dark = true, style = UiStyle.HARMONY) { Share() }
+    @Test fun feature_share_oneui() = shot("F_share_oneui", dark = true, style = UiStyle.ONEUI) { Share() }
+    @Test fun feature_share_oxygen() = shot("F_share_oxygen", dark = true, style = UiStyle.OXYGEN) { Share() }
+    @Test fun feature_share_witch() = shot("F_share_witch", dark = true, style = UiStyle.WITCH) { Share() }
+    @Test fun feature_share_en() = shot("F_share_en", dark = true, style = UiStyle.WITCH, language = "en") { Share() }
+    @Test fun feature_share_fa() = shot("F_share_fa", dark = true, style = UiStyle.WITCH, language = "fa") { Share() }
+    @Test fun feature_share_split() = shot("F_share_split", dark = false, style = UiStyle.IOS) { Share(split = true) }
+    @Test fun feature_share_large() = shot("F_share_large", dark = false, style = UiStyle.MATERIAL, fontScale = 2f) { Share() }
+
     @Test fun feature_traffic_ios() = shot("F_traffic_ios", dark = true, style = UiStyle.IOS) { Traffic() }
     @Test fun feature_traffic_material() = shot("F_traffic_material", dark = true, style = UiStyle.MATERIAL) { Traffic() }
     @Test fun feature_traffic_roskompozor() = shot("F_traffic_roskompozor", dark = true, style = UiStyle.ROSKOMPOZOR) { Traffic() }
@@ -564,6 +580,22 @@ class ScreenshotTest {
                 state = state, vpn = vpn, traffic = Fake.traffic, history = Fake.history,
                 onToggle = {}, onFindWorking = {}, onCancelTest = {}, onOpenServers = {},
             )
+        }
+    }
+
+    @Composable
+    private fun Share(split: Boolean = false) = FarvaterFrame(tab = Tab.Settings, onTab = {}) { p ->
+        androidx.compose.foundation.layout.Box(Modifier.padding(p)) {
+            app.farvater.ui.ios.IosPushedPage(
+                title = androidx.compose.ui.res.stringResource(app.farvater.R.string.share_app),
+                backTitle = androidx.compose.ui.res.stringResource(app.farvater.R.string.settings_title), onBack = {},
+            ) {
+                app.farvater.ui.screens.ShareAppContent(
+                    architectures = if (split) null else listOf("arm64-v8a"), preparing = false,
+                    error = if (split) androidx.compose.ui.res.stringResource(app.farvater.R.string.share_apk_split) else null,
+                    onShare = {},
+                )
+            }
         }
     }
 

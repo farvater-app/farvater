@@ -426,4 +426,13 @@
     <string name="traffic_month">"30 дней"</string>
     <string name="traffic_total">"Всего за период"</string>
     <string name="traffic_privacy">"История хранится только на телефоне, не дольше 60 дней. Это оценка трафика VPN: счётчик оператора может отличаться."</string>
+    <string name="share_app">"Поделиться приложением"</string>
+    <string name="share_apk_subtitle">"Отправить установочный файл"</string>
+    <string name="share_apk_explanation">"Отправьте установленную версию Фарватера на другой телефон через системное меню «Поделиться». Интернет для подготовки файла не нужен."</string>
+    <string name="share_apk_architectures">"APK для %1$s. На телефоне с другой архитектурой он может не установиться."</string>
+    <string name="share_apk_private">"Ваши настройки, личные подписки и добавленные узлы в файл не входят."</string>
+    <string name="share_apk_message">"Фарватер %1$s. Установочный файл для %2$s."</string>
+    <string name="share_apk_split">"Эта установка состоит из нескольких APK. Передать её одним файлом нельзя."</string>
+    <string name="share_apk_unavailable">"Не удалось подготовить или отправить файл. Проверьте свободное место и попробуйте ещё раз."</string>
+    <string name="share_apk_preparing">"Подготовка файла"</string>
 </resources>

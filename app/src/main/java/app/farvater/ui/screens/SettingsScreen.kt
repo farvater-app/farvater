@@ -1,5 +1,6 @@
 package app.farvater.ui.screens
 
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.ui.res.stringResource
 import app.farvater.ui.components.WitchStyleMark
 import android.content.Context
@@ -168,6 +169,7 @@ private enum class SettingsPage(val title: Int) {
     About(R.string.settings_about),
     Language(R.string.settings_language),
     Traffic(R.string.traffic_title),
+    ShareApp(R.string.share_app),
 }
 
 @Composable
@@ -239,6 +241,7 @@ fun SettingsScreen(
                     SettingsPage.About -> AboutPage()
                     SettingsPage.Language -> LanguagePage()
                     SettingsPage.Traffic -> TrafficPage(trafficHistory, trafficToday)
+                    SettingsPage.ShareApp -> ShareAppPage()
                 }
                 Spacer(Modifier.height(24.dp + LocalBottomInset.current))
             }
@@ -414,6 +417,15 @@ private fun SettingsRoot(
                     iconTint = c.green,
                     chevron = true,
                     onClick = { onOpen(SettingsPage.Traffic) },
+                )
+                IosDivider(start = divider)
+                IosRow(
+                    title = stringResource(R.string.share_app),
+                    subtitle = stringResource(R.string.share_apk_subtitle),
+                    icon = Icons.Rounded.Share,
+                    iconTint = c.blue,
+                    chevron = true,
+                    onClick = { onOpen(SettingsPage.ShareApp) },
                 )
             }
 

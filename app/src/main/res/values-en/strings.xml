@@ -426,4 +426,13 @@
     <string name="traffic_month">"30 days"</string>
     <string name="traffic_total">"Total for this period"</string>
     <string name="traffic_privacy">"History stays on your phone for up to 60 days. This estimates VPN traffic; your carrier’s figures may differ."</string>
+    <string name="share_app">"Share app"</string>
+    <string name="share_apk_subtitle">"Send the installation file"</string>
+    <string name="share_apk_explanation">"Send the installed version of Фарватер to another phone using the system share menu. Preparing the file does not need internet."</string>
+    <string name="share_apk_architectures">"APK for %1$s. It may not install on a phone with a different architecture."</string>
+    <string name="share_apk_private">"Your settings, personal subscriptions and saved nodes are not included."</string>
+    <string name="share_apk_message">"Фарватер %1$s. Installation file for %2$s."</string>
+    <string name="share_apk_split">"This installation uses several APK files and cannot be shared as a single file."</string>
+    <string name="share_apk_unavailable">"Could not prepare or share the file. Check free space and try again."</string>
+    <string name="share_apk_preparing">"Preparing file"</string>
 </resources>

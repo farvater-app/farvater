@@ -426,4 +426,13 @@
     <string name="traffic_month">"۳۰ روز"</string>
     <string name="traffic_total">"مجموع این دوره"</string>
     <string name="traffic_privacy">"تاریخچه فقط تا ۶۰ روز روی گوشی می‌ماند. این برآورد ترافیک VPN است و ممکن است با آمار اپراتور متفاوت باشد."</string>
+    <string name="share_app">"اشتراک‌گذاری برنامه"</string>
+    <string name="share_apk_subtitle">"ارسال فایل نصب"</string>
+    <string name="share_apk_explanation">"نسخهٔ نصب‌شدهٔ Фарватер را با منوی اشتراک‌گذاری سیستم به گوشی دیگری بفرستید. آماده‌سازی فایل به اینترنت نیاز ندارد."</string>
+    <string name="share_apk_architectures">"این APK برای %1$s است. ممکن است روی گوشی با معماری متفاوت نصب نشود."</string>
+    <string name="share_apk_private">"تنظیمات، اشتراک‌های شخصی و گره‌های افزوده‌شدهٔ شما در فایل نیستند."</string>
+    <string name="share_apk_message">"Фарватер %1$s. فایل نصب برای %2$s."</string>
+    <string name="share_apk_split">"این نصب از چند فایل APK تشکیل شده و نمی‌توان آن را به صورت یک فایل فرستاد."</string>
+    <string name="share_apk_unavailable">"آماده‌سازی یا ارسال فایل انجام نشد. فضای خالی را بررسی کنید و دوباره تلاش کنید."</string>
+    <string name="share_apk_preparing">"در حال آماده‌سازی فایل"</string>
 </resources>
