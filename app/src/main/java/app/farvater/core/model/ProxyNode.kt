@@ -1,5 +1,6 @@
 package app.farvater.core.model
 
+import app.farvater.core.parser.XrayJsonParser
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -27,6 +28,9 @@ data class ProxyNode(
     val transport: String get() = params["type"].orEmpty().ifBlank { "tcp" }.lowercase()
 
     val securityIssue: String?
+        get() = protocolSecurityIssue ?: jsonSecurityIssue
+
+    private val protocolSecurityIssue: String?
         get() = when {
             (params["allowInsecure"] == "1" || params["insecure"] == "1") && pinnedCert == null -> "Без проверки сертификата"
             protocol == Protocol.VLESS && (security.isBlank() || security == "none") -> "Без шифрования"
@@ -42,6 +46,10 @@ data class ProxyNode(
             }
             else -> null
         }
+
+    private val jsonSecurityIssue by lazy {
+        if (isJson) params["jsonSecurityIssue"] ?: XrayJsonParser.securityIssue(raw) else null
+    }
 
     val isInsecure: Boolean get() = securityIssue != null
 

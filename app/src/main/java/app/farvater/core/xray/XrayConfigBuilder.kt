@@ -5,7 +5,9 @@ import app.farvater.core.model.Protocol
 import app.farvater.core.model.canFragment
 import app.farvater.core.model.canMux
 import app.farvater.core.model.ProxyNode
+import app.farvater.core.parser.XrayJsonParser
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonObject
@@ -50,7 +52,7 @@ object XrayConfigBuilder {
         val fragment = tuned?.fragment == true && node.canFragment
         val proxies = provider?.get("outbounds")?.jsonArray ?: listOf(outbound(node, tuned, fragment))
         val balancers = provider?.get("routing")?.jsonObject?.get("balancers")?.jsonArray
-        return buildJsonObject {
+        val config = buildJsonObject {
             putJsonObject("log") { put("loglevel", "warning") }
             if (!forTest) {
                 putJsonArray("inbounds") {
@@ -140,7 +142,21 @@ object XrayConfigBuilder {
                 provider?.get("observatory")?.let { put("observatory", it) }
                 provider?.get("burstObservatory")?.let { put("burstObservatory", it) }
             }
-        }.toString()
+        }
+        val routing = config["routing"]?.jsonObject
+        val safeConfig = if (routing != null && balancers != null) {
+            val safe = XrayJsonParser.safeBalancers(balancers, config.getValue("outbounds").jsonArray)
+            val tags = safe.mapNotNull { it["tag"] }.toSet()
+            val rules = routing.getValue("rules").jsonArray.filter {
+                val tag = it.jsonObject["balancerTag"]
+                tag == null || tag in tags
+            }
+            JsonObject(config + ("routing" to JsonObject(routing + mapOf(
+                "balancers" to JsonArray(safe),
+                "rules" to JsonArray(rules),
+            ))))
+        } else config
+        return XrayJsonParser.withoutInsecure(safeConfig).toString()
     }
 
     private const val FRAGMENT_TAG = "fragment"

@@ -6,8 +6,12 @@ import androidx.lifecycle.viewModelScope
 import androidx.test.core.app.ApplicationProvider
 import app.farvater.core.model.NodeProfile
 import app.farvater.core.model.NetMode
+import app.farvater.core.catalog.BuiltInCatalog
+import app.farvater.core.model.ProxyNode
 import app.farvater.core.parser.LinkParser
+import app.farvater.core.parser.SubscriptionParser
 import app.farvater.data.BackupNodes
+import app.farvater.data.SourceSnapshot
 import app.farvater.data.SubscriptionRepository
 import app.farvater.data.UpdateInfo
 import app.farvater.ui.GalsStep
@@ -123,6 +127,32 @@ class MainViewModelLifecycleTest {
         assertNull(App.prefs.selectedNodeId)
         assertTrue(App.prefs.modeNodes.isEmpty())
         assertTrue(App.prefs.backupNodes.nodes.isEmpty())
+    }
+
+    @Test
+    fun safeModeHidesMixedJsonOnlyInCommunitySources() {
+        vm.viewModelScope.cancel()
+        val source = BuiltInCatalog.sources.first { it.mode.fits(NetMode.BLACK) }.id
+        val input = """{"outbounds":[{"tag":"proxy","protocol":"trojan","settings":{"servers":[{"address":"node.example.test","port":443,"password":"test"}]},"streamSettings":{"security":"tls"}},{"tag":"proxy-plain","protocol":"vless","settings":{"vnext":[{"address":"plain.example.test","port":443,"users":[{"id":"test"}]}]}}],"routing":{"rules":[{"balancerTag":"pool"}],"balancers":[{"tag":"pool","selector":["proxy"]}]}}"""
+        val publicNode = SubscriptionParser.parse(input, source).nodes.single()
+        val manual = publicNode.copy(id = "manual-json", sourceId = ProxyNode.MANUAL_SOURCE)
+        App.prefs.settings = App.prefs.settings.copy(communityEnabled = true, safeMode = true)
+        App.prefs.enabledSources = setOf(source)
+        @Suppress("UNCHECKED_CAST")
+        val snapshots = field("snapshots").get(vm) as MutableStateFlow<Map<String, SourceSnapshot>>
+        snapshots.value = listOf(publicNode, manual).associate { node ->
+            node.sourceId to SourceSnapshot(node.sourceId, null, null, emptyList(), listOf(node), 0)
+        }
+        val rebuild = MainViewModel::class.java.getDeclaredMethod("rebuildLocked").apply { isAccessible = true }
+        rebuild.invoke(vm)
+        assertEquals(listOf(manual), state.value.nodes)
+        assertEquals(1, state.value.hiddenInsecure)
+        assertFalse(App.prefs.allowedForAuto(publicNode))
+        assertTrue(App.prefs.allowedForAuto(manual))
+        App.prefs.settings = App.prefs.settings.copy(safeMode = false)
+        rebuild.invoke(vm)
+        assertEquals(setOf(publicNode, manual), state.value.nodes.toSet())
+        assertTrue(App.prefs.allowedForAuto(publicNode))
     }
 
     private fun field(name: String) = MainViewModel::class.java.getDeclaredField(name).apply { isAccessible = true }
