@@ -574,7 +574,7 @@ private fun AppearancePage(
     }
     IosSection {
         IosChoiceRow(
-            title = stringResource(R.string.style_witch),
+            title = stringResource(R.string.style_witch) + if (!settings.witchSeen) " · " + stringResource(R.string.new_badge) else "",
             subtitle = stringResource(R.string.style_witch_description),
             selected = settings.uiStyle == UiStyle.WITCH,
             leading = { StyleMark { WitchStyleMark() } },

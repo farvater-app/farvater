@@ -415,4 +415,5 @@
     <string name="style_rkp">"#РосКомПозор"</string>
     <string name="vpn_state_off">"خاموش"</string>
     <string name="node_selected">"انتخاب‌شده"</string>
+    <string name="new_badge">"جدید"</string>
 </resources>

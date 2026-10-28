@@ -415,4 +415,5 @@
     <string name="style_rkp">"#РосКомПозор"</string>
     <string name="vpn_state_off">"Выключен"</string>
     <string name="node_selected">"Выбран"</string>
+    <string name="new_badge">"Новое"</string>
 </resources>

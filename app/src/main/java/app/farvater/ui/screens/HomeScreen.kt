@@ -1,5 +1,6 @@
 package app.farvater.ui.screens
 
+import kotlinx.coroutines.launch
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -256,7 +257,7 @@ fun HomeScreen(
             } else {
                 Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.Center) {
                     when {
-                        witch -> WitchHero(mode = mode, onClick = onToggle)
+                        witch -> WitchFeedback { WitchHero(mode = mode, onClick = onToggle) }
                         sumie -> SumieHero(mode = mode, onClick = onToggle)
                         nothing -> DotConnectButton(mode = mode, onClick = onToggle, size = 204.dp)
                         hyper -> HyperConnect(
@@ -515,4 +516,28 @@ private fun securityLabel(issue: String?): String? = when (issue) {
     "Без шифрования" -> stringResource(R.string.security_no_encryption)
     "Устаревшее шифрование" -> stringResource(R.string.security_old_encryption)
     else -> issue
+}
+
+@Composable
+private fun WitchFeedback(content: @Composable () -> Unit) {
+    val system = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val view = androidx.compose.ui.platform.LocalView.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val feedback = remember(system, view, scope) {
+        object : androidx.compose.ui.hapticfeedback.HapticFeedback {
+            override fun performHapticFeedback(hapticFeedbackType: androidx.compose.ui.hapticfeedback.HapticFeedbackType) {
+                if (hapticFeedbackType == androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm) {
+                    scope.launch {
+                        repeat(3) {
+                            view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                            kotlinx.coroutines.delay(75)
+                        }
+                    }
+                } else {
+                    system.performHapticFeedback(hapticFeedbackType)
+                }
+            }
+        }
+    }
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalHapticFeedback provides feedback, content = content)
 }

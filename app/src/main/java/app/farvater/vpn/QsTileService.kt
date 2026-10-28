@@ -37,6 +37,7 @@ class QsTileService : TileService() {
             is VpnState.Connected, is VpnState.Connecting -> Tile.STATE_ACTIVE
             else -> Tile.STATE_INACTIVE
         }
+        tile.icon = android.graphics.drawable.Icon.createWithResource(this, app.farvater.data.AppIcons.current(this).monochrome)
         tile.label = localizedString(app.farvater.R.string.app_name)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             tile.subtitle = when (state) {

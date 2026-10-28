@@ -45,6 +45,7 @@ data class AppSettings(
     val autoStart: Boolean = false,
     val groupDead: Boolean = true,
     val autoSwitch: Boolean = true,
+    val witchSeen: Boolean = false,
 )
 
 @Serializable

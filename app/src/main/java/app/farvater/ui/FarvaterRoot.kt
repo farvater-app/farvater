@@ -44,6 +44,12 @@ fun FarvaterRoot(vm: MainViewModel) {
     val hwidCopied = stringResource(R.string.hwid_copied)
     val state by vm.state.collectAsStateWithLifecycle()
 
+    LaunchedEffect(state.settings.uiStyle, state.settings.witchSeen) {
+        if (state.settings.uiStyle == app.farvater.data.UiStyle.WITCH && !state.settings.witchSeen) {
+            vm.updateSettings { it.copy(witchSeen = true) }
+        }
+    }
+
     var tab by rememberSaveable { mutableStateOf(Tab.Home) }
     var settingsPage by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler(enabled = tab != Tab.Home) { tab = Tab.Home }

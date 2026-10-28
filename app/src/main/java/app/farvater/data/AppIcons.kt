@@ -122,6 +122,7 @@ object AppIcons {
             }
         }
         VpnWidget.refresh(context, VpnBus.state.value)
+        android.service.quicksettings.TileService.requestListeningState(context, ComponentName(context, app.farvater.vpn.QsTileService::class.java))
     }
 
     private fun stateFor(alias: AppIcon, chosen: AppIcon): Int = when {
