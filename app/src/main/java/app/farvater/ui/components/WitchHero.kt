@@ -81,7 +81,7 @@ fun WitchHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modif
             val unit = maxWidth / 360f
             Canvas(Modifier.fillMaxSize()) {
                 scale(size.width / 360f, pivot = Offset.Zero) {
-                    witchScene(mode, clock.floatValue)
+                    witchScene(mode, clock.floatValue, still)
                 }
             }
             Box(
@@ -93,7 +93,7 @@ fun WitchHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modif
     }
 }
 
-private fun DrawScope.witchScene(mode: ConnectMode, time: Float) {
+private fun DrawScope.witchScene(mode: ConnectMode, time: Float, still: Boolean) {
     val busy = mode == ConnectMode.Searching || mode == ConnectMode.Connecting
     val active = busy || mode == ConnectMode.Connected
     val potion = when (mode) {
@@ -115,12 +115,12 @@ private fun DrawScope.witchScene(mode: ConnectMode, time: Float) {
     drawCircle(Color(0xFFE8CAA1).copy(alpha = 0.55f), 12f, Offset(116f, 52f))
     drawCircle(Color(0xFFE8CAA1).copy(alpha = 0.4f), 7f, Offset(157f, 110f))
     drawCircle(Color(0xFF160C29), 53f, Offset(165f, 61f))
-    val flight = ((0.42f + time / if (busy) 6f else 11f) % 1f)
-    translate(-32f + 424f * flight, 99f - sin(flight * PI.toFloat()) * 22f) {
-        scale(0.42f, pivot = Offset.Zero) {
+    val flight = if (still) 0.66f else ((if (busy) 0.5f else 0.66f) + time / (if (busy) 6f else 11f)) % 1f
+    translate(-48f + 456f * flight, 121f - sin(flight * PI.toFloat()) * 17f) {
+        scale(0.74f, pivot = Offset.Zero) {
             drawLine(Color(0xFF997456), Offset(-43f, 7f), Offset(48f, 1f), 5f, StrokeCap.Round)
             for (i in 0..4) drawLine(Color(0xFFB38C61), Offset(-39f, 7f), Offset(-60f, -2f + i * 5f), 3f, StrokeCap.Round)
-            witchCat(WitchMoon, 1f)
+            witchCat(WitchMoon, 1f, airborne = true)
         }
     }
     drawPath(Path().apply {
@@ -184,13 +184,15 @@ private fun DrawScope.witchScene(mode: ConnectMode, time: Float) {
     drawCircle(Color(0xFF9BE15D).copy(alpha = 0.7f), 2f, Offset(87f, 182f + sin(time) * 3f))
 }
 
-private fun DrawScope.witchCat(eyes: Color, blink: Float) {
+private fun DrawScope.witchCat(eyes: Color, blink: Float, airborne: Boolean = false) {
     val fur = Color(0xFF090610)
     drawPath(Path().apply {
         moveTo(12f, -7f); cubicTo(43f, 2f, 44f, -26f, 32f, -20f)
     }, fur, style = Stroke(8f, cap = StrokeCap.Round))
     drawOval(fur, Offset(-18f, -40f), Size(36f, 42f))
+    if (airborne) drawOval(Color(0xFF9973C5), Offset(-18f, -40f), Size(36f, 42f), style = Stroke(1.5f))
     drawCircle(fur, 18f, Offset(0f, -46f))
+    if (airborne) drawCircle(Color(0xFF9973C5), 18f, Offset(0f, -46f), style = Stroke(1.5f))
     drawPath(Path().apply {
         moveTo(-17f, -49f); lineTo(-18f, -68f); lineTo(-6f, -60f)
         lineTo(8f, -60f); lineTo(19f, -68f); lineTo(17f, -48f); close()
@@ -202,7 +204,7 @@ private fun DrawScope.witchCat(eyes: Color, blink: Float) {
     drawPath(Path().apply {
         moveTo(-17f, -64f); lineTo(-2f, -98f); quadraticTo(4f, -104f, 16f, -93f)
         lineTo(5f, -94f); lineTo(22f, -63f); close()
-    }, Color(0xFF4D2B6F))
+    }, if (airborne) Color(0xFF70449A) else Color(0xFF4D2B6F))
     drawLine(WitchLilac, Offset(-11f, -73f), Offset(17f, -71f), 4f)
     drawOval(Color(0xFF39204F), Offset(-29f, -67f), Size(60f, 11f))
     drawOval(WitchMoon, Offset(2f, -76f), Size(6f, 7f), style = Stroke(1.5f))

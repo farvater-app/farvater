@@ -1,5 +1,7 @@
 package app.farvater.ui
 
+import android.provider.Settings
+import org.junit.After
 import android.app.Application
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -58,6 +60,25 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [35], qualifiers = "w393dp-h852dp-xxhdpi", application = Application::class)
 class ScreenshotTest {
     @get:Rule val rule = createComposeRule()
+
+    @After fun restoreAnimationScale() {
+        Settings.Global.putFloat(ApplicationProvider.getApplicationContext<Application>().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
+    }
+
+    @Test fun witchMoonPass() = shot("B20_witch_moon_pass", dark = true, style = UiStyle.WITCH, advanceMillis = 4800) {
+        Home(VpnState.Connecting(Fake.state.nodes.first()))
+    }
+
+    @Test fun witchStillIdle() = witchStill("B15_witch_still_idle", VpnState.Idle)
+    @Test fun witchStillSearching() = witchStill("B16_witch_still_searching", VpnState.Idle, Fake.state.copy(progress = TestProgress(37, 120, 9)))
+    @Test fun witchStillConnecting() = witchStill("B17_witch_still_connecting", VpnState.Connecting(Fake.state.nodes.first()))
+    @Test fun witchStillConnected() = witchStill("B18_witch_still_connected", Fake.connected)
+    @Test fun witchStillError() = witchStill("B19_witch_still_error", VpnState.Failed("Узел не ответил", Fake.state.nodes.first()))
+
+    private fun witchStill(name: String, vpn: VpnState, state: UiState = Fake.state) {
+        Settings.Global.putFloat(ApplicationProvider.getApplicationContext<Application>().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 0f)
+        shot(name, dark = true, style = UiStyle.WITCH) { Home(vpn, state) }
+    }
 
     @Test fun witchLargeText() = shot("B13_witch_large_text", dark = false, style = UiStyle.WITCH, fontScale = 2f) { Home(VpnState.Idle) }
     @Test fun witchStyleChoice() = shot("B14_witch_style_choice", dark = true, style = UiStyle.WITCH,
@@ -407,6 +428,7 @@ class ScreenshotTest {
         nothing: Boolean = false,
         style: UiStyle? = null,
         fontScale: Float = 1f,
+        advanceMillis: Long = 1500,
         act: (() -> Unit)? = null,
         content: @Composable () -> Unit,
     ) {
@@ -426,7 +448,7 @@ class ScreenshotTest {
                 CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) { content() }
             }
         }
-        rule.mainClock.advanceTimeBy(1_500)
+        rule.mainClock.advanceTimeBy(advanceMillis)
         if (act != null) {
             act()
             rule.waitForIdle()
