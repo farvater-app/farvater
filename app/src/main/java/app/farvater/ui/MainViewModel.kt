@@ -1140,7 +1140,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         )
 
     private fun shortHash(s: String) =
-        MessageDigest.getInstance("SHA-1").digest(s.toByteArray()).take(5).joinToString("") { "%02x".format(it) }
+        MessageDigest.getInstance("SHA-1").digest(s.toByteArray()).take(5).joinToString("") { "%02x".format(java.util.Locale.ROOT, it) }
 
     private fun hostOf(url: String) = url.substringAfter("://").substringBefore('/').ifBlank { "Подписка" }
 

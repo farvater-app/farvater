@@ -17,8 +17,13 @@ object TunBridge {
     fun start(context: Context, fd: Int, mtu: Int): Result<Unit> = runCatching {
         check(isAvailable) { "в сборке нет libhev-socks5-tunnel.so" }
         val config = File(context.filesDir, "hev.yml")
-        config.writeText(
-            """
+        config.writeText(buildConfig(mtu))
+        check(TProxyService.TProxyStartService(config.absolutePath, fd)) { "hev-socks5-tunnel не принял конфиг" }
+        running = true
+    }
+
+    internal fun buildConfig(mtu: Int): String =
+        """
             tunnel:
               mtu: $mtu
             socks5:
@@ -30,11 +35,7 @@ object TunBridge {
             misc:
               task-stack-size: 81920
               log-level: warn
-            """.trimIndent(),
-        )
-        check(TProxyService.TProxyStartService(config.absolutePath, fd)) { "hev-socks5-tunnel не принял конфиг" }
-        running = true
-    }
+            """.trimIndent()
 
     @Synchronized
     fun stop() {

@@ -112,7 +112,7 @@ class UpdateRepository(private val context: Context) {
                         }
                     }
                 }
-                val actual = digest.digest().joinToString("") { "%02x".format(it) }
+                val actual = digest.digest().joinToString("") { "%02x".format(java.util.Locale.ROOT, it) }
                 if (!actual.equals(asset.sha256, ignoreCase = true)) {
                     target.delete()
                     error("файл повреждён или подменён: контрольная сумма не совпала")
@@ -146,7 +146,7 @@ class UpdateRepository(private val context: Context) {
             info.signatures
         }
         val sha = MessageDigest.getInstance("SHA-256")
-        return signatures.orEmpty().map { sig -> sha.digest(sig.toByteArray()).joinToString("") { "%02x".format(it) } }.toSet()
+        return signatures.orEmpty().map { sig -> sha.digest(sig.toByteArray()).joinToString("") { "%02x".format(java.util.Locale.ROOT, it) } }.toSet()
     }
 
     fun canInstall(): Boolean = context.packageManager.canRequestPackageInstalls()
