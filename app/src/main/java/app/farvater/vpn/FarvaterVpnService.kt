@@ -98,6 +98,7 @@ class FarvaterVpnService : VpnService() {
     private var lastNotificationText: String? = null
     private var lastUpdateAttempt = 0L
     @Volatile private var stopped = false
+    @Volatile private var startGeneration = 0L
     @Volatile private var modeJob: Job? = null
     @Volatile private var lastModeSwitch = 0L
     @Volatile private var failoverJob: Job? = null
@@ -147,10 +148,14 @@ class FarvaterVpnService : VpnService() {
         }
         val restart = intent?.getBooleanExtra(EXTRA_RESTART, false) ?: false
         val fromSystem = intent?.action != ACTION_START || intent?.getBooleanExtra(EXTRA_CHECK_MODE, false) == true
+        val generation = startGeneration
         stopped = false
         scope.launch {
-            startVpn(node, restart)
-            if (fromSystem) checkMode(NETWORK_SETTLE_MS)
+            synchronized(this@FarvaterVpnService) {
+                if (stopped || generation != startGeneration) return@launch
+                startVpn(node, restart)
+                if (fromSystem) checkMode(NETWORK_SETTLE_MS)
+            }
         }
         return START_STICKY
     }
@@ -434,6 +439,7 @@ class FarvaterVpnService : VpnService() {
         failoverJob?.cancel()
         synchronized(this) {
             stopped = true
+            startGeneration++
             teardown()
         }
         VpnBus.state.value = VpnState.Idle

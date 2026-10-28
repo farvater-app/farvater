@@ -14,7 +14,6 @@ import kotlinx.coroutines.cancel
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -23,7 +22,11 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.Implementation
 import org.robolectric.annotation.Implements
 import java.util.ArrayDeque
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.CoroutineContext
+import kotlin.concurrent.thread
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class, shadows = [VpnServiceLifecycleTest.Core::class, VpnServiceLifecycleTest.Bridge::class],
@@ -53,7 +56,6 @@ class VpnServiceLifecycleTest {
         queue.drain()
     }
 
-    @Ignore("L4: queued START survives STOP until onDestroy; VPN control is out of scope")
     @Test
     fun stopPreventsQueuedStartBeforeDestroy() {
         service.onStartCommand(Intent().setAction(FarvaterVpnService.ACTION_START), 0, 1)
@@ -61,6 +63,62 @@ class VpnServiceLifecycleTest {
         queue.drain()
         assertEquals(0, Core.starts)
     }
+
+    @Test
+    fun newStartAfterStopRunsWithoutRevivingOldStart() {
+        command(FarvaterVpnService.ACTION_START, 1)
+        command(FarvaterVpnService.ACTION_STOP, 2)
+        command(FarvaterVpnService.ACTION_START, 3)
+        queue.drain()
+        assertEquals(1, Core.starts)
+    }
+
+    @Test
+    fun stopStartStopCancelsEveryQueuedGeneration() {
+        command(FarvaterVpnService.ACTION_START, 1)
+        command(FarvaterVpnService.ACTION_STOP, 2)
+        command(FarvaterVpnService.ACTION_START, 3)
+        command(FarvaterVpnService.ACTION_STOP, 4)
+        queue.drain()
+        assertEquals(0, Core.starts)
+        command(FarvaterVpnService.ACTION_START, 5)
+        queue.drain()
+        assertEquals(1, Core.starts)
+    }
+
+    @Test
+    fun stopAlsoCancelsQueuedSystemRestartAndItsModeCheck() {
+        service.onStartCommand(null, 0, 1)
+        command(FarvaterVpnService.ACTION_STOP, 2)
+        queue.drain()
+        assertEquals(0, Core.starts)
+        val modeJob = FarvaterVpnService::class.java.getDeclaredField("modeJob").apply { isAccessible = true }
+        assertNull(modeJob.get(service))
+    }
+
+    @Test
+    fun acceptingStartDoesNotWaitForRunningConnectionLock() {
+        val locked = CountDownLatch(1)
+        val accepted = CountDownLatch(1)
+        val acceptedWhileLocked = AtomicBoolean(false)
+        val worker = thread {
+            synchronized(service) {
+                locked.countDown()
+                acceptedWhileLocked.set(accepted.await(5, TimeUnit.SECONDS))
+            }
+        }
+        try {
+            assertTrue(locked.await(5, TimeUnit.SECONDS))
+            command(FarvaterVpnService.ACTION_START, 1)
+        } finally {
+            accepted.countDown()
+            worker.join(6000)
+        }
+        assertFalse(worker.isAlive)
+        assertTrue(acceptedWhileLocked.get())
+    }
+
+    private fun command(action: String, id: Int) = service.onStartCommand(Intent().setAction(action), 0, id)
 
     @Test
     fun destroyCancelsQueuedStart() {
