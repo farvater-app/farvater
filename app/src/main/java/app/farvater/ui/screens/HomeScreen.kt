@@ -77,6 +77,9 @@ import app.farvater.ui.components.OriginTile
 import app.farvater.ui.components.OxygenConnect
 import app.farvater.ui.components.Sparkline
 import app.farvater.ui.components.StatusIsland
+import app.farvater.ui.components.WitchHero
+import androidx.compose.ui.res.stringResource
+import app.farvater.R
 import app.farvater.ui.components.SumieHero
 import app.farvater.ui.components.nodeSummary
 import app.farvater.ui.formatBytes
@@ -129,6 +132,7 @@ fun HomeScreen(
         vpn is VpnState.Failed -> ConnectMode.Error
         else -> ConnectMode.Idle
     }
+    val witch = Ios.witch
     val sumie = LocalUiStyle.current == UiStyle.SUMIE
     val nothing = Ios.nothing
     val origin = Ios.origin
@@ -170,7 +174,7 @@ fun HomeScreen(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    if (m == ConnectMode.Connected && stalled) "Узел не отвечает. Проверьте интернет или выберите другой узел" else supporting(m, vpn, state, sumie),
+                    if (witch && m == ConnectMode.Idle) stringResource(R.string.witch_connect_hint) else if (m == ConnectMode.Connected && stalled) "Узел не отвечает. Проверьте интернет или выберите другой узел" else supporting(m, vpn, state, sumie),
                     style = IosType.subheadline,
                     color = c.secondaryLabel,
                     textAlign = TextAlign.Center,
@@ -197,7 +201,7 @@ fun HomeScreen(
                 .glassSource(backdrop)
                 .verticalScroll(scroll)
                 .drawBehind {
-                    if (!sumie && !nothing && !hyper && !harmony && !oneUi && !oxygen) drawRect(
+                    if (!witch && !sumie && !nothing && !hyper && !harmony && !oneUi && !oxygen) drawRect(
                         Brush.radialGradient(
                             listOf(glow, Color.Transparent),
                             center = Offset(size.width / 2, if (origin) 260.dp.toPx() else 190.dp.toPx()),
@@ -252,6 +256,7 @@ fun HomeScreen(
             } else {
                 Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.Center) {
                     when {
+                        witch -> WitchHero(mode = mode, onClick = onToggle)
                         sumie -> SumieHero(mode = mode, onClick = onToggle)
                         nothing -> DotConnectButton(mode = mode, onClick = onToggle, size = 204.dp)
                         hyper -> HyperConnect(
@@ -472,7 +477,7 @@ private fun Stat(icon: ImageVector, label: String, value: String, tint: Color, m
     val c = Ios.colors
     Column(modifier) {
         if (Ios.nothing) {
-            Text(value, style = MaterialTheme.typography.headlineSmall, color = c.label, maxLines = 1)
+            Text(value, style = if (Ios.witch) MaterialTheme.typography.headlineSmall.copy(fontFamily = app.farvater.ui.theme.OriginFont) else MaterialTheme.typography.headlineSmall, color = c.label, maxLines = 1)
             Spacer(Modifier.height(2.dp))
             Text(label.uppercase(), style = NothingLabel.copy(fontSize = 9.sp), color = c.secondaryLabel)
             return@Column

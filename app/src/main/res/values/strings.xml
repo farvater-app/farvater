@@ -1,4 +1,12 @@
 <resources>
     <string name="app_name">Фарватер</string>
     <string name="widget_description">Включает и выключает VPN одним нажатием</string>
+    <string name="style_witch">Ведьмин кот</string>
+    <string name="style_witch_description">Ночная сцена с луной, котом на метле и котлом для подключения</string>
+    <string name="witch_connect_hint">Нажмите на котёл, чтобы подключиться</string>
+    <string name="action_connect">Подключиться</string>
+    <string name="action_stop_search">Остановить</string>
+    <string name="action_cancel_connect">Отменить подключение</string>
+    <string name="action_disconnect">Отключиться</string>
+    <string name="action_retry_connect">Повторить подключение</string>
 </resources>

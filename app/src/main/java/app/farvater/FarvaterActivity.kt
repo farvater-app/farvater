@@ -69,7 +69,7 @@ class FarvaterActivity : ComponentActivity() {
         setContent {
             val settings by remember { vm.state.map { it.settings }.distinctUntilChanged() }
                 .collectAsStateWithLifecycle(initialSettings)
-            val dark = settings.uiStyle == UiStyle.ROSKOMPOZOR || when (settings.themeMode) {
+            val dark = settings.uiStyle in setOf(UiStyle.ROSKOMPOZOR, UiStyle.WITCH) || when (settings.themeMode) {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true

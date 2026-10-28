@@ -14,7 +14,7 @@ import kotlinx.serialization.serializer
 const val LEGAL_VERSION = 3
 
 @Serializable
-enum class UiStyle { IOS, MATERIAL, ROSKOMPOZOR, SUMIE, NOTHING, ORIGIN, HYPER, HARMONY, ONEUI, OXYGEN }
+enum class UiStyle { IOS, MATERIAL, ROSKOMPOZOR, SUMIE, NOTHING, ORIGIN, HYPER, HARMONY, ONEUI, OXYGEN, WITCH }
 
 @Serializable
 enum class ThemeMode { SYSTEM, LIGHT, DARK }

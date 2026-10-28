@@ -118,9 +118,19 @@ val IosLight = IosColors(
 
 val LocalIos = staticCompositionLocalOf { IosDark }
 
+val WitchColors = IosDark.copy(
+    background = Color(0xFF160C29), cell = Color(0xFF24173B), cellRaised = Color(0xFF2B1C46),
+    fill = Color(0xFF34234F), highlight = Color(0xFF3D2A59), segmentThumb = Color(0xFF574071),
+    separator = Color(0xFF2E2148), label = Color(0xFFF1E9FF), secondaryLabel = Color(0xFFC2B3E2),
+    tertiaryLabel = Color(0xFFAD9BCC), tint = Color(0xFFB48CFF), green = Color(0xFF9BE15D),
+    red = Color(0xFFFF9A9A), bar = Color(0xFF0C0618), barBorder = Color(0xFF2E2148),
+    blue = Color(0xFFB4CAFF), teal = Color(0xFF98D9CA), indigo = Color(0xFFC2AEFF),
+    purple = Color(0xFFCFABFF), gray = Color(0xFFC2B3E2), yellow = Color(0xFFF1DFB3), pink = Color(0xFFF2B5D8),
+)
+
 val LocalUiStyle = staticCompositionLocalOf { UiStyle.IOS }
 
-object IosType {
+private object BaseIosType {
     val largeTitle = TextStyle(fontSize = 34.sp, lineHeight = 41.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.2.sp)
     val title1 = TextStyle(fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.2.sp)
     val title2 = TextStyle(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.2.sp)
@@ -132,6 +142,31 @@ object IosType {
     val footnote = TextStyle(fontSize = 13.sp, lineHeight = 18.sp, letterSpacing = (-0.05).sp)
     val caption1 = TextStyle(fontSize = 12.sp, lineHeight = 16.sp)
     val caption2 = TextStyle(fontSize = 11.sp, lineHeight = 13.sp, letterSpacing = 0.05.sp)
+}
+
+object IosType {
+    val largeTitle: TextStyle
+        @Composable @ReadOnlyComposable get() = BaseIosType.largeTitle.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = WitchFont) else it }
+    val title1: TextStyle
+        @Composable @ReadOnlyComposable get() = BaseIosType.title1.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = WitchFont) else it }
+    val title2: TextStyle
+        @Composable @ReadOnlyComposable get() = BaseIosType.title2.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = WitchFont) else it }
+    val title3: TextStyle
+        @Composable @ReadOnlyComposable get() = BaseIosType.title3.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = WitchFont) else it }
+    val headline: TextStyle
+        @Composable @ReadOnlyComposable get() = BaseIosType.headline.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = OriginFont) else it }
+    val body: TextStyle
+        @Composable @ReadOnlyComposable get() = BaseIosType.body.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = OriginFont) else it }
+    val callout: TextStyle
+        @Composable @ReadOnlyComposable get() = BaseIosType.callout.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = OriginFont) else it }
+    val subheadline: TextStyle
+        @Composable @ReadOnlyComposable get() = BaseIosType.subheadline.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = OriginFont) else it }
+    val footnote: TextStyle
+        @Composable @ReadOnlyComposable get() = BaseIosType.footnote.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = OriginFont) else it }
+    val caption1: TextStyle
+        @Composable @ReadOnlyComposable get() = BaseIosType.caption1.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = OriginFont) else it }
+    val caption2: TextStyle
+        @Composable @ReadOnlyComposable get() = BaseIosType.caption2.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = OriginFont) else it }
 }
 
 object Ios {
@@ -155,6 +190,9 @@ object Ios {
 
     val oneUi: Boolean
         @Composable @ReadOnlyComposable get() = LocalUiStyle.current == UiStyle.ONEUI
+
+    val witch: Boolean
+        @Composable @ReadOnlyComposable get() = LocalUiStyle.current == UiStyle.WITCH
 
     val oxygen: Boolean
         @Composable @ReadOnlyComposable get() = LocalUiStyle.current == UiStyle.OXYGEN
@@ -728,19 +766,19 @@ private fun scheme(c: IosColors) = if (c.dark) {
 }
 
 private val Type = Typography(
-    displaySmall = IosType.largeTitle,
-    headlineLarge = IosType.largeTitle,
-    headlineMedium = IosType.title1,
-    headlineSmall = IosType.title2,
-    titleLarge = IosType.title3,
-    titleMedium = IosType.headline,
-    titleSmall = IosType.subheadline.copy(fontWeight = FontWeight.SemiBold),
-    bodyLarge = IosType.body,
-    bodyMedium = IosType.subheadline,
-    bodySmall = IosType.footnote,
-    labelLarge = IosType.headline,
-    labelMedium = IosType.caption1.copy(fontWeight = FontWeight.Medium),
-    labelSmall = IosType.caption2.copy(fontWeight = FontWeight.Medium),
+    displaySmall = BaseIosType.largeTitle,
+    headlineLarge = BaseIosType.largeTitle,
+    headlineMedium = BaseIosType.title1,
+    headlineSmall = BaseIosType.title2,
+    titleLarge = BaseIosType.title3,
+    titleMedium = BaseIosType.headline,
+    titleSmall = BaseIosType.subheadline.copy(fontWeight = FontWeight.SemiBold),
+    bodyLarge = BaseIosType.body,
+    bodyMedium = BaseIosType.subheadline,
+    bodySmall = BaseIosType.footnote,
+    labelLarge = BaseIosType.headline,
+    labelMedium = BaseIosType.caption1.copy(fontWeight = FontWeight.Medium),
+    labelSmall = BaseIosType.caption2.copy(fontWeight = FontWeight.Medium),
 )
 
 private val MaterialType = Typography()
@@ -775,6 +813,26 @@ private val OriginType = MaterialType.copy(
     titleMedium = TextStyle(fontFamily = OriginFont, fontWeight = FontWeight.Bold, fontSize = 16.sp, lineHeight = 22.sp),
     titleSmall = TextStyle(fontFamily = OriginFont, fontWeight = FontWeight.Bold, fontSize = 14.sp, lineHeight = 20.sp),
     labelLarge = TextStyle(fontFamily = OriginFont, fontWeight = FontWeight.Bold, fontSize = 14.sp, lineHeight = 20.sp),
+)
+
+val WitchFont = FontFamily(Font(R.font.farvater_witch))
+
+private val WitchType = OriginType.copy(
+    displaySmall = TextStyle(fontFamily = WitchFont, fontSize = 38.sp, lineHeight = 46.sp),
+    headlineLarge = TextStyle(fontFamily = WitchFont, fontSize = 34.sp, lineHeight = 42.sp),
+    headlineMedium = TextStyle(fontFamily = WitchFont, fontSize = 28.sp, lineHeight = 36.sp),
+    headlineSmall = TextStyle(fontFamily = WitchFont, fontSize = 24.sp, lineHeight = 32.sp),
+    titleLarge = TextStyle(fontFamily = WitchFont, fontSize = 22.sp, lineHeight = 30.sp),
+    bodyLarge = OriginType.bodyLarge.copy(fontFamily = OriginFont),
+    bodyMedium = OriginType.bodyMedium.copy(fontFamily = OriginFont),
+    bodySmall = OriginType.bodySmall.copy(fontFamily = OriginFont),
+    labelMedium = OriginType.labelMedium.copy(fontFamily = OriginFont),
+    labelSmall = OriginType.labelSmall.copy(fontFamily = OriginFont),
+)
+
+private val WitchShapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp), small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(18.dp), extraLarge = RoundedCornerShape(24.dp),
 )
 
 private val HyperType = MaterialType.copy(
@@ -985,9 +1043,16 @@ fun FarvaterTheme(
 ) {
     val context = LocalContext.current
     val material = style != UiStyle.IOS
-    val dark = darkTheme || style == UiStyle.ROSKOMPOZOR
+    val dark = darkTheme || style in setOf(UiStyle.ROSKOMPOZOR, UiStyle.WITCH)
     val targetScheme = remember(dark, style, dynamicColor) {
-        if (style == UiStyle.ROSKOMPOZOR) {
+        if (style == UiStyle.WITCH) {
+            scheme(WitchColors).copy(
+                onPrimary = WitchColors.background, secondaryContainer = WitchColors.fill,
+                onSecondaryContainer = WitchColors.label, onError = WitchColors.background,
+                surfaceContainer = WitchColors.cell, surfaceContainerHigh = WitchColors.cellRaised,
+                surfaceContainerHighest = WitchColors.fill,
+            )
+        } else if (style == UiStyle.ROSKOMPOZOR) {
             RkpDark
         } else if (style == UiStyle.SUMIE) {
             if (dark) SumieDark else SumieLight
@@ -1015,6 +1080,7 @@ fun FarvaterTheme(
     }
     val targetIos = remember(targetScheme, dark, style) {
         when {
+            style == UiStyle.WITCH -> WitchColors
             style == UiStyle.SUMIE -> sumieColors(targetScheme, dark)
             style == UiStyle.NOTHING -> nothingColors(targetScheme, dark)
             style == UiStyle.ORIGIN -> originColors(targetScheme, dark)
@@ -1027,12 +1093,13 @@ fun FarvaterTheme(
             else -> IosLight
         }
     }
-    val colorScheme = fadeTo(targetScheme) { a, b, t -> a.lerpTo(b, t) }
-    val ios = fadeTo(targetIos) { a, b, t -> a.lerpTo(b, t) }
+    val colorScheme = if (style == UiStyle.WITCH) targetScheme else fadeTo(targetScheme) { a, b, t -> a.lerpTo(b, t) }
+    val ios = if (style == UiStyle.WITCH) targetIos else fadeTo(targetIos) { a, b, t -> a.lerpTo(b, t) }
     CompositionLocalProvider(LocalIos provides ios, LocalUiStyle provides style) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = when {
+                style == UiStyle.WITCH -> WitchType
                 style == UiStyle.SUMIE -> SumieType
                 style == UiStyle.NOTHING -> NothingType
                 style == UiStyle.ORIGIN -> OriginType
@@ -1044,6 +1111,7 @@ fun FarvaterTheme(
                 else -> Type
             },
             shapes = when {
+                style == UiStyle.WITCH -> WitchShapes
                 style == UiStyle.SUMIE -> SumieShapes
                 style == UiStyle.NOTHING -> NothingShapes
                 style == UiStyle.ORIGIN -> OriginShapes

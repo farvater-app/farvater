@@ -1,5 +1,7 @@
 package app.farvater.ui.screens
 
+import androidx.compose.ui.res.stringResource
+import app.farvater.ui.components.WitchStyleMark
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -300,6 +302,7 @@ private fun SettingsRoot(
                         UiStyle.HARMONY -> "Harmony"
                         UiStyle.ONEUI -> "One UI"
                         UiStyle.OXYGEN -> "Oxygen"
+                        UiStyle.WITCH -> stringResource(R.string.style_witch)
                     },
                     chevron = true,
                     onClick = { onOpen(SettingsPage.Appearance) },
@@ -553,8 +556,17 @@ private fun AppearancePage(
             onClick = { onChange { it.copy(uiStyle = UiStyle.OXYGEN) } },
         )
     }
+    IosSection {
+        IosChoiceRow(
+            title = stringResource(R.string.style_witch),
+            subtitle = stringResource(R.string.style_witch_description),
+            selected = settings.uiStyle == UiStyle.WITCH,
+            leading = { StyleMark { WitchStyleMark() } },
+            onClick = { onChange { it.copy(uiStyle = UiStyle.WITCH) } },
+        )
+    }
 
-    if (settings.uiStyle != UiStyle.ROSKOMPOZOR) {
+    if (settings.uiStyle !in setOf(UiStyle.ROSKOMPOZOR, UiStyle.WITCH)) {
         IosSection(header = "Тема") {
             ThemeChoices.forEachIndexed { i, (mode, title) ->
                 if (i > 0) IosDivider()

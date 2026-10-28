@@ -66,6 +66,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
@@ -116,6 +117,7 @@ internal fun FarvaterFrame(
     content: @Composable (PaddingValues) -> Unit,
 ) {
     when {
+        Ios.witch -> WitchFrame(tab, onTab, snackbar, content)
         Ios.nothing -> NothingFrame(tab, onTab, snackbar, content)
         Ios.origin -> OriginFrame(tab, onTab, snackbar, content)
         Ios.hyper -> HyperFrame(tab, onTab, snackbar, content)
@@ -124,6 +126,58 @@ internal fun FarvaterFrame(
         Ios.oxygen -> OxygenFrame(tab, onTab, snackbar, content)
         Ios.material -> MaterialFrame(tab, onTab, snackbar, content)
         else -> GlassFrame(tab, onTab, snackbar, content)
+    }
+}
+
+@Composable
+private fun WitchFrame(
+    tab: Tab,
+    onTab: (Tab) -> Unit,
+    snackbar: SnackbarHostState,
+    content: @Composable (PaddingValues) -> Unit,
+) {
+    val c = Ios.colors
+    val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val largeText = LocalDensity.current.fontScale > 1.3f
+    val barHeight = if (largeText) (34 + 36 * LocalDensity.current.fontScale).dp else 64.dp
+    val bottomInset = navInset + barHeight
+    Surface(color = c.background, contentColor = c.label, modifier = Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize()) {
+            CompositionLocalProvider(LocalBottomInset provides bottomInset) {
+                content(WindowInsets.statusBars.asPaddingValues())
+            }
+            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset + 12.dp))
+            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(c.bar)) {
+                Box(Modifier.fillMaxWidth().height(1.dp).background(c.barBorder))
+                Row(Modifier.fillMaxWidth().height(barHeight - 1.dp).padding(horizontal = 8.dp)) {
+                    Tab.entries.forEach { t ->
+                        val selected = t == tab
+                        val tint = if (selected) c.tint else c.secondaryLabel
+                        Column(
+                            Modifier.weight(1f).fillMaxHeight()
+                                .clickable(role = Role.Tab) { onTab(t) }
+                                .semantics { this.selected = selected },
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+                        ) {
+                            Icon(if (selected) t.icon else t.iconIdle, null, tint = tint, modifier = Modifier.size(24.dp))
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                t.title,
+                                modifier = Modifier.fillMaxWidth().then(
+                                    if (largeText) Modifier.height((36 * LocalDensity.current.fontScale).dp) else Modifier,
+                                ),
+                                color = tint, fontFamily = OriginFont, fontSize = 11.sp,
+                                lineHeight = if (largeText) 16.sp else 14.sp,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                maxLines = if (largeText) 2 else 1, overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(navInset))
+            }
+        }
     }
 }
 

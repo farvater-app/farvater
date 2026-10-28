@@ -188,6 +188,7 @@ fun sectionCorner(): Dp = when {
     Ios.harmony -> 20.dp
     Ios.oneUi -> 26.dp
     Ios.oxygen -> 18.dp
+    Ios.witch -> 18.dp
     else -> SectionCorner
 }
 
@@ -211,6 +212,14 @@ fun IosLargeTitle(
 ) {
     val c = Ios.colors
     val material = Ios.material
+    if (Ios.witch && LocalDensity.current.fontScale > 1.3f) {
+        Column(modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 28.dp, bottom = 14.dp)) {
+            Text(title, style = MaterialTheme.typography.headlineLarge, color = c.label)
+            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = c.secondaryLabel)
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically, content = trailing)
+        }
+        return
+    }
     if (Ios.oneUi) {
         val height = (LocalConfiguration.current.screenHeightDp * 0.3f).dp.coerceIn(190.dp, 300.dp)
         Column(

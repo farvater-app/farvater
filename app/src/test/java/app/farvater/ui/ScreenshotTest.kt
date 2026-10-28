@@ -59,6 +59,39 @@ import org.robolectric.annotation.GraphicsMode
 class ScreenshotTest {
     @get:Rule val rule = createComposeRule()
 
+    @Test fun witchLargeText() = shot("B13_witch_large_text", dark = false, style = UiStyle.WITCH, fontScale = 2f) { Home(VpnState.Idle) }
+    @Test fun witchStyleChoice() = shot("B14_witch_style_choice", dark = true, style = UiStyle.WITCH,
+        act = {
+            rule.onNodeWithText("Оформление").performClick()
+            rule.mainClock.advanceTimeBy(1500)
+            repeat(3) {
+                rule.onRoot().performTouchInput { swipeUp(startY = height * 0.7f, endY = height * 0.15f) }
+                rule.mainClock.advanceTimeBy(1000)
+            }
+        },
+    ) { Settings(Fake.state.settings.copy(uiStyle = UiStyle.WITCH)) }
+
+    @Test fun witchIdle() = shot("B1_witch_idle", dark = false, style = UiStyle.WITCH) { Home(VpnState.Idle) }
+    @Test fun witchSearching() = shot("B2_witch_searching", dark = true, style = UiStyle.WITCH) {
+        Home(VpnState.Idle, Fake.state.copy(progress = TestProgress(37, 120, 9)))
+    }
+    @Test fun witchConnected() = shot("B3_witch_connected", dark = true, style = UiStyle.WITCH) { Home(Fake.connected) }
+    @Test fun witchError() = shot("B4_witch_error", dark = true, style = UiStyle.WITCH) {
+        Home(VpnState.Failed("Узел не ответил", Fake.state.nodes.first()))
+    }
+    @Test fun witchServers() = shot("B5_witch_servers", dark = true, style = UiStyle.WITCH) { Servers() }
+    @Test fun witchSources() = shot("B6_witch_sources", dark = true, style = UiStyle.WITCH) { Sources() }
+    @Test fun witchAppearance() = shot("B7_witch_appearance", dark = true, style = UiStyle.WITCH,
+        act = { rule.onNodeWithText("Оформление").performClick() },
+    ) { Settings(Fake.state.settings.copy(uiStyle = UiStyle.WITCH)) }
+    @Test fun witchIcons() = shot("B8_witch_icons", dark = true, style = UiStyle.WITCH,
+        act = { openAppIcons(aboveBar = true) },
+    ) { Settings(Fake.state.settings.copy(uiStyle = UiStyle.WITCH)) }
+    @Test fun witchSettings() = shot("B9_witch_settings", dark = true, style = UiStyle.WITCH) { Settings(Fake.state.settings.copy(uiStyle = UiStyle.WITCH)) }
+    @Test fun witchAlert() = shot("B10_witch_alert", dark = false, style = UiStyle.WITCH, screen = true) { Alert() }
+    @Test fun witchSheet() = shot("B11_witch_sheet", dark = false, style = UiStyle.WITCH, screen = true) { Sheet() }
+    @Test fun witchConnecting() = shot("B12_witch_connecting", dark = true, style = UiStyle.WITCH) { Home(VpnState.Connecting(Fake.state.nodes.first())) }
+
     @Test fun hiddenNodesIosLight() = shot("F6_hidden_nodes_ios_light", dark = false) {
         Servers(Fake.state.copy(hiddenInsecure = 1234, duplicates = 5678, settings = Fake.state.settings.copy(dropDuplicates = true)))
     }
