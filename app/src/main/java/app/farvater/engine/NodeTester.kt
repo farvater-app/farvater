@@ -67,7 +67,7 @@ object NodeTester {
                     return@launch
                 }
                 val sni = sniGates.getOrPut(handshakeKey(node)) { Semaphore(PER_SNI) }
-                send(sni.withPermit { realGate.withPermit { runInterruptible { test(node, url) } } })
+                send(host.withPermit { sni.withPermit { realGate.withPermit { runInterruptible { test(node, url) } } } })
             }
         }
     }

@@ -11,7 +11,6 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
-import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -37,7 +36,6 @@ class NodeTesterConcurrencyTest {
         exercise(concurrency = 16, sameSni = true, sameHost = false, expected = 6)
     }
 
-    @Ignore("L1: host permit covers only TCP; changing network concurrency is out of scope")
     @Test
     fun sameHostLimitsCoreChecksToThree() {
         exercise(concurrency = 16, sameSni = false, sameHost = true, expected = 3)
