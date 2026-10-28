@@ -78,7 +78,7 @@ class Prefs(context: Context) {
     var enabledSources: Set<String>
         get() = cachedEnabled ?: run {
             val all = BuiltInCatalog.sources.map { it.id }.toSet()
-            val stored = sp.getStringSet("enabled_sources", null)?.toSet() ?: return@run all
+            val stored = sp.getStringSet("enabled_sources", null)?.toSet() ?: all
             val seen = sp.getStringSet("catalog_seen", null)?.toSet() ?: OLD_CATALOG
             val result = (stored + (all - seen)) intersect all
             sp.edit().putStringSet("enabled_sources", result).putStringSet("catalog_seen", all).apply()
@@ -86,7 +86,8 @@ class Prefs(context: Context) {
         }.also { cachedEnabled = it }
         set(value) {
             cachedEnabled = value
-            sp.edit().putStringSet("enabled_sources", value).apply()
+            sp.edit().putStringSet("enabled_sources", value)
+                .putStringSet("catalog_seen", BuiltInCatalog.sources.map { it.id }.toSet()).apply()
         }
 
     var userSources: List<UserSource>

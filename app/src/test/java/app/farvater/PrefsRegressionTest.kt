@@ -4,7 +4,6 @@ import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import app.farvater.data.Prefs
 import org.junit.Assert.*
-import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -13,7 +12,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
 class PrefsRegressionTest {
-    @Ignore("C2: first catalog read does not save catalog_seen; Prefs.kt is out of scope")
     @Test
     fun explicitlyDisabledSourceStaysDisabledAfterRestart() {
         val app = ApplicationProvider.getApplicationContext<Application>()
