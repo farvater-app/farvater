@@ -140,6 +140,7 @@ class SubscriptionRepository(context: Context) {
         return fresh.size
     }
 
+    @Synchronized
     fun removeManual(nodeId: String) {
         val keep = loadManual().nodes.filter { it.id != nodeId }
         manualFile.writeText(keep.joinToString("\n", postfix = "\n") { it.raw })

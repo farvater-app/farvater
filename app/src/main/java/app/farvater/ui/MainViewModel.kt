@@ -281,7 +281,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (_state.value.update != null) _state.update { it.copy(showUpdate = true) } else checkUpdates(manual = true)
     }
 
-    fun dismissUpdate() = _state.update { it.copy(showUpdate = false, updateStage = UpdateStage.Idle) }
+    fun dismissUpdate() = _state.update {
+        it.copy(
+            showUpdate = false,
+            updateStage = when (it.updateStage) {
+                is UpdateStage.Downloading, UpdateStage.Checking -> it.updateStage
+                else -> UpdateStage.Idle
+            },
+        )
+    }
 
     fun installUpdate() {
         val info = _state.value.update ?: return
@@ -513,8 +521,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 toast("Не нашёл ссылок vless://, vmess://, trojan://, ss:// или hysteria2://")
                 return@launch
             }
-            val added = repo.appendManual(parsed.nodes)
-            snapshots.update { it + (ProxyNode.MANUAL_SOURCE to repo.loadManual()) }
+            val added = synchronized(repo) {
+                val count = repo.appendManual(parsed.nodes)
+                snapshots.update { it + (ProxyNode.MANUAL_SOURCE to repo.loadManual()) }
+                count
+            }
             rebuild()
             toast(if (added > 0) "Добавлено узлов: $added" else "Эти узлы уже есть")
         }
@@ -531,10 +542,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deleteManualNode(node: ProxyNode) {
         if (node.sourceId != ProxyNode.MANUAL_SOURCE) return
-        repo.removeManual(node.id)
-        snapshots.update { it + (ProxyNode.MANUAL_SOURCE to repo.loadManual()) }
-        dropSelectionIf { it.id == node.id }
-        rebuild()
+        viewModelScope.launch(Dispatchers.IO) {
+            withContext(NonCancellable) {
+                synchronized(repo) {
+                    repo.removeManual(node.id)
+                    snapshots.update { it + (ProxyNode.MANUAL_SOURCE to repo.loadManual()) }
+                }
+                withContext(Dispatchers.Main) { dropSelectionIf { it.id == node.id } }
+                rebuild()
+            }
+        }
     }
 
     fun testAll(onFinished: (() -> Unit)? = null) {
