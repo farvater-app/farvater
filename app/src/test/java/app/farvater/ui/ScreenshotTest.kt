@@ -432,7 +432,7 @@ class ScreenshotTest {
             rule.waitForIdle()
             rule.mainClock.advanceTimeBy(1_500)
         }
-        val path = "build/outputs/roborazzi/$name.png"
+        val path = "${System.getProperty("farvater.screenshotDir", "build/outputs/roborazzi")}/$name.png"
         if (screen) captureScreenRoboImage(path) else rule.onRoot().captureRoboImage(path)
     }
 

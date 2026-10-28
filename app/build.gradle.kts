@@ -147,3 +147,7 @@ androidComponents {
         variant.sources.assets?.addGeneratedSourceDirectory(copyChangelog, CopyChangelog::outputDir)
     }
 }
+
+tasks.withType<Test>().configureEach {
+    systemProperty("farvater.screenshotDir", layout.buildDirectory.dir("outputs/roborazzi").get().asFile.absolutePath)
+}
