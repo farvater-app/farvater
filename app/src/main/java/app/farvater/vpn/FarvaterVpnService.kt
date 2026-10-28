@@ -197,12 +197,11 @@ class FarvaterVpnService : VpnService() {
                     is VpnState.Connecting -> state.node
                     else -> null
                 }
-                if (current != fallback || App.prefs.lastNode?.id != fallback.id || !App.prefs.allowedForAuto(node)) return
-                App.prefs.selectNode(node)
+                if (current != fallback || !App.prefs.allowedForAuto(node) || !App.prefs.replaceSelection(fallback.id, node)) return
             }
             engineOwner = this
             val current = VpnBus.state.value
-            if (!restart && tun != null && current is VpnState.Connected && current.node == node) {
+            if (!restart && tun != null && monitor?.isActive == true && current is VpnState.Connected && current.node == node) {
                 updateNotification(node.name, localizedString(R.string.state_connected))
                 return
             }
@@ -226,9 +225,8 @@ class FarvaterVpnService : VpnService() {
 
         fun abort(message: String) {
             if (cancelled()) return
-            if (fallback != null && App.prefs.lastNode?.id == node.id) {
+            if (fallback != null && App.prefs.replaceSelection(node.id, fallback)) {
                 tun = previous
-                App.prefs.selectNode(fallback)
                 return connectLocked(fallback, generation = generation)
             }
             runCatching { previous?.close() }
@@ -261,8 +259,7 @@ class FarvaterVpnService : VpnService() {
         runCatching { previous?.close() }
         TunBridge.start(this, fd.fd, settings.mtu).onFailure {
             if (cancelled()) return
-            if (fallback != null && App.prefs.lastNode?.id == node.id) {
-                App.prefs.selectNode(fallback)
+            if (fallback != null && App.prefs.replaceSelection(node.id, fallback)) {
                 return connectLocked(fallback, generation = generation)
             }
             return fail(localizedString(R.string.tun_start_failed, it.userMessage(this)), node, generation)

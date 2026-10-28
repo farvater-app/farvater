@@ -42,8 +42,8 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.concurrent.thread
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], application = Application::class, shadows = [VpnServiceLifecycleTest.Core::class, VpnServiceLifecycleTest.Bridge::class, VpnServiceLifecycleTest.Probe::class],
-    instrumentedPackages = ["app.farvater.engine.XrayEngine", "app.farvater.engine.TunBridge", "app.farvater.engine.NodeTester"] , qualifiers = "ru")
+@Config(sdk = [35], application = Application::class, shadows = [VpnServiceLifecycleTest.Core::class, VpnServiceLifecycleTest.Bridge::class, VpnServiceLifecycleTest.Probe::class, VpnServiceLifecycleTest.Selection::class],
+    instrumentedPackages = ["app.farvater.engine.XrayEngine", "app.farvater.engine.TunBridge", "app.farvater.engine.NodeTester", "app.farvater.data.Prefs"] , qualifiers = "ru")
 class VpnServiceLifecycleTest {
     private lateinit var service: FarvaterVpnService
     private lateinit var queue: QueueDispatcher
@@ -65,12 +65,14 @@ class VpnServiceLifecycleTest {
         Core.stops = 0
         Core.onStart = null
         Core.onStop = null
+        Selection.beforeEligibility = null
     }
 
     @After
     fun finish() {
         Core.onStart = null
         Core.onStop = null
+        Selection.beforeEligibility = null
         service.onDestroy()
         queue.drain()
     }
@@ -134,6 +136,36 @@ class VpnServiceLifecycleTest {
         command(FarvaterVpnService.ACTION_START, 3)
         queue.drain()
         assertEquals(1, Core.starts)
+    }
+
+    @Test fun startAfterStopOfConnectedNodeRestartsMonitoring() = restartStoppedConnection(false)
+
+    @Test fun systemStartAfterStopOfConnectedNodeRestartsMonitoring() = restartStoppedConnection(true)
+
+    private fun restartStoppedConnection(fromSystem: Boolean) {
+        val node = App.prefs.lastNode!!
+        val pipe = android.os.ParcelFileDescriptor.createPipe()
+        val monitor = Job()
+        FarvaterVpnService::class.java.getDeclaredField("tun").apply { isAccessible = true }.set(service, pipe[0])
+        FarvaterVpnService::class.java.getDeclaredField("monitor").apply { isAccessible = true }.set(service, monitor)
+        VpnBus.state.value = VpnState.Connected(node, 123)
+        App.prefs.vpnWasOn = true
+        try {
+            command(FarvaterVpnService.ACTION_START, 1)
+            queue.drain()
+            assertEquals(0, Core.starts)
+            assertTrue(monitor.isActive)
+            command(FarvaterVpnService.ACTION_STOP, 2)
+            assertFalse(monitor.isActive)
+            if (fromSystem) service.onStartCommand(null, 0, 3)
+            else command(FarvaterVpnService.ACTION_START, 3)
+            queue.drain()
+            assertEquals("Остановленный монитор нельзя оставить у прежнего соединения", 1, Core.starts)
+            assertFalse(VpnBus.state.value is VpnState.Connected)
+        } finally {
+            monitor.cancel()
+            pipe.forEach { runCatching { it.close() } }
+        }
     }
 
     @Test
@@ -217,6 +249,23 @@ class VpnServiceLifecycleTest {
         assertEquals(0, Core.starts)
         assertEquals(manual, App.prefs.lastNode)
         assertEquals(manual, (VpnBus.state.value as VpnState.Connected).node)
+    }
+
+    @Test
+    fun manualSelectionDuringAutomaticEligibilityWins() {
+        val old = App.prefs.lastNode!!
+        val manual = old.copy(id = "manual", name = "manual")
+        val candidate = old.copy(id = "candidate", name = "candidate")
+        VpnBus.state.value = VpnState.Connected(old, 123)
+        Selection.beforeEligibility = { App.prefs.selectNode(manual) }
+        val method = FarvaterVpnService::class.java.declaredMethods.single { it.name == "startVpn" }.apply { isAccessible = true }
+        method.invoke(service, candidate, true, old, 0L)
+        assertEquals("Автоматический переход затёр ручной выбор", manual, App.prefs.lastNode)
+        assertEquals(0, Core.starts)
+        Selection.beforeEligibility = null
+        command(FarvaterVpnService.ACTION_START, 1)
+        queue.drain()
+        assertEquals(manual, (VpnBus.state.value as VpnState.Failed).node)
     }
 
     @Test
@@ -333,6 +382,20 @@ class VpnServiceLifecycleTest {
         override fun dispatch(context: CoroutineContext, block: Runnable) { synchronized(tasks) { tasks.add(block) } }
         fun drain() { while (true) (synchronized(tasks) { tasks.pollFirst() } ?: return).run() }
         fun runLast() { synchronized(tasks) { tasks.pollLast() }?.run() }
+    }
+
+    @Implements(value = app.farvater.data.Prefs::class, isInAndroidSdk = false)
+    class Selection {
+        @org.robolectric.annotation.RealObject lateinit var real: app.farvater.data.Prefs
+        @Implementation
+        fun allowedForAuto(node: ProxyNode): Boolean {
+            beforeEligibility?.invoke()
+            return org.robolectric.shadow.api.Shadow.directlyOn(
+                real, app.farvater.data.Prefs::class.java, "allowedForAuto",
+                org.robolectric.util.ReflectionHelpers.ClassParameter.from(ProxyNode::class.java, node),
+            )
+        }
+        companion object { var beforeEligibility: (() -> Unit)? = null }
     }
 
     @Implements(value = XrayEngine::class, isInAndroidSdk = false)

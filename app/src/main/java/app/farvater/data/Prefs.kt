@@ -150,6 +150,12 @@ class Prefs(context: Context) {
         lastNode = node
     }
 
+    fun replaceSelection(expectedId: String, node: ProxyNode): Boolean = synchronized(selectionLock) {
+        if (lastNode?.id != expectedId) return@synchronized false
+        selectNode(node)
+        true
+    }
+
     @Volatile private var cachedModeNodes: Map<String, ProxyNode>? = null
 
     var modeNodes: Map<String, ProxyNode>
