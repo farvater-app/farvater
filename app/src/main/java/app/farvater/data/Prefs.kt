@@ -240,7 +240,8 @@ class Prefs(context: Context) {
             val today = java.time.LocalDate.now().toEpochDay()
             val history = TrafficHistory.merge(read<List<DayTraffic>>("traffic_history") ?: emptyList(), old, today)
             sp.edit {
-                putString("day_traffic", json.encodeToString(reading))
+                if (reading.day < today - TrafficHistory.RETENTION_DAYS + 1) remove("day_traffic")
+                else putString("day_traffic", json.encodeToString(reading))
                 putString("traffic_history", json.encodeToString(TrafficHistory.merge(history, reading, today)))
             }
         }
@@ -250,8 +251,14 @@ class Prefs(context: Context) {
     val trafficHistory: List<DayTraffic>
         get() = synchronized(trafficLock) {
             val stored = read<List<DayTraffic>>("traffic_history") ?: emptyList()
-            val recent = TrafficHistory.merge(stored, dayTraffic, java.time.LocalDate.now().toEpochDay())
-            if (recent != stored) write("traffic_history", recent)
+            val today = java.time.LocalDate.now().toEpochDay()
+            val counter = dayTraffic
+            val recent = TrafficHistory.merge(stored, counter, today)
+            val expired = counter.day < today - TrafficHistory.RETENTION_DAYS + 1
+            if (recent != stored || expired) sp.edit {
+                putString("traffic_history", json.encodeToString(recent))
+                if (expired) remove("day_traffic")
+            }
             recent
         }
 

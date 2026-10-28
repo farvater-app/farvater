@@ -30,6 +30,15 @@ class TrafficHistoryTest {
         assertEquals(listOf(DayTraffic(today, 123456)), Prefs(app).trafficHistory)
     }
 
+    @Test fun readingHistoryRemovesExpiredLegacyCounterFromStorage() {
+        val sp = app.getSharedPreferences("farvater", 0)
+        val old = "{\"day\":${today - 61},\"bytes\":123456}"
+        sp.edit().putString("day_traffic", old).putString("traffic_history", "[$old]").commit()
+        assertTrue(Prefs(app).trafficHistory.isEmpty())
+        assertFalse(sp.contains("day_traffic"))
+        assertEquals("[]", sp.getString("traffic_history", null))
+    }
+
     @Test fun snapshotsDoNotDoubleCountAndSurviveRestart() {
         val prefs = Prefs(app)
         prefs.dayTraffic = DayTraffic(today - 1, 100)
