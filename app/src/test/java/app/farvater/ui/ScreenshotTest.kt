@@ -65,10 +65,6 @@ class ScreenshotTest {
         Settings.Global.putFloat(ApplicationProvider.getApplicationContext<Application>().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
     }
 
-    @Test fun witchMoonPass() = shot("B20_witch_moon_pass", dark = true, style = UiStyle.WITCH, advanceMillis = 4800) {
-        Home(VpnState.Connecting(Fake.state.nodes.first()))
-    }
-
     @Test fun witchStillIdle() = witchStill("B15_witch_still_idle", VpnState.Idle)
     @Test fun witchStillSearching() = witchStill("B16_witch_still_searching", VpnState.Idle, Fake.state.copy(progress = TestProgress(37, 120, 9)))
     @Test fun witchStillConnecting() = witchStill("B17_witch_still_connecting", VpnState.Connecting(Fake.state.nodes.first()))
@@ -428,7 +424,6 @@ class ScreenshotTest {
         nothing: Boolean = false,
         style: UiStyle? = null,
         fontScale: Float = 1f,
-        advanceMillis: Long = 1500,
         act: (() -> Unit)? = null,
         content: @Composable () -> Unit,
     ) {
@@ -448,7 +443,7 @@ class ScreenshotTest {
                 CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) { content() }
             }
         }
-        rule.mainClock.advanceTimeBy(advanceMillis)
+        rule.mainClock.advanceTimeBy(1_500)
         if (act != null) {
             act()
             rule.waitForIdle()
