@@ -65,9 +65,10 @@ class FarvaterActivity : ComponentActivity() {
         }
 
         if (savedInstanceState == null) handleDeepLink(intent)
+        val initialSettings = vm.state.value.settings
         setContent {
             val settings by remember { vm.state.map { it.settings }.distinctUntilChanged() }
-                .collectAsStateWithLifecycle(vm.state.value.settings)
+                .collectAsStateWithLifecycle(initialSettings)
             val dark = settings.uiStyle == UiStyle.ROSKOMPOZOR || when (settings.themeMode) {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
                 ThemeMode.LIGHT -> false
