@@ -48,9 +48,13 @@ class AccessibilityExtrasTest {
         rule.onNodeWithText("Первый").assertDoesNotExist()
     }
 
-    @Test fun onlyConnectionStatusIsAPoliteLiveRegion() {
+    @Test fun onlyConnectionStatusIsAPoliteLiveRegion() = connectionStatusLiveRegion(app.farvater.data.UiStyle.IOS)
+
+    @Test fun oneUiConnectionStatusIsAPoliteLiveRegion() = connectionStatusLiveRegion(app.farvater.data.UiStyle.ONEUI)
+
+    private fun connectionStatusLiveRegion(style: app.farvater.data.UiStyle) {
         rule.setContent {
-            FarvaterTheme(dynamicColor = false) {
+            FarvaterTheme(dynamicColor = false, style = style) {
                 HomeScreen(state = UiState(nodes = listOf(node)), vpn = VpnState.Idle, traffic = Traffic(), history = emptyList(),
                     onToggle = {}, onFindWorking = {}, onCancelTest = {}, onOpenServers = {})
             }

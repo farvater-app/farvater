@@ -227,6 +227,7 @@ fun HomeScreen(
             }
             IosLargeTitle(
                 title = if (oneUi) headline(mode, state) else stringResource(R.string.app_name),
+                modifier = if (oneUi) Modifier.semantics { liveRegion = LiveRegionMode.Polite } else Modifier,
                 subtitle = if (!oneUi) null else if (mode == ConnectMode.Connected && stalled) stringResource(R.string.node_stalled) else supporting(mode, vpn, state, sumie),
             ) {
                 if (!island && !oneUi) {
