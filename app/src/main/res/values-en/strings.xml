@@ -421,4 +421,9 @@
     <string name="favorite_remove">"Remove from favorites: %1$s"</string>
     <string name="favorites_empty">"No favorite nodes"</string>
     <string name="favorites_hint">"Tap the star next to a node"</string>
+    <string name="traffic_title">"Data usage"</string>
+    <string name="traffic_week">"7 days"</string>
+    <string name="traffic_month">"30 days"</string>
+    <string name="traffic_total">"Total for this period"</string>
+    <string name="traffic_privacy">"History stays on your phone for up to 60 days. This estimates VPN traffic; your carrier’s figures may differ."</string>
 </resources>

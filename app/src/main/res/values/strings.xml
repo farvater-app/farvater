@@ -421,4 +421,9 @@
     <string name="favorite_remove">"Убрать из избранного: %1$s"</string>
     <string name="favorites_empty">"Избранных узлов нет"</string>
     <string name="favorites_hint">"Нажмите на звёздочку рядом с узлом"</string>
+    <string name="traffic_title">"Расход трафика"</string>
+    <string name="traffic_week">"7 дней"</string>
+    <string name="traffic_month">"30 дней"</string>
+    <string name="traffic_total">"Всего за период"</string>
+    <string name="traffic_privacy">"История хранится только на телефоне, не дольше 60 дней. Это оценка трафика VPN: счётчик оператора может отличаться."</string>
 </resources>

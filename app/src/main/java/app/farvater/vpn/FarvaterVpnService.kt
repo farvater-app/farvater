@@ -307,7 +307,10 @@ class FarvaterVpnService : VpnService() {
                 val upTotal = (s[1] - b[0]).coerceAtLeast(0)
                 val downTotal = (s[3] - b[1]).coerceAtLeast(0)
                 val today = LocalDate.now().toEpochDay()
-                if (day.day != today) day = DayTraffic(today, 0)
+                if (day.day != today) {
+                    App.prefs.dayTraffic = day
+                    day = App.prefs.trafficForDay(today)
+                }
                 day = day.copy(bytes = day.bytes + (upTotal + downTotal - counted).coerceAtLeast(0))
                 counted = upTotal + downTotal
                 dayTraffic = day

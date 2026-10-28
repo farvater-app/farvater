@@ -115,6 +115,7 @@ data class UiState(
     val deadPrompt: ProxyNode? = null,
     val checking: Set<String> = emptySet(),
     val collapsedGroups: Set<String> = emptySet(),
+    val trafficHistory: List<app.farvater.data.DayTraffic> = emptyList(),
 ) {
     val selectedNode: ProxyNode?
         get() = nodes.firstOrNull { it.id == selectedId } ?: savedNode?.takeIf { it.id == selectedId }
@@ -993,6 +994,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         pendingNode = null
         if (granted && node != null) FarvaterVpnService.start(getApplication(), node)
         else if (!granted) toast(messageText(R.string.vpn_permission_denied))
+    }
+
+    fun refreshTrafficHistory() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val history = prefs.trafficHistory
+            _state.update { it.copy(trafficHistory = history) }
+        }
     }
 
     fun toggleFavorite(nodeId: String) = updateSettings {

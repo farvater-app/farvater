@@ -227,7 +227,26 @@ class Prefs(context: Context) {
 
     var dayTraffic: DayTraffic
         get() = read<DayTraffic>("day_traffic") ?: DayTraffic()
-        set(value) = write("day_traffic", value)
+        set(value) = synchronized(trafficLock) {
+            val old = read<DayTraffic>("day_traffic") ?: DayTraffic()
+            val reading = if (old.day == value.day) value.copy(bytes = maxOf(old.bytes, value.bytes)) else value
+            val today = java.time.LocalDate.now().toEpochDay()
+            val history = TrafficHistory.merge(read<List<DayTraffic>>("traffic_history") ?: emptyList(), old, today)
+            sp.edit()
+                .putString("day_traffic", json.encodeToString(reading))
+                .putString("traffic_history", json.encodeToString(TrafficHistory.merge(history, reading, today)))
+                .apply()
+        }
+
+    fun trafficForDay(day: Long): DayTraffic = trafficHistory.firstOrNull { it.day == day } ?: DayTraffic(day, 0)
+
+    val trafficHistory: List<DayTraffic>
+        get() = synchronized(trafficLock) {
+            val stored = read<List<DayTraffic>>("traffic_history") ?: emptyList()
+            val recent = TrafficHistory.merge(stored, dayTraffic, java.time.LocalDate.now().toEpochDay())
+            if (recent != stored) write("traffic_history", recent)
+            recent
+        }
 
     fun clearSelection() {
         selectedNodeId = null
@@ -235,6 +254,7 @@ class Prefs(context: Context) {
     }
 
     private companion object {
+        val trafficLock = Any()
         const val MAX_PROFILES = 300
         const val HEALTH_KEY = "node_health"
         val OLD_CATALOG = setOf(

@@ -167,6 +167,7 @@ private enum class SettingsPage(val title: Int) {
     Documents(R.string.settings_documents),
     About(R.string.settings_about),
     Language(R.string.settings_language),
+    Traffic(R.string.traffic_title),
 }
 
 @Composable
@@ -182,9 +183,15 @@ fun SettingsScreen(
     checkingUpdates: Boolean = false,
     onCheckUpdates: () -> Unit = {},
     duplicates: Int = 0,
+    trafficHistory: List<app.farvater.data.DayTraffic> = emptyList(),
+    trafficToday: java.time.LocalDate = java.time.LocalDate.now(),
+    onRefreshTraffic: () -> Unit = {},
 ) {
     var localPage by rememberSaveable { mutableStateOf<String?>(null) }
     val page = (if (onPageName != null) pageName else localPage)?.let { name -> SettingsPage.entries.firstOrNull { it.name == name } }
+    androidx.compose.runtime.LaunchedEffect(page) {
+        if (page == SettingsPage.Traffic) onRefreshTraffic()
+    }
     val openPage: (SettingsPage?) -> Unit = { next -> if (onPageName != null) onPageName(next?.name) else localPage = next?.name }
     val context = LocalContext.current
     val slideDirection = if (androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl) -1 else 1
@@ -231,6 +238,7 @@ fun SettingsScreen(
                     SettingsPage.Documents -> DocumentsPage(onOpenDocument)
                     SettingsPage.About -> AboutPage()
                     SettingsPage.Language -> LanguagePage()
+                    SettingsPage.Traffic -> TrafficPage(trafficHistory, trafficToday)
                 }
                 Spacer(Modifier.height(24.dp + LocalBottomInset.current))
             }
@@ -396,6 +404,16 @@ private fun SettingsRoot(
                     iconTint = c.indigo,
                     chevron = true,
                     onClick = onChangelog,
+                )
+            }
+
+            IosSection {
+                IosRow(
+                    title = stringResource(R.string.traffic_title),
+                    icon = Icons.Rounded.History,
+                    iconTint = c.green,
+                    chevron = true,
+                    onClick = { onOpen(SettingsPage.Traffic) },
                 )
             }
 

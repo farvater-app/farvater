@@ -143,6 +143,8 @@ fun FarvaterRoot(vm: MainViewModel) {
                     checkingUpdates = state.updateStage is UpdateStage.Checking,
                     onCheckUpdates = vm::openUpdate,
                     duplicates = state.duplicates,
+                    trafficHistory = state.trafficHistory,
+                    onRefreshTraffic = vm::refreshTrafficHistory,
                 )
             }
         }

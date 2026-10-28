@@ -421,4 +421,9 @@
     <string name="favorite_remove">"حذف از برگزیده‌ها: %1$s"</string>
     <string name="favorites_empty">"گره برگزیده‌ای ندارید"</string>
     <string name="favorites_hint">"روی ستاره کنار گره بزنید"</string>
+    <string name="traffic_title">"مصرف داده"</string>
+    <string name="traffic_week">"۷ روز"</string>
+    <string name="traffic_month">"۳۰ روز"</string>
+    <string name="traffic_total">"مجموع این دوره"</string>
+    <string name="traffic_privacy">"تاریخچه فقط تا ۶۰ روز روی گوشی می‌ماند. این برآورد ترافیک VPN است و ممکن است با آمار اپراتور متفاوت باشد."</string>
 </resources>

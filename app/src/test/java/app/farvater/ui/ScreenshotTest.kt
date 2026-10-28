@@ -63,6 +63,21 @@ import org.robolectric.annotation.GraphicsMode
 class ScreenshotTest {
     @get:Rule val rule = createComposeRule()
 
+    @Test fun feature_traffic_ios() = shot("F_traffic_ios", dark = true, style = UiStyle.IOS) { Traffic() }
+    @Test fun feature_traffic_material() = shot("F_traffic_material", dark = true, style = UiStyle.MATERIAL) { Traffic() }
+    @Test fun feature_traffic_roskompozor() = shot("F_traffic_roskompozor", dark = true, style = UiStyle.ROSKOMPOZOR) { Traffic() }
+    @Test fun feature_traffic_sumie() = shot("F_traffic_sumie", dark = true, style = UiStyle.SUMIE) { Traffic() }
+    @Test fun feature_traffic_nothing() = shot("F_traffic_nothing", dark = true, style = UiStyle.NOTHING) { Traffic() }
+    @Test fun feature_traffic_origin() = shot("F_traffic_origin", dark = true, style = UiStyle.ORIGIN) { Traffic() }
+    @Test fun feature_traffic_hyper() = shot("F_traffic_hyper", dark = true, style = UiStyle.HYPER) { Traffic() }
+    @Test fun feature_traffic_harmony() = shot("F_traffic_harmony", dark = true, style = UiStyle.HARMONY) { Traffic() }
+    @Test fun feature_traffic_oneui() = shot("F_traffic_oneui", dark = true, style = UiStyle.ONEUI) { Traffic() }
+    @Test fun feature_traffic_oxygen() = shot("F_traffic_oxygen", dark = true, style = UiStyle.OXYGEN) { Traffic() }
+    @Test fun feature_traffic_witch() = shot("F_traffic_witch", dark = true, style = UiStyle.WITCH) { Traffic() }
+    @Test fun feature_traffic_en() = shot("F_traffic_en", dark = true, style = UiStyle.WITCH, language = "en") { Traffic() }
+    @Test fun feature_traffic_fa() = shot("F_traffic_fa", dark = true, style = UiStyle.WITCH, language = "fa") { Traffic() }
+    @Test fun feature_traffic_month() = shot("F_traffic_month", dark = false, style = UiStyle.IOS, act = { rule.onNodeWithText("30 дней").performClick() }) { Traffic() }
+
     @Test fun feature_favorites_ios() = shot("F_favorites_ios", dark = true, style = UiStyle.IOS, act = { rule.onNodeWithText("Избранные").performClick() }) { Servers(Fake.state.copy(settings = Fake.state.settings.copy(favoriteNodeIds = Fake.state.nodes.take(2).map { it.id }.toSet()))) }
     @Test fun feature_favorites_material() = shot("F_favorites_material", dark = true, style = UiStyle.MATERIAL, act = { rule.onNodeWithText("Избранные").performClick() }) { Servers(Fake.state.copy(settings = Fake.state.settings.copy(favoriteNodeIds = Fake.state.nodes.take(2).map { it.id }.toSet()))) }
     @Test fun feature_favorites_roskompozor() = shot("F_favorites_roskompozor", dark = true, style = UiStyle.ROSKOMPOZOR, act = { rule.onNodeWithText("Избранные").performClick() }) { Servers(Fake.state.copy(settings = Fake.state.settings.copy(favoriteNodeIds = Fake.state.nodes.take(2).map { it.id }.toSet()))) }
@@ -549,6 +564,16 @@ class ScreenshotTest {
                 state = state, vpn = vpn, traffic = Fake.traffic, history = Fake.history,
                 onToggle = {}, onFindWorking = {}, onCancelTest = {}, onOpenServers = {},
             )
+        }
+    }
+
+    @Composable
+    private fun Traffic() = FarvaterFrame(tab = Tab.Settings, onTab = {}) { p ->
+        val today = java.time.LocalDate.of(2026, 10, 28)
+        val days = (29 downTo 0).map { app.farvater.data.DayTraffic(today.minusDays(it.toLong()).toEpochDay(), ((it * 37L + 13) % 200) * 8_000_000) }
+        androidx.compose.foundation.layout.Box(Modifier.padding(p)) {
+            SettingsScreen(settings = Fake.state.settings.copy(uiStyle = LocalUiStyle.current), onChange = {}, onOpenDocument = {},
+                pageName = "Traffic", onPageName = {}, trafficHistory = days, trafficToday = today)
         }
     }
 
