@@ -59,6 +59,13 @@ import org.robolectric.annotation.GraphicsMode
 class ScreenshotTest {
     @get:Rule val rule = createComposeRule()
 
+    @Test fun hiddenNodesIosLight() = shot("F6_hidden_nodes_ios_light", dark = false) {
+        Servers(Fake.state.copy(hiddenInsecure = 1234, duplicates = 5678, settings = Fake.state.settings.copy(dropDuplicates = true)))
+    }
+    @Test fun hiddenNodesOneUiLarge() = shot("F6_hidden_nodes_oneui_large", dark = false, style = UiStyle.ONEUI, fontScale = 2f) {
+        Servers(Fake.state.copy(hiddenInsecure = 1234, duplicates = 5678, settings = Fake.state.settings.copy(dropDuplicates = true)))
+    }
+
     @Test fun homeIdleDark() = shot("01_home_idle_dark", dark = true) { Home(VpnState.Idle) }
     @Test fun homeIdleLight() = shot("01_home_idle_light", dark = false) { Home(VpnState.Idle) }
     @Test fun homeConnectedDark() = shot("02_home_connected_dark", dark = true) { Home(Fake.connected) }

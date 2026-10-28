@@ -17,6 +17,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
@@ -93,6 +95,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
@@ -211,7 +214,7 @@ fun IosLargeTitle(
     if (Ios.oneUi) {
         val height = (LocalConfiguration.current.screenHeightDp * 0.3f).dp.coerceIn(190.dp, 300.dp)
         Column(
-            modifier.fillMaxWidth().height(height).padding(start = 24.dp, end = 12.dp),
+            modifier.fillMaxWidth().heightIn(min = height).padding(start = 24.dp, end = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(Modifier.weight(1f))
@@ -230,7 +233,6 @@ fun IosLargeTitle(
                     style = MaterialTheme.typography.bodyMedium,
                     color = c.secondaryLabel,
                     textAlign = TextAlign.Center,
-                    maxLines = 3,
                     modifier = Modifier.padding(horizontal = 12.dp),
                 )
             }
@@ -267,7 +269,6 @@ fun IosLargeTitle(
                     subtitle,
                     style = if (material) MaterialTheme.typography.bodyMedium else IosType.subheadline,
                     color = c.secondaryLabel,
-                    maxLines = 1,
                 )
             }
         }
@@ -670,13 +671,18 @@ fun IosSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, 
                 .background(c.segmentThumb, CircleShape)
                 .border(0.75.dp, Brush.linearGradient(glassRim(c.dark)), CircleShape),
         )
-        Row(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxSize().selectableGroup()) {
             options.forEachIndexed { i, label ->
                 Box(
                     Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .clickable(remember { MutableInteractionSource() }, indication = null) { pick(i) },
+                        .selectable(
+                            selected = i == selected,
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            role = Role.Tab,
+                        ) { pick(i) },
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -762,6 +768,8 @@ fun IosTextField(value: String, onValueChange: (String) -> Unit, placeholder: St
     }
 }
 
+internal fun readableOn(color: Color): Color = if (color.luminance() > 0.179f) Color.Black else Color.White
+
 enum class IosButtonStyle { Filled, Tinted, Plain }
 
 @Composable
@@ -787,7 +795,7 @@ fun IosButton(
         }
         val fg = when {
             outlined -> color
-            style == IosButtonStyle.Filled -> if (brand) scheme.onPrimary else Color.White
+            style == IosButtonStyle.Filled -> if (brand) scheme.onPrimary else readableOn(color)
             style == IosButtonStyle.Tinted -> if (brand) scheme.onSecondaryContainer else color
             else -> color
         }
@@ -827,7 +835,7 @@ fun IosButton(
         IosButtonStyle.Tinted -> color.copy(alpha = 0.16f)
         IosButtonStyle.Plain -> Color.Transparent
     }
-    val fg = if (style == IosButtonStyle.Filled) Color.White else color
+    val fg = if (style == IosButtonStyle.Filled) readableOn(color) else color
     Row(
         modifier
             .heightIn(min = 50.dp)
@@ -1378,7 +1386,7 @@ private fun GlassAlertButton(action: AlertAction, modifier: Modifier) {
                 fontWeight = if (preferred || action.role == AlertRole.Cancel) FontWeight.SemiBold else FontWeight.Medium,
             ),
             color = when {
-                preferred -> Color.White
+                preferred -> readableOn(c.tint)
                 action.role == AlertRole.Destructive -> c.red
                 else -> c.label
             },

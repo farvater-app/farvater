@@ -94,7 +94,7 @@ fun OxygenConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = M
         when (mode) {
             ConnectMode.Connected -> c.tint
             ConnectMode.Error -> c.red
-            else -> c.label
+            else -> if (c.dark) Color(0xFF242424) else c.label
         },
         tween(360),
         label = "glyph",
