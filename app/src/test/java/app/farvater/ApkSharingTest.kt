@@ -50,6 +50,14 @@ class ApkSharingTest {
         }
     }
 
+    @Test @Config(sdk = [26]) fun sharingWorksOnAndroidEight() = runBlocking {
+        val source = apk("armeabi-v7a")
+        val intent = ApkSharing.prepare(context(source))
+        assertEquals(Intent.ACTION_SEND, intent.action)
+        assertEquals("content", intent.clipData!!.getItemAt(0).uri.scheme)
+        assertArrayEquals(source.readBytes(), app.contentResolver.openInputStream(intent.clipData!!.getItemAt(0).uri)!!.use { it.readBytes() })
+    }
+
     @Test fun inspectsActualApkArchitectures() = runBlocking {
         assertEquals(listOf("arm64-v8a"), ApkSharing.architectures(context(apk("arm64-v8a"))))
         assertEquals(listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64"), ApkSharing.architectures(context(apk("x86_64", "x86", "armeabi-v7a", "arm64-v8a"))))

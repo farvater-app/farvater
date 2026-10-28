@@ -63,6 +63,11 @@ import org.robolectric.annotation.GraphicsMode
 class ScreenshotTest {
     @get:Rule val rule = createComposeRule()
 
+    @Test fun language_fa_about() = shot("L_fa_about_scrolled", dark = true, style = UiStyle.WITCH, language = "fa",
+        act = { repeat(3) { rule.onRoot().performTouchInput { swipeUp(startY = height * 0.7f, endY = height * 0.2f) }; rule.mainClock.advanceTimeBy(1000) } },
+    ) { Settings(page = "About") }
+    @Test fun feature_favorites_light_large() = shot("F_favorites_light_large", dark = false, style = UiStyle.IOS, fontScale = 2f) { Servers() }
+
     @Test fun feature_share_ios() = shot("F_share_ios", dark = true, style = UiStyle.IOS) { Share() }
     @Test fun feature_share_material() = shot("F_share_material", dark = true, style = UiStyle.MATERIAL) { Share() }
     @Test fun feature_share_roskompozor() = shot("F_share_roskompozor", dark = true, style = UiStyle.ROSKOMPOZOR) { Share() }
