@@ -2,6 +2,7 @@ package app.farvater.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.absoluteOffset
@@ -20,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -52,6 +54,7 @@ fun WitchHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modif
     val still = rememberReduceMotion()
     val haptics = LocalHapticFeedback.current
     val clock = remember { mutableFloatStateOf(0f) }
+    val flightStart = remember { mutableFloatStateOf(Float.NaN) }
     var previous by remember { mutableStateOf(mode) }
     LaunchedEffect(mode) {
         if (previous != mode) {
@@ -65,6 +68,7 @@ fun WitchHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modif
     }
     LaunchedEffect(still) {
         clock.floatValue = 0f
+        flightStart.floatValue = Float.NaN
         if (still) return@LaunchedEffect
         val start = withFrameMillis { it }
         while (true) withFrameMillis { clock.floatValue = (it - start) / 1000f }
@@ -81,9 +85,23 @@ fun WitchHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modif
             val unit = maxWidth / 360f
             Canvas(Modifier.fillMaxSize()) {
                 scale(size.width / 360f, pivot = Offset.Zero) {
-                    witchScene(mode, clock.floatValue)
+                    witchScene(mode, clock.floatValue, flightStart.floatValue)
                 }
             }
+            Box(
+                Modifier.absoluteOffset(unit * 256, unit * 112).size(unit * 82, unit * 118)
+                    .pointerInput(mode, still, haptics) {
+                        val taps = WitchCatTaps()
+                        detectTapGestures {
+                            if (mode != ConnectMode.Connecting && mode != ConnectMode.Searching &&
+                                taps.tap(android.os.SystemClock.uptimeMillis())
+                            ) {
+                                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                                if (!still) flightStart.floatValue = clock.floatValue
+                            }
+                        }
+                    },
+            )
             Box(
                 Modifier.absoluteOffset(unit * 122, unit * 132).size(unit * 116, unit * 91)
                     .clickable(role = Role.Button, onClick = onClick)
@@ -93,7 +111,7 @@ fun WitchHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modif
     }
 }
 
-private fun DrawScope.witchScene(mode: ConnectMode, time: Float) {
+private fun DrawScope.witchScene(mode: ConnectMode, time: Float, flightStart: Float) {
     val busy = mode == ConnectMode.Searching || mode == ConnectMode.Connecting
     val active = busy || mode == ConnectMode.Connected
     val potion = when (mode) {
@@ -115,7 +133,8 @@ private fun DrawScope.witchScene(mode: ConnectMode, time: Float) {
     drawCircle(Color(0xFFE8CAA1).copy(alpha = 0.55f), 12f, Offset(116f, 52f))
     drawCircle(Color(0xFFE8CAA1).copy(alpha = 0.4f), 7f, Offset(157f, 110f))
     drawCircle(Color(0xFF160C29), 53f, Offset(165f, 61f))
-    val flight = ((0.42f + time / if (busy) 6f else 11f) % 1f)
+    val flight = if (flightStart.isNaN()) ((0.42f + time / if (busy) 6f else 11f) % 1f)
+        else ((time - flightStart) / if (busy) 6f else 11f) % 1f
     translate(-32f + 424f * flight, 99f - sin(flight * PI.toFloat()) * 22f) {
         scale(0.42f, pivot = Offset.Zero) {
             drawLine(Color(0xFF997456), Offset(-43f, 7f), Offset(48f, 1f), 5f, StrokeCap.Round)
@@ -182,6 +201,23 @@ private fun DrawScope.witchScene(mode: ConnectMode, time: Float) {
     drawLine(Color(0xFF6A427D), Offset(61f, 197f), Offset(51f, 189f), 2f)
     drawLine(Color(0xFF6A427D), Offset(60f, 201f), Offset(69f, 192f), 2f)
     drawCircle(Color(0xFF9BE15D).copy(alpha = 0.7f), 2f, Offset(87f, 182f + sin(time) * 3f))
+}
+
+internal class WitchCatTaps {
+    private var first = -1L
+    private var count = 0
+
+    fun tap(now: Long): Boolean {
+        if (first < 0 || now < first || now - first > 1_200) {
+            first = now
+            count = 0
+        }
+        count++
+        if (count < 5) return false
+        first = -1
+        count = 0
+        return true
+    }
 }
 
 private fun DrawScope.witchCat(eyes: Color, blink: Float) {

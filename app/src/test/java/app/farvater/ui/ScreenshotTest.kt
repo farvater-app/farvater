@@ -1,5 +1,7 @@
 package app.farvater.ui
 
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.onNodeWithContentDescription
 import android.provider.Settings
 import org.junit.After
 import android.app.Application
@@ -100,6 +102,21 @@ class ScreenshotTest {
 
     @After fun restoreAnimationScale() {
         Settings.Global.putFloat(ApplicationProvider.getApplicationContext<Application>().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
+    }
+
+    @Test fun witchEasterEgg() = shot("B20_witch_easter_egg", dark = true, style = UiStyle.WITCH, act = { tapSittingCat() }) { Home(VpnState.Idle) }
+
+    @Test fun witchEasterEggStill() {
+        Settings.Global.putFloat(ApplicationProvider.getApplicationContext<Application>().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 0f)
+        shot("B21_witch_easter_still", dark = true, style = UiStyle.WITCH, act = { tapSittingCat() }) { Home(VpnState.Idle) }
+    }
+
+    private fun tapSittingCat() {
+        val bounds = rule.onNodeWithContentDescription("Подключиться").fetchSemanticsNode().boundsInRoot
+        val unit = bounds.width / 116f
+        rule.onRoot().performTouchInput {
+            repeat(5) { click(androidx.compose.ui.geometry.Offset(bounds.left + 172f * unit, bounds.top + 38f * unit)) }
+        }
     }
 
     @Test fun witchStillIdle() = witchStill("B15_witch_still_idle", VpnState.Idle)
