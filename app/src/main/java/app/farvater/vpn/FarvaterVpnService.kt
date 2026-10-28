@@ -36,9 +36,14 @@ import app.farvater.engine.TunBridge
 import app.farvater.engine.XrayEngine
 import app.farvater.ui.formatBytes
 import app.farvater.ui.formatSpeed
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
@@ -50,6 +55,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
 import java.time.LocalDate
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
 
 class FarvaterVpnService : VpnService() {
@@ -66,6 +72,10 @@ class FarvaterVpnService : VpnService() {
         private val EARLY_PROBES = setOf(5, 15, 30)
         private const val UPDATE_GAP_MS = 15 * 60 * 1000L
         private const val NETWORK_SETTLE_MS = 4_000L
+        private val lifecycleQueue = Executors.newSingleThreadExecutor { task ->
+            Thread(task, "farvater-vpn").apply { isDaemon = true }
+        }.asCoroutineDispatcher()
+        private var engineOwner: FarvaterVpnService? = null
 
         fun start(context: Context, node: ProxyNode, restart: Boolean = false, checkMode: Boolean = false) {
             App.prefs.selectNode(node)
@@ -92,6 +102,9 @@ class FarvaterVpnService : VpnService() {
         }
     }
 
+    private val lifecycleDispatcher: CoroutineDispatcher = lifecycleQueue
+    private val commandLock = Any()
+    private var latestStartId = 0
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var tun: ParcelFileDescriptor? = null
     private var monitor: Job? = null
@@ -124,7 +137,8 @@ class FarvaterVpnService : VpnService() {
         ContextCompat.registerReceiver(this, screenReceiver, filter, ContextCompat.RECEIVER_EXPORTED)
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = synchronized(commandLock) {
+        latestStartId = startId
         if (intent?.action == ACTION_STOP) {
             App.prefs.vpnWasOn = false
             stopVpn()
@@ -142,54 +156,74 @@ class FarvaterVpnService : VpnService() {
         }
         val node = App.prefs.lastNode
         startForegroundCompat(notification(node?.name ?: "Подключение", "Поднимаю туннель"))
-        if (node == null) {
-            fail("Сначала выберите сервер в приложении", null)
-            return START_NOT_STICKY
-        }
         val restart = intent?.getBooleanExtra(EXTRA_RESTART, false) ?: false
         val fromSystem = intent?.action != ACTION_START || intent?.getBooleanExtra(EXTRA_CHECK_MODE, false) == true
-        val generation = startGeneration
+        val generation = ++startGeneration
         stopped = false
-        scope.launch {
+        modeJob?.cancel()
+        failoverJob?.cancel()
+        scope.launch(lifecycleDispatcher) {
             synchronized(this@FarvaterVpnService) {
                 if (stopped || generation != startGeneration) return@launch
-                startVpn(node, restart)
-                if (fromSystem) checkMode(NETWORK_SETTLE_MS)
+                engineOwner = this@FarvaterVpnService
+                if (node == null) {
+                    fail("Сначала выберите сервер в приложении", null, generation)
+                    return@launch
+                }
+                startVpn(node, restart, generation = generation)
+                if (fromSystem && isCurrent(generation)) checkMode(NETWORK_SETTLE_MS)
             }
         }
         return START_STICKY
     }
 
-    private fun startVpn(node: ProxyNode, restart: Boolean, fallback: ProxyNode? = null) {
+    private fun isCurrent(generation: Long) = !stopped && generation == startGeneration && scope.isActive
+
+    private fun startVpn(node: ProxyNode, restart: Boolean, fallback: ProxyNode? = null, generation: Long = startGeneration) {
         synchronized(this) {
+            if (!isCurrent(generation)) return
             if (fallback != null) {
-                if (stopped) return
+                val current = when (val state = VpnBus.state.value) {
+                    is VpnState.Connected -> state.node
+                    is VpnState.Connecting -> state.node
+                    else -> null
+                }
+                if (current != fallback || App.prefs.lastNode?.id != fallback.id || !App.prefs.allowedForAuto(node)) return
                 App.prefs.selectNode(node)
             }
+            engineOwner = this
             val current = VpnBus.state.value
             if (!restart && tun != null && current is VpnState.Connected && current.node == node) {
                 updateNotification(node.name, "Подключено")
                 return
             }
-            connectLocked(node, fallback)
+            connectLocked(node, fallback, generation)
         }
     }
 
-    private fun connectLocked(node: ProxyNode, fallback: ProxyNode? = null) {
+    private fun connectLocked(node: ProxyNode, fallback: ProxyNode? = null, generation: Long = startGeneration) {
         val previous = tun
         tun = null
         teardown()
         VpnBus.state.value = VpnState.Connecting(node)
         val settings = App.prefs.settings
 
+        fun cancelled(): Boolean {
+            if (isCurrent(generation)) return false
+            runCatching { previous?.close() }
+            teardown()
+            return true
+        }
+
         fun abort(message: String) {
-            if (fallback != null) {
+            if (cancelled()) return
+            if (fallback != null && App.prefs.lastNode?.id == node.id) {
                 tun = previous
                 App.prefs.selectNode(fallback)
-                return connectLocked(fallback)
+                return connectLocked(fallback, generation = generation)
             }
             runCatching { previous?.close() }
-            fail(message, node)
+            fail(message, node, generation)
         }
 
         val config = XrayConfigBuilder.build(
@@ -199,6 +233,8 @@ class FarvaterVpnService : VpnService() {
             profile = App.prefs.profileFor(node.id),
         )
         XrayEngine.start(config).onFailure { return abort("Ядро не запустилось: ${it.message}") }
+
+        if (cancelled()) return
 
         val builder = Builder()
             .setSession(node.name)
@@ -215,21 +251,26 @@ class FarvaterVpnService : VpnService() {
         tun = fd
         runCatching { previous?.close() }
         TunBridge.start(this, fd.fd, settings.mtu).onFailure {
-            if (fallback != null) {
+            if (cancelled()) return
+            if (fallback != null && App.prefs.lastNode?.id == node.id) {
                 App.prefs.selectNode(fallback)
-                return connectLocked(fallback)
+                return connectLocked(fallback, generation = generation)
             }
-            return fail("TUN не запустился: ${it.message}", node)
+            return fail("TUN не запустился: ${it.message}", node, generation)
         }
 
-        VpnBus.state.value = VpnState.Connected(node, System.currentTimeMillis())
-        App.prefs.vpnWasOn = true
-        updateNotification(node.name, "Подключено")
-        monitor = scope.launch { monitorLoop(node) }
-        if (networkCallback == null) watchNetwork()
+        if (cancelled()) return
+        synchronized(commandLock) {
+            if (!isCurrent(generation)) return
+            VpnBus.state.value = VpnState.Connected(node, System.currentTimeMillis())
+            App.prefs.vpnWasOn = true
+            updateNotification(node.name, "Подключено")
+            monitor = scope.launch { monitorLoop(node) }
+            if (networkCallback == null) watchNetwork()
+        }
     }
 
-    private suspend fun monitorLoop(node: ProxyNode) {
+    private suspend fun monitorLoop(node: ProxyNode) = coroutineScope {
         var base = TunBridge.stats()?.takeIf { it.size >= 4 }?.let { longArrayOf(it[1], it[3]) }
         var lastTx = -1L
         var lastRx = -1L
@@ -293,10 +334,10 @@ class FarvaterVpnService : VpnService() {
             }
             if (check?.isActive != true && Failover.probeDue(tick, lastProbe, failures, PROBE_EVERY, EARLY_PROBES, VpnBus.STALL_CHECKS)) {
                 lastProbe = tick
-                check = scope.launch { outcome.set(probe(node)) }
+                check = launch { outcome.set(probe(node)) }
             }
             outcome.getAndSet(null)?.let { ok ->
-                if (!currentCoroutineContext().isActive) return
+                if (!currentCoroutineContext().isActive) return@coroutineScope
                 failures = if (ok) 0 else failures + 1
                 if (ok) failedBackups.clear()
                 VpnBus.failedChecks.value = failures
@@ -333,6 +374,7 @@ class FarvaterVpnService : VpnService() {
             if (!replace) return
             modeJob?.cancel()
         }
+        val generation = startGeneration
         modeJob = scope.launch {
             delay(delayMs)
             var hint = known
@@ -360,8 +402,13 @@ class FarvaterVpnService : VpnService() {
                         if (!runInterruptible { NodeTester.test(next, settings.testUrl) }.alive) return@launch
                         ensureActive()
                         if (App.prefs.nodeForMode(mode ?: return@launch)?.id != next.id) return@launch
-                        lastModeSwitch = System.currentTimeMillis()
-                        startVpn(next, restart = true, fallback = current)
+                        withContext(lifecycleDispatcher) {
+                            ensureActive()
+                            if (!isCurrent(generation) || App.prefs.nodeForMode(mode)?.id != next.id) return@withContext
+                            val before = VpnBus.state.value
+                            startVpn(next, restart = true, fallback = current, generation = generation)
+                            if (VpnBus.state.value != before) lastModeSwitch = System.currentTimeMillis()
+                        }
                         return@launch
                     }
                 }
@@ -371,6 +418,7 @@ class FarvaterVpnService : VpnService() {
 
     private fun failover(stalled: ProxyNode) {
         if (failoverJob?.isActive == true) return
+        val generation = startGeneration
         failoverJob = scope.launch {
             checkMode()
             while (true) {
@@ -396,11 +444,17 @@ class FarvaterVpnService : VpnService() {
                 }
                 val still = (VpnBus.state.value as? VpnState.Connected)?.node
                 if (still?.id != current.id || VpnBus.failedChecks.value < VpnBus.STALL_CHECKS) return@launch
-                lastFailover = System.currentTimeMillis()
-                failedBackups.clear()
-                val known = mode?.let { m -> runCatching { NetMode.valueOf(m) }.getOrNull() }
-                if (known != null && App.prefs.settings.modeNodes) App.prefs.rememberForMode(known, next)
-                startVpn(next, restart = true, fallback = current)
+                withContext(lifecycleDispatcher) {
+                    ensureActive()
+                    if (!isCurrent(generation) || VpnBus.failedChecks.value < VpnBus.STALL_CHECKS) return@withContext
+                    startVpn(next, restart = true, fallback = current, generation = generation)
+                    if ((VpnBus.state.value as? VpnState.Connected)?.node?.id == next.id) {
+                        lastFailover = System.currentTimeMillis()
+                        failedBackups.clear()
+                        val known = mode?.let { m -> runCatching { NetMode.valueOf(m) }.getOrNull() }
+                        if (known != null && App.prefs.settings.modeNodes) App.prefs.rememberForMode(known, next)
+                    }
+                }
                 return@launch
             }
         }
@@ -433,39 +487,60 @@ class FarvaterVpnService : VpnService() {
         VpnBus.failedChecks.value = 0
     }
 
-    private fun stopVpn() {
+    private fun stopVpn(): Unit = synchronized(commandLock) {
+        stopped = true
+        val generation = ++startGeneration
+        val startId = latestStartId
         unwatchNetwork()
         modeJob?.cancel()
         failoverJob?.cancel()
-        synchronized(this) {
-            stopped = true
-            startGeneration++
-            teardown()
+        monitor?.cancel()
+        scope.launch(NonCancellable + lifecycleDispatcher) {
+            synchronized(this@FarvaterVpnService) {
+                if (generation != startGeneration) return@launch
+                if (engineOwner === this@FarvaterVpnService) teardown()
+                synchronized(commandLock) {
+                    if (generation != startGeneration) return@launch
+                    VpnBus.state.value = VpnState.Idle
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf(startId)
+                }
+            }
         }
-        VpnBus.state.value = VpnState.Idle
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
     }
 
-    private fun fail(message: String, node: ProxyNode?) {
-        App.prefs.vpnWasOn = false
+    private fun fail(message: String, node: ProxyNode?, generation: Long) {
         teardown()
-        VpnBus.state.value = VpnState.Failed(message, node)
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        synchronized(commandLock) {
+            if (!isCurrent(generation)) return
+            App.prefs.vpnWasOn = false
+            VpnBus.state.value = VpnState.Failed(message, node)
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf(latestStartId)
+        }
     }
 
-    override fun onRevoke() {
+    override fun onRevoke(): Unit = synchronized(commandLock) {
         App.prefs.vpnWasOn = false
         stopVpn()
     }
 
     override fun onDestroy() {
+        synchronized(commandLock) {
+            stopped = true
+            startGeneration++
+        }
         runCatching { unregisterReceiver(screenReceiver) }
         unwatchNetwork()
-        synchronized(this) { teardown() }
         scope.cancel()
-        if (VpnBus.state.value !is VpnState.Failed) VpnBus.state.value = VpnState.Idle
+        scope.launch(NonCancellable + lifecycleDispatcher) {
+            synchronized(this@FarvaterVpnService) {
+                if (engineOwner !== this@FarvaterVpnService) return@launch
+                teardown()
+                engineOwner = null
+                if (VpnBus.state.value !is VpnState.Failed) VpnBus.state.value = VpnState.Idle
+            }
+        }
         super.onDestroy()
     }
 
