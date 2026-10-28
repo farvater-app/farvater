@@ -1,5 +1,7 @@
 package app.farvater.ui.components
 
+import app.farvater.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -181,11 +183,11 @@ fun SumieHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modif
     val pressed by interaction.collectIsPressedAsState()
     val press by animateFloatAsState(if (pressed) 0.97f else 1f, spring(dampingRatio = 0.6f, stiffness = 600f), label = "press")
     val description = when (mode) {
-        ConnectMode.Idle -> "Подключиться"
-        ConnectMode.Searching -> "Остановить"
-        ConnectMode.Connecting -> "Отменить подключение"
-        ConnectMode.Connected -> "Отключиться"
-        ConnectMode.Error -> "Повторить подключение"
+        ConnectMode.Idle -> stringResource(R.string.action_connect)
+        ConnectMode.Searching -> stringResource(R.string.action_stop_search)
+        ConnectMode.Connecting -> stringResource(R.string.action_cancel_connect)
+        ConnectMode.Connected -> stringResource(R.string.action_disconnect)
+        ConnectMode.Error -> stringResource(R.string.action_retry_connect)
     }
 
     Canvas(

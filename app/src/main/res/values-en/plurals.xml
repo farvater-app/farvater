@@ -1,0 +1,14 @@
+<resources>
+    <plurals name="nodes_count">
+        <item quantity="one">%1$d node</item>
+        <item quantity="other">%1$d nodes</item>
+    </plurals>
+    <plurals name="hours_count">
+        <item quantity="one">%1$d hour</item>
+        <item quantity="other">%1$d hours</item>
+    </plurals>
+    <plurals name="unsafe_nodes_count">
+        <item quantity="one">%1$d unsafe</item>
+        <item quantity="other">%1$d unsafe</item>
+    </plurals>
+</resources>

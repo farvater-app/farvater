@@ -1,5 +1,7 @@
 package app.farvater.ui.screens
 
+import app.farvater.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -32,33 +34,36 @@ import app.farvater.ui.theme.IosType
 
 private val Modes = listOf(SourceMode.ANY, SourceMode.WHITE, SourceMode.BLACK)
 
-private val Intervals = listOf(
-    null to "Авто",
-    1 to "Каждый час",
-    3 to "Каждые 3 часа",
-    6 to "Каждые 6 часов",
-    12 to "Каждые 12 часов",
-    24 to "Раз в сутки",
-    0 to "Только вручную",
+private val Intervals: List<Pair<Int?, String>>
+    @Composable get() = listOf(
+    null to stringResource(R.string.automatic),
+    1 to stringResource(R.string.interval_hourly),
+    3 to stringResource(R.string.interval_three_hours),
+    6 to stringResource(R.string.interval_six_hours),
+    12 to stringResource(R.string.interval_twelve_hours),
+    24 to stringResource(R.string.interval_daily),
+    0 to stringResource(R.string.interval_manual_only),
 )
 
+@Composable
 fun modeShort(mode: SourceMode): String = when (mode) {
-    SourceMode.ANY -> "БС и ЧС"
-    SourceMode.WHITE -> "БС"
-    SourceMode.BLACK -> "ЧС"
+    SourceMode.ANY -> stringResource(R.string.mode_both_short)
+    SourceMode.WHITE -> stringResource(R.string.mode_white_short)
+    SourceMode.BLACK -> stringResource(R.string.mode_black_short)
 }
 
+@Composable
 fun intervalLabel(source: SourceUi): String = when (val h = source.intervalHours) {
-    0 -> "вручную"
-    null -> "авто, раз в ${hours(source.ownIntervalHours?.takeIf { it > 0 } ?: 6)}"
-    else -> "раз в ${hours(h)}"
+    0 -> stringResource(R.string.interval_manual)
+    null -> stringResource(R.string.interval_auto, hours(source.ownIntervalHours?.takeIf { it > 0 } ?: 6))
+    else -> stringResource(R.string.interval_every, hours(h))
 }
 
-private fun hours(h: Int): String = when {
-    h == 1 -> "час"
-    h == 24 -> "сутки"
-    h % 10 in 2..4 && h % 100 !in 12..14 -> "$h часа"
-    else -> "$h часов"
+@Composable
+private fun hours(h: Int): String = when (h) {
+    1 -> stringResource(R.string.interval_one_hour)
+    24 -> stringResource(R.string.interval_one_day)
+    else -> androidx.compose.ui.res.pluralStringResource(R.plurals.hours_count, h, h)
 }
 
 @Composable
@@ -88,13 +93,11 @@ fun SourceSheet(
             )
 
             IosSection(
-                header = "Режим сети",
-                footer = "БС — белые списки: открываются только разрешённые сайты, нужны особые серверы. " +
-                    "ЧС — обычные блокировки: закрыты отдельные сайты, хватает обычных серверов. " +
-                    "Подписка работает только в выбранном режиме.",
+                header = stringResource(R.string.network_mode_title),
+                footer = stringResource(R.string.source_mode_hint),
             ) {
                 IosSegmented(
-                    options = Modes.map(::modeShort),
+                    options = Modes.map { modeShort(it) },
                     selected = Modes.indexOf(source.mode),
                     onSelect = { onMode(Modes[it]) },
                     modifier = Modifier.padding(12.dp),
@@ -102,8 +105,8 @@ fun SourceSheet(
             }
 
             IosSection(
-                header = "Обновлять",
-                footer = "Авто — как просит сама подписка, а если она молчит, раз в 6 часов.",
+                header = stringResource(R.string.refresh_interval),
+                footer = stringResource(R.string.refresh_interval_hint),
             ) {
                 Intervals.forEachIndexed { i, (value, label) ->
                     if (i > 0) IosDivider()
@@ -117,7 +120,7 @@ fun SourceSheet(
 
             IosSection {
                 IosRow(
-                    title = "Обновить сейчас",
+                    title = stringResource(R.string.refresh_now),
                     titleColor = c.tint,
                     icon = Icons.Rounded.Refresh,
                     iconTint = c.tint,
@@ -126,7 +129,7 @@ fun SourceSheet(
                 if (source.community) {
                     IosDivider(start = 59.dp)
                     IosRow(
-                        title = if (source.homepage.startsWith("https://t.me/")) "Телеграм-канал" else "Страница проекта",
+                        title = if (source.homepage.startsWith("https://t.me/")) stringResource(R.string.telegram_channel) else stringResource(R.string.project_page),
                         subtitle = source.homepage.removePrefix("https://"),
                         titleColor = c.tint,
                         icon = Icons.AutoMirrored.Rounded.OpenInNew,
@@ -136,7 +139,7 @@ fun SourceSheet(
                     source.forum?.let { forum ->
                         IosDivider(start = 59.dp)
                         IosRow(
-                            title = "Форум",
+                            title = stringResource(R.string.forum),
                             subtitle = forum.removePrefix("https://"),
                             titleColor = c.tint,
                             icon = Icons.Rounded.Forum,
@@ -147,7 +150,7 @@ fun SourceSheet(
                 } else {
                     IosDivider(start = 59.dp)
                     IosRow(
-                        title = "Удалить подписку",
+                        title = stringResource(R.string.subscription_delete),
                         titleColor = c.red,
                         icon = Icons.Rounded.DeleteOutline,
                         iconTint = c.red,

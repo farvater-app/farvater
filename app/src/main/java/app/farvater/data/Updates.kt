@@ -1,5 +1,6 @@
 package app.farvater.data
 
+import app.farvater.R
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
@@ -80,14 +81,14 @@ class UpdateRepository(private val context: Context) {
                 lastError = e
             }
         }
-        Result.failure(lastError ?: IllegalStateException("нет зеркал"))
+        Result.failure(lastError ?: IllegalStateException(context.localizedString(R.string.error_no_mirrors)))
     }
 
     suspend fun download(info: UpdateInfo, viaTunnel: Boolean, onProgress: (Float) -> Unit): Result<File> =
         withContext(Dispatchers.IO) {
             runCatching {
-                val asset = info.assetForDevice() ?: error("в релизе нет APK для этого телефона")
-                if (!asset.url.startsWith("https://")) error("ссылка на APK должна быть https")
+                val asset = info.assetForDevice() ?: error(context.localizedString(R.string.error_no_apk))
+                if (!asset.url.startsWith("https://")) error(context.localizedString(R.string.error_apk_https))
                 val target = File(dir, "farvater-${info.versionCode}.apk")
                 dir.listFiles()?.filter { it != target }?.forEach { it.delete() }
                 val client = if (viaTunnel) tunnelClient else baseClient
@@ -95,7 +96,7 @@ class UpdateRepository(private val context: Context) {
                 val digest = MessageDigest.getInstance("SHA-256")
                 client.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) error("HTTP ${response.code}")
-                    val body = response.body ?: error("пустой ответ")
+                    val body = response.body ?: error(context.localizedString(R.string.error_empty_response))
                     val total = body.contentLength().takeIf { it > 0 } ?: asset.size
                     var read = 0L
                     body.byteStream().use { input ->
@@ -115,7 +116,7 @@ class UpdateRepository(private val context: Context) {
                 val actual = digest.digest().joinToString("") { "%02x".format(java.util.Locale.ROOT, it) }
                 if (!actual.equals(asset.sha256, ignoreCase = true)) {
                     target.delete()
-                    error("файл повреждён или подменён: контрольная сумма не совпала")
+                    error(context.localizedString(R.string.error_checksum))
                 }
                 runCatching { verifyApk(target, info) }.onFailure { target.delete() }.getOrThrow()
                 target
@@ -130,12 +131,12 @@ class UpdateRepository(private val context: Context) {
         } else {
             PackageManager.GET_SIGNATURES
         }
-        val archive = pm.getPackageArchiveInfo(apk.path, flags) ?: error("скачанный файл не является APK")
-        if (archive.packageName != context.packageName) error("APK от другого приложения")
-        if (PackageInfoCompat.getLongVersionCode(archive) != info.versionCode.toLong()) error("версия APK не совпадает с объявленной")
+        val archive = pm.getPackageArchiveInfo(apk.path, flags) ?: error(context.localizedString(R.string.error_not_apk))
+        if (archive.packageName != context.packageName) error(context.localizedString(R.string.error_wrong_app))
+        if (PackageInfoCompat.getLongVersionCode(archive) != info.versionCode.toLong()) error(context.localizedString(R.string.error_wrong_version))
         val installed = pm.getPackageInfo(context.packageName, flags)
         val expected = signers(installed)
-        if (expected.isEmpty() || signers(archive) != expected) error("APK подписан чужим ключом")
+        if (expected.isEmpty() || signers(archive) != expected) error(context.localizedString(R.string.error_wrong_signer))
     }
 
     @Suppress("DEPRECATION")

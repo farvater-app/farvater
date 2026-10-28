@@ -1,5 +1,7 @@
 package app.farvater.ui.components
 
+import app.farvater.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.spring
@@ -106,11 +108,11 @@ fun StatusIsland(
     }
 
     val spoken = when (mode) {
-        ConnectMode.Idle -> "VPN выключен"
-        ConnectMode.Searching -> "Идёт поиск рабочего узла"
-        ConnectMode.Connecting -> "Подключение"
-        ConnectMode.Connected -> if (node != null) "Подключено, $node" else "Подключено"
-        ConnectMode.Error -> "Ошибка подключения"
+        ConnectMode.Idle -> stringResource(R.string.vpn_off)
+        ConnectMode.Searching -> stringResource(R.string.node_searching)
+        ConnectMode.Connecting -> stringResource(R.string.settings_connection)
+        ConnectMode.Connected -> if (node != null) stringResource(R.string.connected_node, node) else stringResource(R.string.state_connected)
+        ConnectMode.Error -> stringResource(R.string.connection_error)
     }
 
     val state = when (mode) {
@@ -150,7 +152,7 @@ fun StatusIsland(
                         Icon(Icons.Rounded.GppGood, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
                     }
                     Column {
-                        Text("Подключено", style = text.copy(fontSize = 15.sp, fontWeight = FontWeight.Bold))
+                        Text(stringResource(R.string.state_connected), style = text.copy(fontSize = 15.sp, fontWeight = FontWeight.Bold))
                         if (node != null) {
                             Text(
                                 node,
@@ -183,10 +185,10 @@ fun StatusIsland(
                     }
                     Text(
                         when (s) {
-                            Island.Busy -> if (mode == ConnectMode.Connecting) "Подключение" else "Поиск"
-                            Island.On -> node ?: "Защищено"
-                            Island.Fail -> "Ошибка"
-                            else -> "Выключен"
+                            Island.Busy -> if (mode == ConnectMode.Connecting) stringResource(R.string.settings_connection) else stringResource(R.string.state_searching)
+                            Island.On -> node ?: stringResource(R.string.state_protected)
+                            Island.Fail -> stringResource(R.string.state_error)
+                            else -> stringResource(R.string.vpn_state_off)
                         },
                         style = text,
                         maxLines = 1,

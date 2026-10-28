@@ -1,5 +1,7 @@
 package app.farvater.ui.components
 
+import app.farvater.R
+import androidx.compose.ui.res.stringResource
 import android.provider.Settings
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -161,11 +163,11 @@ fun DotConnectButton(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier 
         label = "press",
     )
     val description = when (mode) {
-        ConnectMode.Idle -> "Подключиться"
-        ConnectMode.Searching -> "Остановить"
-        ConnectMode.Connecting -> "Отменить подключение"
-        ConnectMode.Connected -> "Отключиться"
-        ConnectMode.Error -> "Повторить подключение"
+        ConnectMode.Idle -> stringResource(R.string.action_connect)
+        ConnectMode.Searching -> stringResource(R.string.action_stop_search)
+        ConnectMode.Connecting -> stringResource(R.string.action_cancel_connect)
+        ConnectMode.Connected -> stringResource(R.string.action_disconnect)
+        ConnectMode.Error -> stringResource(R.string.action_retry_connect)
     }
 
     Box(

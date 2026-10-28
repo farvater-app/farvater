@@ -1,5 +1,6 @@
 package app.farvater
 
+import app.farvater.data.AppLanguages
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -35,6 +36,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 class FarvaterActivity : ComponentActivity() {
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(AppLanguages.wrap(base))
+    }
+
     private val vm: MainViewModel by viewModels()
 
     private val vpnPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {

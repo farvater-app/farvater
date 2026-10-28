@@ -57,9 +57,34 @@ import org.robolectric.annotation.GraphicsMode
 
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35], qualifiers = "w393dp-h852dp-xxhdpi", application = Application::class)
+@Config(sdk = [35], qualifiers = "ru-w393dp-h852dp-xxhdpi", application = Application::class)
 class ScreenshotTest {
     @get:Rule val rule = createComposeRule()
+
+    @Test fun locale_en_ios_home() = shot("L_en_ios_home", dark = true, style = UiStyle.IOS, language = "en") { Home(Fake.connected) }
+    @Test fun locale_en_ios_nodes() = shot("L_en_ios_nodes", dark = true, style = UiStyle.IOS, language = "en") { Servers() }
+    @Test fun locale_en_ios_settings() = shot("L_en_ios_settings", dark = true, style = UiStyle.IOS, language = "en") { Settings() }
+    @Test fun locale_en_ios_language() = shot("L_en_ios_language", dark = true, style = UiStyle.IOS, language = "en") { Settings(page = "Language") }
+    @Test fun locale_en_origin_home() = shot("L_en_origin_home", dark = true, style = UiStyle.ORIGIN, language = "en") { Home(Fake.connected) }
+    @Test fun locale_en_origin_nodes() = shot("L_en_origin_nodes", dark = true, style = UiStyle.ORIGIN, language = "en") { Servers() }
+    @Test fun locale_en_origin_settings() = shot("L_en_origin_settings", dark = true, style = UiStyle.ORIGIN, language = "en") { Settings() }
+    @Test fun locale_en_origin_language() = shot("L_en_origin_language", dark = true, style = UiStyle.ORIGIN, language = "en") { Settings(page = "Language") }
+    @Test fun locale_en_witch_home() = shot("L_en_witch_home", dark = true, style = UiStyle.WITCH, language = "en") { Home(Fake.connected) }
+    @Test fun locale_en_witch_nodes() = shot("L_en_witch_nodes", dark = true, style = UiStyle.WITCH, language = "en") { Servers() }
+    @Test fun locale_en_witch_settings() = shot("L_en_witch_settings", dark = true, style = UiStyle.WITCH, language = "en") { Settings() }
+    @Test fun locale_en_witch_language() = shot("L_en_witch_language", dark = true, style = UiStyle.WITCH, language = "en") { Settings(page = "Language") }
+    @Test fun locale_fa_ios_home() = shot("L_fa_ios_home", dark = true, style = UiStyle.IOS, language = "fa") { Home(Fake.connected) }
+    @Test fun locale_fa_ios_nodes() = shot("L_fa_ios_nodes", dark = true, style = UiStyle.IOS, language = "fa") { Servers() }
+    @Test fun locale_fa_ios_settings() = shot("L_fa_ios_settings", dark = true, style = UiStyle.IOS, language = "fa") { Settings() }
+    @Test fun locale_fa_ios_language() = shot("L_fa_ios_language", dark = true, style = UiStyle.IOS, language = "fa") { Settings(page = "Language") }
+    @Test fun locale_fa_origin_home() = shot("L_fa_origin_home", dark = true, style = UiStyle.ORIGIN, language = "fa") { Home(Fake.connected) }
+    @Test fun locale_fa_origin_nodes() = shot("L_fa_origin_nodes", dark = true, style = UiStyle.ORIGIN, language = "fa") { Servers() }
+    @Test fun locale_fa_origin_settings() = shot("L_fa_origin_settings", dark = true, style = UiStyle.ORIGIN, language = "fa") { Settings() }
+    @Test fun locale_fa_origin_language() = shot("L_fa_origin_language", dark = true, style = UiStyle.ORIGIN, language = "fa") { Settings(page = "Language") }
+    @Test fun locale_fa_witch_home() = shot("L_fa_witch_home", dark = true, style = UiStyle.WITCH, language = "fa") { Home(Fake.connected) }
+    @Test fun locale_fa_witch_nodes() = shot("L_fa_witch_nodes", dark = true, style = UiStyle.WITCH, language = "fa") { Servers() }
+    @Test fun locale_fa_witch_settings() = shot("L_fa_witch_settings", dark = true, style = UiStyle.WITCH, language = "fa") { Settings() }
+    @Test fun locale_fa_witch_language() = shot("L_fa_witch_language", dark = true, style = UiStyle.WITCH, language = "fa") { Settings(page = "Language") }
 
     @After fun restoreAnimationScale() {
         Settings.Global.putFloat(ApplicationProvider.getApplicationContext<Application>().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
@@ -424,11 +449,27 @@ class ScreenshotTest {
         nothing: Boolean = false,
         style: UiStyle? = null,
         fontScale: Float = 1f,
+        language: String? = null,
         act: (() -> Unit)? = null,
         content: @Composable () -> Unit,
     ) {
         rule.mainClock.autoAdvance = false
         rule.setContent {
+            val original = androidx.compose.ui.platform.LocalContext.current
+            val originalConfiguration = androidx.compose.ui.platform.LocalConfiguration.current
+            val configuration = androidx.compose.runtime.remember(originalConfiguration, language) {
+                android.content.res.Configuration(originalConfiguration).apply {
+                    if (language != null) setLocale(java.util.Locale.forLanguageTag(language))
+                }
+            }
+            val context = androidx.compose.runtime.remember(original, configuration) {
+                if (language == null) original else original.createConfigurationContext(configuration)
+            }
+            CompositionLocalProvider(
+                androidx.compose.ui.platform.LocalContext provides context,
+                androidx.compose.ui.platform.LocalConfiguration provides configuration,
+                androidx.compose.ui.platform.LocalLayoutDirection provides if (configuration.layoutDirection == 1) androidx.compose.ui.unit.LayoutDirection.Rtl else androidx.compose.ui.unit.LayoutDirection.Ltr,
+            ) {
             FarvaterTheme(
                 darkTheme = dark,
                 style = style ?: when {
@@ -442,6 +483,7 @@ class ScreenshotTest {
             ) {
                 CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) { content() }
             }
+        }
         }
         rule.mainClock.advanceTimeBy(1_500)
         if (act != null) {
@@ -488,9 +530,10 @@ class ScreenshotTest {
     }
 
     @Composable
-    private fun Settings(settings: AppSettings = Fake.state.settings) = FarvaterFrame(tab = Tab.Settings, onTab = {}) { p ->
+    private fun Settings(settings: AppSettings = Fake.state.settings, page: String? = null) = FarvaterFrame(tab = Tab.Settings, onTab = {}) { p ->
         androidx.compose.foundation.layout.Box(Modifier.padding(p)) {
-            SettingsScreen(settings = settings.copy(uiStyle = LocalUiStyle.current), onChange = {}, onOpenDocument = {})
+            SettingsScreen(settings = settings.copy(uiStyle = LocalUiStyle.current), onChange = {}, onOpenDocument = {},
+                pageName = page, onPageName = if (page == null) null else ({}))
         }
     }
 }

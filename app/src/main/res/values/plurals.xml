@@ -1,0 +1,20 @@
+<resources>
+    <plurals name="nodes_count">
+        <item quantity="one">%1$d узел</item>
+        <item quantity="few">%1$d узла</item>
+        <item quantity="many">%1$d узлов</item>
+        <item quantity="other">%1$d узла</item>
+    </plurals>
+    <plurals name="hours_count">
+        <item quantity="one">%1$d час</item>
+        <item quantity="few">%1$d часа</item>
+        <item quantity="many">%1$d часов</item>
+        <item quantity="other">%1$d часа</item>
+    </plurals>
+    <plurals name="unsafe_nodes_count">
+        <item quantity="one">%1$d небезопасный</item>
+        <item quantity="few">%1$d небезопасных</item>
+        <item quantity="many">%1$d небезопасных</item>
+        <item quantity="other">%1$d небезопасных</item>
+    </plurals>
+</resources>

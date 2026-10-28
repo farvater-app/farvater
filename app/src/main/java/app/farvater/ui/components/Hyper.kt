@@ -1,5 +1,8 @@
 package app.farvater.ui.components
 
+import app.farvater.R
+import androidx.compose.ui.res.stringResource
+import app.farvater.ui.theme.localizedFont
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -85,8 +88,8 @@ fun HyperConnect(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         VpnTile(mode, status, onClick, Modifier.weight(1f).fillMaxHeight())
-        SpeedMeter(downBps, peak, active, Icons.Rounded.ArrowDownward, "Загрузка", c.green, Modifier.width(74.dp).fillMaxHeight())
-        SpeedMeter(upBps, peak, active, Icons.Rounded.ArrowUpward, "Отдача", c.blue, Modifier.width(74.dp).fillMaxHeight())
+        SpeedMeter(downBps, peak, active, Icons.Rounded.ArrowDownward, stringResource(R.string.traffic_download), c.green, Modifier.width(74.dp).fillMaxHeight())
+        SpeedMeter(upBps, peak, active, Icons.Rounded.ArrowUpward, stringResource(R.string.traffic_upload), c.blue, Modifier.width(74.dp).fillMaxHeight())
     }
 }
 
@@ -165,11 +168,11 @@ private fun VpnTile(mode: ConnectMode, status: String, onClick: () -> Unit, modi
     }
 
     val description = when (mode) {
-        ConnectMode.Idle -> "Подключиться"
-        ConnectMode.Searching -> "Остановить"
-        ConnectMode.Connecting -> "Отменить подключение"
-        ConnectMode.Connected -> "Отключиться"
-        ConnectMode.Error -> "Повторить подключение"
+        ConnectMode.Idle -> stringResource(R.string.action_connect)
+        ConnectMode.Searching -> stringResource(R.string.action_stop_search)
+        ConnectMode.Connecting -> stringResource(R.string.action_cancel_connect)
+        ConnectMode.Connected -> stringResource(R.string.action_disconnect)
+        ConnectMode.Error -> stringResource(R.string.action_retry_connect)
     }
 
     Box(
@@ -215,10 +218,10 @@ private fun VpnTile(mode: ConnectMode, status: String, onClick: () -> Unit, modi
             Icon(Icons.Rounded.PowerSettingsNew, contentDescription = null, tint = iconFg, modifier = Modifier.size(26.dp))
         }
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()) {
-            Text("VPN", style = TextStyle(fontFamily = HyperFont, fontWeight = FontWeight.Bold, fontSize = 26.sp, lineHeight = 30.sp), color = fg)
+            Text("VPN", style = TextStyle(fontFamily = localizedFont(HyperFont), fontWeight = FontWeight.Bold, fontSize = 26.sp, lineHeight = 30.sp), color = fg)
             Text(
                 status,
-                style = TextStyle(fontFamily = HyperFont, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 18.sp),
+                style = TextStyle(fontFamily = localizedFont(HyperFont), fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 18.sp),
                 color = sub,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -261,14 +264,14 @@ private fun SpeedMeter(
         Column(Modifier.align(Alignment.TopCenter).padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 value,
-                style = TextStyle(fontFamily = HyperFont, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 20.sp).merge(Numeric),
+                style = TextStyle(fontFamily = localizedFont(HyperFont), fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 20.sp).merge(Numeric),
                 color = if (target > 0.84f) Color.White else c.label,
                 maxLines = 1,
             )
             if (unit.isNotEmpty()) {
                 Text(
                     unit,
-                    style = TextStyle(fontFamily = HyperFont, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 14.sp),
+                    style = TextStyle(fontFamily = localizedFont(HyperFont), fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 14.sp),
                     color = if (target > 0.76f) Color.White else c.secondaryLabel,
                     maxLines = 1,
                 )

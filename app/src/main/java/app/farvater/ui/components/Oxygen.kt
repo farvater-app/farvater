@@ -1,5 +1,8 @@
 package app.farvater.ui.components
 
+import app.farvater.R
+import androidx.compose.ui.res.stringResource
+import app.farvater.ui.theme.localizedFont
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -105,11 +108,11 @@ fun OxygenConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = M
     val squash by animateFloatAsState(if (pressed) 0.96f else 1f, spring(dampingRatio = 0.5f, stiffness = 600f), label = "press")
 
     val description = when (mode) {
-        ConnectMode.Idle -> "Подключиться"
-        ConnectMode.Searching -> "Остановить"
-        ConnectMode.Connecting -> "Отменить подключение"
-        ConnectMode.Connected -> "Отключиться"
-        ConnectMode.Error -> "Повторить подключение"
+        ConnectMode.Idle -> stringResource(R.string.action_connect)
+        ConnectMode.Searching -> stringResource(R.string.action_stop_search)
+        ConnectMode.Connecting -> stringResource(R.string.action_cancel_connect)
+        ConnectMode.Connected -> stringResource(R.string.action_disconnect)
+        ConnectMode.Error -> stringResource(R.string.action_retry_connect)
     }
 
     Box(modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
@@ -129,9 +132,9 @@ fun OxygenConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = M
                 .padding(8.dp),
         ) {
             val travel = maxWidth - 80.dp
-            val caption = TextStyle(fontFamily = OxygenFont, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, letterSpacing = 1.5.sp)
+            val caption = TextStyle(fontFamily = localizedFont(OxygenFont), fontWeight = FontWeight.SemiBold, fontSize = 15.sp, letterSpacing = 1.5.sp)
             Text(
-                "ВКЛ",
+                stringResource(R.string.switch_on),
                 style = caption,
                 color = label,
                 modifier = Modifier
@@ -140,7 +143,7 @@ fun OxygenConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = M
                     .graphicsLayer { alpha = position },
             )
             Text(
-                "ВЫКЛ",
+                stringResource(R.string.switch_off),
                 style = caption,
                 color = label,
                 modifier = Modifier

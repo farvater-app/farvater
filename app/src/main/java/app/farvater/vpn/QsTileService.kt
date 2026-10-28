@@ -1,5 +1,7 @@
 package app.farvater.vpn
 
+import app.farvater.data.localizedString
+import app.farvater.data.AppLanguages
 import android.app.PendingIntent
 import android.content.Intent
 import android.net.VpnService
@@ -14,6 +16,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 class QsTileService : TileService() {
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(AppLanguages.wrap(base))
+    }
+
     private var job: Job? = null
 
     override fun onStartListening() {
@@ -31,12 +37,12 @@ class QsTileService : TileService() {
             is VpnState.Connected, is VpnState.Connecting -> Tile.STATE_ACTIVE
             else -> Tile.STATE_INACTIVE
         }
-        tile.label = "Фарватер"
+        tile.label = localizedString(app.farvater.R.string.app_name)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             tile.subtitle = when (state) {
                 is VpnState.Connected -> state.node.name
-                is VpnState.Connecting -> "Подключение"
-                else -> "Выключен"
+                is VpnState.Connecting -> localizedString(app.farvater.R.string.settings_connection)
+                else -> localizedString(app.farvater.R.string.vpn_state_off)
             }
         }
         tile.updateTile()

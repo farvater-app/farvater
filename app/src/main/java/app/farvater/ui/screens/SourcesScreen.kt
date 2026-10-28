@@ -1,5 +1,8 @@
 package app.farvater.ui.screens
 
+import androidx.compose.ui.platform.LocalContext
+import app.farvater.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
@@ -96,11 +99,11 @@ fun SourcesScreen(
         ) {
             item(key = "title") {
                 val total = state.sources.filter { it.enabled && it.inMode }.sumOf { it.nodeCount }
-                IosLargeTitle("Источники", subtitle = "Узлов в работе: $total") {
+                IosLargeTitle(stringResource(R.string.tab_sources), subtitle = stringResource(R.string.nodes_active_count, total)) {
                     if (state.refreshing) {
                         Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { IosSpinner() }
                     } else {
-                        IosCircleButton(Icons.Rounded.Refresh, "Обновить все", onRefresh)
+                        IosCircleButton(Icons.Rounded.Refresh, stringResource(R.string.refresh_all), onRefresh)
                     }
                 }
             }
@@ -108,7 +111,7 @@ fun SourcesScreen(
             item(key = "add") {
                 IosSection {
                     IosRow(
-                        title = "Добавить подписку",
+                        title = stringResource(R.string.subscription_add),
                         titleColor = c.tint,
                         icon = Icons.Rounded.Add,
                         iconTint = c.tint,
@@ -116,7 +119,7 @@ fun SourcesScreen(
                     )
                     IosDivider(start = 59.dp)
                     IosRow(
-                        title = "Вставить из буфера",
+                        title = stringResource(R.string.paste_clipboard),
                         titleColor = c.tint,
                         icon = Icons.Rounded.ContentPaste,
                         iconTint = c.blue,
@@ -127,9 +130,9 @@ fun SourcesScreen(
 
             item(key = "mode") {
                 val choices = NetModeChoice.entries
-                IosSection(header = "Режим сети", footer = modeFooter(state.settings.netMode, state.detectedMode, state.detecting)) {
+                IosSection(header = stringResource(R.string.network_mode_title), footer = modeFooter(state.settings.netMode, state.detectedMode, state.detecting)) {
                     IosSegmented(
-                        options = listOf("Авто", "БС", "ЧС"),
+                        options = listOf(stringResource(R.string.automatic), stringResource(R.string.mode_white_short), stringResource(R.string.mode_black_short)),
                         selected = choices.indexOf(state.settings.netMode),
                         onSelect = { onNetMode(choices[it]) },
                         modifier = Modifier.padding(12.dp),
@@ -139,7 +142,7 @@ fun SourcesScreen(
 
             if (own.isNotEmpty()) {
                 item(key = "own") {
-                    IosSection(header = "Мои подписки") {
+                    IosSection(header = stringResource(R.string.my_subscriptions)) {
                         own.forEachIndexed { i, source ->
                             if (i > 0) IosDivider(start = 59.dp)
                             val alpha by animateFloatAsState(if (source.inMode) 1f else 0.55f, tween(220), label = "dim")
@@ -164,11 +167,11 @@ fun SourcesScreen(
             item(key = "community") {
                 if (!state.settings.communityEnabled) {
                     IosSection(
-                        header = "Публичные подписки",
-                        footer = "Это бесплатные чужие серверы. Удобно при белых списках, но для паролей и банков они не годятся.",
+                        header = stringResource(R.string.public_subscriptions),
+                        footer = stringResource(R.string.public_warning),
                     ) {
                         IosRow(
-                            title = "Включить публичные подписки",
+                            title = stringResource(R.string.public_enable),
                             titleColor = c.tint,
                             icon = Icons.Rounded.Public,
                             iconTint = c.tint,
@@ -177,8 +180,8 @@ fun SourcesScreen(
                     }
                 } else {
                     IosSection(
-                        header = "Публичные подписки",
-                        footer = "Фарватер хранит только ссылки. Серверы принадлежат авторам, поддержите их на страницах проектов.",
+                        header = stringResource(R.string.public_subscriptions),
+                        footer = stringResource(R.string.public_ownership),
                     ) {
                         community.forEachIndexed { i, source ->
                             if (i > 0) IosDivider(start = 59.dp)
@@ -188,7 +191,7 @@ fun SourcesScreen(
                 }
             }
         }
-        IosCompactBar("Источники", visible = collapsed, backdrop = backdrop)
+        IosCompactBar(stringResource(R.string.tab_sources), visible = collapsed, backdrop = backdrop)
     }
 
     menuFor?.let { opened ->
@@ -210,13 +213,17 @@ fun SourcesScreen(
     if (showAdd) {
         var url by remember { mutableStateOf("") }
         IosAlert(
-            title = "Добавить подписку",
-            message = "Вставьте ссылку, которую дал ваш провайдер или автор подписки.",
+            title = stringResource(R.string.subscription_add),
+            message = stringResource(R.string.subscription_paste_hint),
             onDismiss = { showAdd = false },
-            content = { IosTextField(url, { url = it }, "https://…") },
+            content = {
+                androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
+                    IosTextField(url, { url = it }, "https://…")
+                }
+            },
             actions = listOf(
-                AlertAction("Отмена", AlertRole.Default) { showAdd = false },
-                AlertAction("Добавить", AlertRole.Preferred) {
+                AlertAction(stringResource(R.string.action_cancel), AlertRole.Default) { showAdd = false },
+                AlertAction(stringResource(R.string.action_add), AlertRole.Preferred) {
                     if (url.isNotBlank()) onAddSubscription(url)
                     showAdd = false
                 },
@@ -226,12 +233,12 @@ fun SourcesScreen(
 
     removing?.let { source ->
         IosAlert(
-            title = "Удалить подписку?",
+            title = stringResource(R.string.subscription_delete_question),
             message = source.homepage,
             onDismiss = { removing = null },
             actions = listOf(
-                AlertAction("Отмена", AlertRole.Cancel) { removing = null },
-                AlertAction("Удалить", AlertRole.Destructive) {
+                AlertAction(stringResource(R.string.action_cancel), AlertRole.Cancel) { removing = null },
+                AlertAction(stringResource(R.string.action_delete), AlertRole.Destructive) {
                     onRemoveUserSource(source.id)
                     removing = null
                 },
@@ -268,7 +275,7 @@ private fun CommunityRow(source: SourceUi, onToggle: (String, Boolean) -> Unit, 
 private fun AnnounceRow(text: String, alpha: Float) {
     IosDivider(start = 59.dp)
     IosRow(
-        title = "Сообщение подписки",
+        title = stringResource(R.string.subscription_announcement),
         subtitle = text,
         subtitleLines = 8,
         icon = Icons.Rounded.Info,
@@ -277,37 +284,40 @@ private fun AnnounceRow(text: String, alpha: Float) {
     )
 }
 
+@Composable
 private fun modeFooter(choice: NetModeChoice, detected: NetMode?, detecting: Boolean): String = when (choice) {
     NetModeChoice.WHITE -> WhiteInfo.replaceFirstChar { it.uppercase() }
     NetModeChoice.BLACK -> BlackInfo.replaceFirstChar { it.uppercase() }
     NetModeChoice.AUTO -> when {
-        detecting && detected == null -> "Определяю, какие сейчас ограничения…"
-        detected == NetMode.WHITE -> "Сейчас $WhiteInfo"
-        detected == NetMode.BLACK -> "Сейчас $BlackInfo"
-        else -> "Режим пока не определён, работают все подписки."
+        detecting && detected == null -> stringResource(R.string.network_detecting)
+        detected == NetMode.WHITE -> stringResource(R.string.network_detected, WhiteInfo)
+        detected == NetMode.BLACK -> stringResource(R.string.network_detected, BlackInfo)
+        else -> stringResource(R.string.network_unknown)
     }
 }
 
-private const val WhiteInfo = "белые списки: мобильный интернет ограничен, открываются только разрешённые сайты, " +
-    "обычные серверы недоступны. Работают подписки БС."
-private const val BlackInfo = "обычные блокировки: закрыты отдельные сайты, хватает обычных серверов. " +
-    "Работают подписки ЧС, а БС включатся только при белых списках, чтобы не перегружать их серверы."
+private val WhiteInfo: String
+    @Composable get() = stringResource(R.string.network_white_info)
+private val BlackInfo: String
+    @Composable get() = stringResource(R.string.network_black_info)
 
-private fun statusText(source: SourceUi): String = "${modeShort(source.mode)} · обновление ${intervalLabel(source)}\n" + when {
-    source.loading -> "Обновляю…"
-    !source.enabled -> "Выключена"
-    !source.inMode -> if (source.mode == SourceMode.BLACK) "Включится при обычных блокировках" else "Включится при белых списках"
-    source.error != null && source.nodeCount > 0 -> "Из кэша: ${source.nodeCount} узлов, ${source.error}"
+@Composable
+private fun statusText(source: SourceUi): String = stringResource(R.string.source_status_header, modeShort(source.mode), intervalLabel(source)) + when {
+    source.loading -> stringResource(R.string.source_refreshing)
+    !source.enabled -> stringResource(R.string.source_off)
+    !source.inMode -> if (source.mode == SourceMode.BLACK) stringResource(R.string.source_wait_black) else stringResource(R.string.source_wait_white)
+    source.error != null && source.nodeCount > 0 -> stringResource(R.string.source_cached, nodeCountLabel(source.nodeCount), source.error.orEmpty())
     source.error != null -> source.error.replaceFirstChar { it.uppercase() }
-    source.updatedAt > 0 -> "${source.nodeCount} узлов, ${formatAgo(source.updatedAt).removePrefix("обновлён ")}"
+    source.updatedAt > 0 -> stringResource(R.string.source_updated, nodeCountLabel(source.nodeCount), formatAgo(source.updatedAt))
     else -> formatAgo(0).replaceFirstChar { it.uppercase() }
-} + (source.hidden?.let { "\nСкрыто: $it" } ?: "") + (source.usage?.let { "\n" + usageText(it) } ?: "")
+} + (source.hidden?.let { stringResource(R.string.source_hidden, it) } ?: "") + (source.usage?.let { "\n" + usageText(it) } ?: "")
 
+@Composable
 private fun usageText(usage: Usage): String {
-    val traffic = formatBytes(usage.used) + " из " + if (usage.total > 0) formatBytes(usage.total) else "∞"
-    if (usage.expire <= 0) return "Трафик: $traffic"
-    val date = SimpleDateFormat("dd.MM.yyyy", Locale.forLanguageTag("ru")).format(Date(usage.expire * 1000))
-    return "Трафик: $traffic · " + if (usage.expire * 1000 < System.currentTimeMillis()) "истекла $date" else "до $date"
+    val traffic = stringResource(R.string.usage_of, formatBytes(usage.used), if (usage.total > 0) formatBytes(usage.total) else "∞")
+    if (usage.expire <= 0) return stringResource(R.string.usage_traffic, traffic)
+    val date = SimpleDateFormat("dd.MM.yyyy", androidx.compose.ui.platform.LocalConfiguration.current.locales[0]).format(Date(usage.expire * 1000))
+    return stringResource(R.string.usage_traffic, traffic) + " · " + if (usage.expire * 1000 < System.currentTimeMillis()) stringResource(R.string.usage_expired, date) else stringResource(R.string.usage_until, date)
 }
 
 @Composable
@@ -318,3 +328,7 @@ private fun statusColor(source: SourceUi): Color? {
         else -> null
     }
 }
+
+@Composable
+private fun nodeCountLabel(count: Int): String =
+    androidx.compose.ui.res.pluralStringResource(R.plurals.nodes_count, count, count)

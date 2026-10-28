@@ -1,5 +1,7 @@
 package app.farvater.ui.screens
 
+import app.farvater.R
+import androidx.compose.ui.res.stringResource
 import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.compose.foundation.Image
@@ -57,16 +59,16 @@ fun BypassAppsSheet(selected: Set<String>, ruApps: Set<String>, onChange: (Set<S
     }
     val icons = remember { HashMap<String, ImageBitmap?>() }
 
-    IosSheet(title = "Приложения мимо VPN", onClose = onClose) {
+    IosSheet(title = stringResource(R.string.bypass_apps), onClose = onClose) {
         IosSearchField(
             value = query,
             onValueChange = { query = it },
-            placeholder = "Поиск приложений",
+            placeholder = stringResource(R.string.apps_search),
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
         )
         Text(
-            "Отмеченные приложения ходят в интернет напрямую. Изменения применяются сразу." +
-                if (ruApps.isEmpty()) "" else " Российские приложения идут напрямую сами, пока в настройках подключения включены «Российские сервисы».",
+            stringResource(R.string.apps_bypass_hint) +
+                if (ruApps.isEmpty()) "" else stringResource(R.string.apps_russian_hint),
             style = IosType.footnote,
             color = c.secondaryLabel,
             modifier = Modifier.padding(horizontal = 32.dp).padding(bottom = 10.dp),
@@ -96,7 +98,7 @@ fun BypassAppsSheet(selected: Set<String>, ruApps: Set<String>, onChange: (Set<S
                         val checked = app.pkg in selected
                         val toggle = { v: Boolean -> onChange(if (v) selected + app.pkg else selected - app.pkg) }
                         if (app.pkg in ruApps) {
-                            IosRow(title = app.label, leading = { AppIcon(app.pkg, pm, icons) }, value = "напрямую")
+                            IosRow(title = app.label, leading = { AppIcon(app.pkg, pm, icons) }, value = stringResource(R.string.apps_direct))
                         } else {
                             IosRow(
                                 title = app.label,

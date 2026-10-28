@@ -1,14 +1,15 @@
 package app.farvater.net
 
+import app.farvater.R
+import app.farvater.data.LocalizedIOException
+import app.farvater.data.LocalizedHostException
 import okhttp3.Dns
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import java.io.IOException
 import java.net.InetAddress
-import java.net.UnknownHostException
 
 object SafeHttp {
     const val MAX_REDIRECTS = 5
@@ -34,17 +35,17 @@ object SafeHttp {
 
     val dns = object : Dns {
         override fun lookup(hostname: String): List<InetAddress> {
-            if (isLocalHost(hostname)) throw UnknownHostException("$hostname указывает на само устройство")
+            if (isLocalHost(hostname)) throw LocalizedHostException(R.string.error_local_host, hostname)
             return Dns.SYSTEM.lookup(hostname).filterNot(::isLocalAddress).ifEmpty {
-                throw UnknownHostException("$hostname указывает на само устройство")
+                throw LocalizedHostException(R.string.error_local_host, hostname)
             }
         }
     }
 
     fun redirectTarget(from: HttpUrl, location: String?): HttpUrl {
-        val next = location?.let { from.resolve(it) } ?: throw IOException("сервер вернул перенаправление без адреса")
-        if (from.isHttps && !next.isHttps) throw IOException("перенаправление с https на http запрещено")
-        if (isLocalHost(next.host)) throw IOException("перенаправление на само устройство запрещено")
+        val next = location?.let { from.resolve(it) } ?: throw LocalizedIOException(R.string.error_redirect_no_address)
+        if (from.isHttps && !next.isHttps) throw LocalizedIOException(R.string.error_redirect_downgrade)
+        if (isLocalHost(next.host)) throw LocalizedIOException(R.string.error_redirect_local)
         return next
     }
 
@@ -65,7 +66,7 @@ object SafeHttp {
             if (next.host != url.host || next.scheme != url.scheme || next.port != url.port) keepPrivate = false
             current = next
         }
-        throw IOException("слишком много перенаправлений")
+        throw LocalizedIOException(R.string.error_redirect_limit)
     }
 
     fun OkHttpClient.Builder.hardened(): OkHttpClient.Builder =

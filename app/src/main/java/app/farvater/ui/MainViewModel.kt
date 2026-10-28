@@ -1,5 +1,8 @@
 package app.farvater.ui
 
+import app.farvater.data.userMessage
+import app.farvater.R
+import app.farvater.data.localizedString
 import android.app.Application
 import android.content.Intent
 import android.net.VpnService
@@ -115,8 +118,8 @@ data class UiState(
 ) {
     val selectedNode: ProxyNode?
         get() = nodes.firstOrNull { it.id == selectedId } ?: savedNode?.takeIf { it.id == selectedId }
-    fun sourceTitle(id: String): String =
-        if (id == ProxyNode.MANUAL_SOURCE) "вручную" else sources.firstOrNull { it.id == id }?.title ?: id
+    fun sourceTitle(id: String, manualTitle: String): String =
+        if (id == ProxyNode.MANUAL_SOURCE) manualTitle else sources.firstOrNull { it.id == id }?.title ?: id
 }
 
 sealed interface UiEvent {
@@ -132,6 +135,8 @@ sealed interface UpdateStage {
 }
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
+    private fun messageText(id: Int, vararg args: Any): String = getApplication<Application>().localizedString(id, *args)
+
     private val prefs = App.prefs
     private val repo = App.repo
     private val updates = App.updates
@@ -249,6 +254,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun onForeground() {
+        rebuild()
         detectNetMode()
         if (prefs.settings.autoUpdates && System.currentTimeMillis() - prefs.lastUpdateCheck > UPDATE_CHECK_GAP_MS) {
             checkUpdates(manual = false)
@@ -263,7 +269,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             result.onSuccess { prefs.lastUpdateCheck = System.currentTimeMillis() }
             val info = result.getOrNull()
             val autoShow = !manual && info != null && info.versionCode > prefs.shownUpdateVersion
-            if (autoShow && info != null) {
+            if (autoShow) {
                 prefs.shownUpdateVersion = info.versionCode
                 prefs.notifiedVersion = maxOf(prefs.notifiedVersion, info.versionCode)
             }
@@ -272,8 +278,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             when {
                 !manual -> Unit
-                result.isFailure -> toast("Не удалось проверить обновления: сервер недоступен")
-                info == null -> toast("У вас последняя версия")
+                result.isFailure -> toast(messageText(R.string.update_check_failed))
+                info == null -> toast(messageText(R.string.update_latest))
             }
         }
     }
@@ -296,7 +302,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val info = _state.value.update ?: return
         if (_state.value.updateStage is UpdateStage.Downloading) return
         if (!updates.canInstall()) {
-            toast("Разрешите Фарватеру устанавливать обновления и нажмите «Обновить» ещё раз")
+            toast(messageText(R.string.update_permission))
             _events.tryEmit(UiEvent.StartActivity(updates.installPermissionIntent()))
             return
         }
@@ -313,7 +319,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update { it.copy(updateStage = UpdateStage.Idle) }
                 _events.tryEmit(UiEvent.StartActivity(updates.installIntent(apk)))
             }.onFailure { e ->
-                _state.update { it.copy(updateStage = UpdateStage.Failed(e.message ?: "ошибка загрузки")) }
+                _state.update { it.copy(updateStage = UpdateStage.Failed(e.userMessage(getApplication()))) }
             }
         }
     }
@@ -423,7 +429,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(refreshing = false) }
             val loaded = fetchTargets().count { snapshots.value[it.first]?.error == null }
             if (loaded == 0 && fetchTargets().isNotEmpty() && !viaTunnel) {
-                toast("Источники недоступны напрямую. Подключитесь к узлу из кэша — обновление пойдёт через туннель.")
+                toast(messageText(R.string.sources_unreachable))
             }
         }
     }
@@ -477,15 +483,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun addSubscription(url: String) {
         val clean = url.trim()
         if (!clean.startsWith("http://") && !clean.startsWith("https://")) {
-            toast("Это не ссылка на подписку: нужен адрес, начинающийся с https://")
+            toast(messageText(R.string.subscription_url_invalid))
             return
         }
         if (SafeHttp.parse(clean) == null) {
-            toast("Такой адрес подписки нельзя добавить")
+            toast(messageText(R.string.subscription_url_blocked))
             return
         }
         if (prefs.userSources.any { it.url == clean }) {
-            toast("Эта подписка уже добавлена")
+            toast(messageText(R.string.subscription_exists))
             return
         }
         val source = UserSource(id = "user-" + shortHash(clean), url = clean, title = hostOf(clean))
@@ -505,11 +511,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun importText(text: String) {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) {
-            toast("Буфер обмена пуст")
+            toast(messageText(R.string.clipboard_empty))
             return
         }
         if (trimmed.length > MAX_IMPORT) {
-            toast("Слишком много текста для импорта")
+            toast(messageText(R.string.import_too_large))
             return
         }
         if (trimmed.lines().size == 1 && (trimmed.startsWith("https://") || trimmed.startsWith("http://"))) {
@@ -519,7 +525,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             val parsed = SubscriptionParser.parse(trimmed, ProxyNode.MANUAL_SOURCE)
             if (parsed.nodes.isEmpty()) {
-                toast("Не нашёл ссылок vless://, vmess://, trojan://, ss:// или hysteria2://")
+                toast(messageText(R.string.import_no_links))
                 return@launch
             }
             val added = synchronized(repo) {
@@ -528,12 +534,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 count
             }
             rebuild()
-            toast(if (added > 0) "Добавлено узлов: $added" else "Эти узлы уже есть")
+            toast(if (added > 0) messageText(R.string.nodes_added, added) else messageText(R.string.nodes_exist))
         }
     }
 
     fun requestImport(text: String) = _state.update { it.copy(pendingImport = text) }
-    fun rejectImport() = toast("Ссылка для импорта повреждена или не поддерживается")
+    fun rejectImport() = toast(messageText(R.string.import_invalid))
     fun confirmImport() {
         val text = _state.value.pendingImport ?: return
         _state.update { it.copy(pendingImport = null) }
@@ -559,7 +565,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (testJob?.isActive == true) return
         val nodes = _state.value.nodes
         if (nodes.isEmpty()) {
-            toast("Список пуст — включите источники или добавьте подписку")
+            toast(messageText(R.string.nodes_list_empty))
             return
         }
         val settings = prefs.settings
@@ -644,7 +650,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update { it.copy(results = results.value) }
                 recordHealth(listOf(r), sameAccount(listOf(node)))
                 val name = splitFlag(node.name).second
-                toast(if (r.alive) "«$name» отвечает: ${r.delayMs} мс" else "«$name» не отвечает")
+                toast(if (r.alive) messageText(R.string.node_test_alive, name, r.delayMs) else messageText(R.string.dead_node_title, name))
             } finally {
                 _state.update { it.copy(checking = it.checking - node.id) }
             }
@@ -686,8 +692,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             rebuildNow()
         } else if (choice.name != net.name) {
             toast(
-                if (net == NetMode.WHITE) "Галс: похоже, сейчас белые списки, а в «Источниках» выбран режим ЧС. Поставьте «Авто», и Фарватер будет переключаться сам."
-                else "Галс: похоже, сейчас обычные блокировки, а в «Источниках» выбран режим БС. Поставьте «Авто», и Фарватер будет переключаться сам."
+                if (net == NetMode.WHITE) messageText(R.string.gals_white_mismatch)
+                else messageText(R.string.gals_black_mismatch)
             )
         }
         return net
@@ -775,7 +781,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 if (best.id != current.id && stillOnCurrent && GalsPlan.worthSwitching(currentSpeed, bestSpeed)) {
                     setSelected(best, rememberFor = mode)
                     connect(best, restart = true)
-                    toast("Галс нашёл узел быстрее: «${splitFlag(best.name).second}»")
+                    toast(messageText(R.string.gals_faster_node, splitFlag(best.name).second))
                 }
                 return@launch
             }
@@ -784,9 +790,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (target == null) {
                 toast(
                     when {
-                        tried.isEmpty() -> "Рабочих узлов не нашлось. Обновите источники через Wi-Fi или добавьте свою подписку."
-                        dnsBlocked -> "Галс не нашёл узла, через который работает DNS: адреса сайтов через проверенные узлы не узнаются. Обновите источники через Wi-Fi или добавьте свою подписку."
-                        else -> "Галс не нашёл узла, через который идут данные: похоже, провайдер замораживает соединения. Обновите источники через Wi-Fi или добавьте свою подписку."
+                        tried.isEmpty() -> messageText(R.string.gals_no_nodes)
+                        dnsBlocked -> messageText(R.string.gals_no_dns)
+                        else -> messageText(R.string.gals_no_data)
                     },
                 )
                 return@launch
@@ -794,9 +800,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             partialProfiles[target.id]?.let { prefs.rememberProfile(target.id, it) }
             toast(
                 when {
-                    target.id in partial -> "Галс не нашёл узла, через который открывается Telegram: похоже, у проверенных узлов выход в России. Подключаюсь к узлу, через который идут данные."
-                    dnsBlocked -> "Галс не нашёл узла, через который работает DNS: адреса сайтов не узнаются. Подключаюсь к самому быстрому из непроверенных."
-                    else -> "Галс не нашёл узла, через который идут данные: похоже, провайдер замораживает соединения. Подключаюсь к самому быстрому из непроверенных."
+                    target.id in partial -> messageText(R.string.gals_partial)
+                    dnsBlocked -> messageText(R.string.gals_dns_fallback)
+                    else -> messageText(R.string.gals_data_fallback)
                 },
             )
             setSelected(target)
@@ -888,8 +894,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun reportDeadNode() {
         val current = (VpnBus.state.value as? VpnState.Connected)?.node ?: return
         toast(
-            if (prefs.settings.autoSwitch && prefs.backupNodes.nodes.any { it.id != current.id }) "Узел «${current.name}» не отвечает. Ищу другой рабочий узел."
-            else "Узел «${current.name}» не отвечает. Проверьте интернет или выберите другой узел.",
+            if (prefs.settings.autoSwitch && prefs.backupNodes.nodes.any { it.id != current.id }) messageText(R.string.node_failed_switch, current.name)
+            else messageText(R.string.node_failed_choose, current.name),
         )
     }
 
@@ -912,7 +918,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     ?: (bestNode() ?: _state.value.nodes.firstOrNull { it.id !in dead } ?: _state.value.nodes.firstOrNull())
                         ?.also(::setSelected)
                 when {
-                    node == null -> toast("Нет узлов. Включите источники или добавьте подписку.")
+                    node == null -> toast(messageText(R.string.no_nodes_connect))
                     node.id in dead -> preflight(node)
                     else -> connect(node)
                 }
@@ -986,7 +992,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val node = pendingNode
         pendingNode = null
         if (granted && node != null) FarvaterVpnService.start(getApplication(), node)
-        else if (!granted) toast("Без разрешения на VPN подключиться нельзя")
+        else if (!granted) toast(messageText(R.string.vpn_permission_denied))
     }
 
     fun updateSettings(transform: (AppSettings) -> AppSettings) {
@@ -1056,7 +1062,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         fun hiddenNote(snap: SourceSnapshot?): String? {
             snap ?: return null
             val parts = buildList {
-                snap.nodes.count { hideInsecure(it) }.takeIf { it > 0 }?.let { add("$it небезопасных") }
+                snap.nodes.count { hideInsecure(it) }.takeIf { it > 0 }?.let { add(app.farvater.data.AppLanguages.wrap(getApplication<Application>()).resources.getQuantityString(R.plurals.unsafe_nodes_count, it, it)) }
                 snap.skipped.forEach { (scheme, n) -> add("$n $scheme") }
             }
             return parts.takeIf { it.isNotEmpty() }?.joinToString(", ")
@@ -1065,8 +1071,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val community = BuiltInCatalog.sources.map { s ->
             val snap = snaps[s.id]
             SourceUi(
-                id = s.id, title = s.title, author = s.author, license = s.license, homepage = s.homepage, forum = s.forum,
-                description = s.description, community = true,
+                id = s.id, title = messageText(s.titleRes), author = s.author, license = messageText(s.licenseRes), homepage = s.homepage, forum = s.forum,
+                description = messageText(s.descriptionRes), community = true,
                 enabled = settings.communityEnabled && s.id in enabled,
                 nodeCount = shown(snap), updatedAt = snap?.updatedAt ?: 0,
                 error = snap?.error, loading = s.id in busy, hidden = hiddenNote(snap),
@@ -1079,7 +1085,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val own = prefs.userSources.map { u ->
             val snap = snaps[u.id]
             SourceUi(
-                id = u.id, title = snap?.title ?: u.title, author = "ваша подписка", license = "",
+                id = u.id, title = snap?.title ?: u.title, author = messageText(R.string.source_own_author), license = "",
                 homepage = u.url, description = u.url, community = false, enabled = true,
                 nodeCount = shown(snap), updatedAt = snap?.updatedAt ?: 0,
                 error = snap?.error, loading = u.id in busy, hidden = hiddenNote(snap),
@@ -1142,7 +1148,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun shortHash(s: String) =
         MessageDigest.getInstance("SHA-1").digest(s.toByteArray()).take(5).joinToString("") { "%02x".format(java.util.Locale.ROOT, it) }
 
-    private fun hostOf(url: String) = url.substringAfter("://").substringBefore('/').ifBlank { "Подписка" }
+    private fun hostOf(url: String) = url.substringAfter("://").substringBefore('/').ifBlank { messageText(R.string.subscription_title) }
 
     companion object {
         private val communityIds = BuiltInCatalog.sources.map { it.id }.toSet()

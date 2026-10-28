@@ -50,7 +50,7 @@ import org.robolectric.annotation.GraphicsMode
 
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35], application = Application::class)
+@Config(sdk = [35], application = Application::class, qualifiers = "ru")
 class WitchStyleTest {
     @get:Rule val rule = createComposeRule()
     private val app = ApplicationProvider.getApplicationContext<Application>()

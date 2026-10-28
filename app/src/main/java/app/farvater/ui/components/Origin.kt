@@ -1,5 +1,7 @@
 package app.farvater.ui.components
 
+import app.farvater.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -169,11 +171,11 @@ fun OriginConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = M
     val ripple by originLoop(mode == ConnectMode.Connected && !still && !calm, 2400, FastOutSlowInEasing, RepeatMode.Restart, "ripple")
 
     val description = when (mode) {
-        ConnectMode.Idle -> "Подключиться"
-        ConnectMode.Searching -> "Остановить"
-        ConnectMode.Connecting -> "Отменить подключение"
-        ConnectMode.Connected -> "Отключиться"
-        ConnectMode.Error -> "Повторить подключение"
+        ConnectMode.Idle -> stringResource(R.string.action_connect)
+        ConnectMode.Searching -> stringResource(R.string.action_stop_search)
+        ConnectMode.Connecting -> stringResource(R.string.action_cancel_connect)
+        ConnectMode.Connected -> stringResource(R.string.action_disconnect)
+        ConnectMode.Error -> stringResource(R.string.action_retry_connect)
     }
     val button = size * 0.66f
 

@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class, shadows = [MainViewModelLifecycleTest.Repository::class],
-    instrumentedPackages = ["app.farvater.data.SubscriptionRepository"])
+    instrumentedPackages = ["app.farvater.data.SubscriptionRepository"] , qualifiers = "ru")
 class MainViewModelLifecycleTest {
     private lateinit var vm: MainViewModel
     private lateinit var state: MutableStateFlow<UiState>

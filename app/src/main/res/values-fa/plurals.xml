@@ -1,0 +1,14 @@
+<resources>
+    <plurals name="nodes_count">
+        <item quantity="one">%1$d گره</item>
+        <item quantity="other">%1$d گره</item>
+    </plurals>
+    <plurals name="hours_count">
+        <item quantity="one">%1$d ساعت</item>
+        <item quantity="other">%1$d ساعت</item>
+    </plurals>
+    <plurals name="unsafe_nodes_count">
+        <item quantity="one">%1$d ناامن</item>
+        <item quantity="other">%1$d ناامن</item>
+    </plurals>
+</resources>

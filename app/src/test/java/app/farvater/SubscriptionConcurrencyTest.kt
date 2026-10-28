@@ -14,7 +14,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], application = Application::class)
+@Config(sdk = [35], application = Application::class, qualifiers = "ru")
 class SubscriptionConcurrencyTest {
     @Test
     fun removalWaitsForImportTransactionAndPreservesNewNodes() {

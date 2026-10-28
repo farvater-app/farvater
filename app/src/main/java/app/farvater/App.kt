@@ -1,5 +1,7 @@
 package app.farvater
 
+import app.farvater.data.localizedString
+import app.farvater.data.AppLanguages
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -25,8 +27,13 @@ import java.net.Authenticator
 import java.net.PasswordAuthentication
 
 class App : Application() {
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(AppLanguages.wrap(base))
+    }
+
     override fun onCreate() {
         super.onCreate()
+        AppLanguages.migrate(this)
         instance = this
         prefs = Prefs(this)
         repo = SubscriptionRepository(this)
@@ -43,11 +50,7 @@ class App : Application() {
                 }
         })
         updates = UpdateRepository(this)
-        getSystemService(NotificationManager::class.java).apply {
-            createNotificationChannel(NotificationChannel(FarvaterVpnService.CHANNEL, "Подключение", NotificationManager.IMPORTANCE_LOW))
-            createNotificationChannel(NotificationChannel(UpdateWorker.CHANNEL, "Обновления", NotificationManager.IMPORTANCE_HIGH))
-            deleteNotificationChannel("updates")
-        }
+        refreshChannels()
         UpdateWorker.schedule(this)
         MainScope().launch { VpnBus.state.collect { VpnWidget.refresh(this@App, it) } }
         val power = getSystemService(PowerManager::class.java)
@@ -62,6 +65,19 @@ class App : Application() {
             IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED),
             ContextCompat.RECEIVER_EXPORTED,
         )
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        AppLanguages.refresh(this)
+    }
+
+    fun refreshChannels() {
+        getSystemService(NotificationManager::class.java).apply {
+            createNotificationChannel(NotificationChannel(FarvaterVpnService.CHANNEL, localizedString(R.string.settings_connection), NotificationManager.IMPORTANCE_LOW))
+            createNotificationChannel(NotificationChannel(UpdateWorker.CHANNEL, localizedString(R.string.settings_updates), NotificationManager.IMPORTANCE_HIGH))
+            deleteNotificationChannel("updates")
+        }
     }
 
     companion object {

@@ -174,7 +174,7 @@ fun HomeScreen(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    if (witch && m == ConnectMode.Idle) stringResource(R.string.witch_connect_hint) else if (m == ConnectMode.Connected && stalled) "Узел не отвечает. Проверьте интернет или выберите другой узел" else supporting(m, vpn, state, sumie),
+                    if (witch && m == ConnectMode.Idle) stringResource(R.string.witch_connect_hint) else if (m == ConnectMode.Connected && stalled) stringResource(R.string.node_stalled) else supporting(m, vpn, state, sumie),
                     style = IosType.subheadline,
                     color = c.secondaryLabel,
                     textAlign = TextAlign.Center,
@@ -183,7 +183,7 @@ fun HomeScreen(
                 )
                 if (m == ConnectMode.Connected && stalled) {
                     IosButton(
-                        "Найти рабочий",
+                        stringResource(R.string.find_working_short),
                         onClick = onFindWorking,
                         style = IosButtonStyle.Plain,
                         modifier = Modifier.padding(top = 4.dp),
@@ -220,8 +220,8 @@ fun HomeScreen(
                 )
             }
             IosLargeTitle(
-                title = if (oneUi) headline(mode, state) else "Фарватер",
-                subtitle = if (!oneUi) null else if (mode == ConnectMode.Connected && stalled) "Узел не отвечает. Проверьте интернет или выберите другой узел" else supporting(mode, vpn, state, sumie),
+                title = if (oneUi) headline(mode, state) else stringResource(R.string.app_name),
+                subtitle = if (!oneUi) null else if (mode == ConnectMode.Connected && stalled) stringResource(R.string.node_stalled) else supporting(mode, vpn, state, sumie),
             ) {
                 if (!island && !oneUi) {
                     Badge(shortStatus(mode), statusColor(mode), active = mode != ConnectMode.Idle)
@@ -230,15 +230,15 @@ fun HomeScreen(
                 if (state.refreshing) {
                     Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { IosSpinner() }
                 } else {
-                    IosCircleButton(Icons.Rounded.Refresh, "Обновить все", onRefresh)
+                    IosCircleButton(Icons.Rounded.Refresh, stringResource(R.string.refresh_all), onRefresh)
                 }
             }
 
             state.update?.let { info ->
                 IosSection {
                     IosRow(
-                        title = if (info.critical) "Важное обновление ${info.versionName}" else "Доступен Фарватер ${info.versionName}",
-                        subtitle = info.notes.firstOrNull() ?: "Нажмите, чтобы посмотреть, что нового",
+                        title = if (info.critical) stringResource(R.string.update_critical, info.versionName) else stringResource(R.string.update_available, info.versionName),
+                        subtitle = info.notes.firstOrNull() ?: stringResource(R.string.update_view_changes),
                         subtitleLines = 1,
                         icon = Icons.Rounded.SystemUpdate,
                         iconTint = if (info.critical) c.red else c.blue,
@@ -292,13 +292,13 @@ fun HomeScreen(
                         Column(Modifier.padding(16.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    "Проверено ${progress.done} из ${progress.total}",
+                                    stringResource(R.string.checked_progress, progress.done, progress.total),
                                     style = IosType.subheadline.merge(Numeric),
                                     color = c.label,
                                     modifier = Modifier.weight(1f),
                                 )
                                 Text(
-                                    "Остановить",
+                                    stringResource(R.string.action_stop_search),
                                     style = IosType.subheadline.copy(fontWeight = FontWeight.SemiBold),
                                     color = c.red,
                                     modifier = Modifier.clickable(onClick = onCancelTest),
@@ -321,10 +321,10 @@ fun HomeScreen(
 
             IosSection(
                 header = when {
-                    !state.settings.modeNodes -> "Узел"
-                    state.netMode == NetMode.WHITE -> "Узел для белых списков"
-                    state.netMode == NetMode.BLACK -> "Узел для обычных блокировок"
-                    else -> "Узел"
+                    !state.settings.modeNodes -> stringResource(R.string.node_title)
+                    state.netMode == NetMode.WHITE -> stringResource(R.string.node_whitelist)
+                    state.netMode == NetMode.BLACK -> stringResource(R.string.node_blocklist)
+                    else -> stringResource(R.string.node_title)
                 },
             ) {
                 val node = state.selectedNode
@@ -333,7 +333,7 @@ fun HomeScreen(
                     val listed = remember(node.id, state.nodes) { state.nodes.any { it.id == node.id } }
                     IosRow(
                         title = title,
-                        subtitle = if (listed) nodeSummary(node) else "Сейчас его нет в списке источников, но он остаётся выбранным",
+                        subtitle = if (listed) nodeSummary(node) else stringResource(R.string.node_unlisted_selected),
                         leading = { NodeAvatar(flag, node, size = 40.dp) },
                         chevron = true,
                         onClick = onOpenServers,
@@ -341,8 +341,8 @@ fun HomeScreen(
                     )
                 } else {
                     IosRow(
-                        title = "Выберется автоматически",
-                        subtitle = "В списке ${state.nodes.size}, нажмите, чтобы выбрать",
+                        title = stringResource(R.string.node_auto),
+                        subtitle = stringResource(R.string.nodes_choose_count, state.nodes.size),
                         icon = Icons.Rounded.Radar,
                         iconTint = c.gray,
                         chevron = true,
@@ -353,7 +353,7 @@ fun HomeScreen(
 
             AnimatedVisibility(visible = progress == null && state.pathfinding == null && !state.gals, enter = fadeIn(), exit = fadeOut()) {
                 IosButton(
-                    "Найти рабочий узел",
+                    stringResource(R.string.find_working_node),
                     onClick = onFindWorking,
                     style = IosButtonStyle.Tinted,
                     icon = Icons.Rounded.Radar,
@@ -363,7 +363,7 @@ fun HomeScreen(
 
             Spacer(Modifier.height(24.dp + LocalBottomInset.current))
         }
-        IosCompactBar("Фарватер", visible = collapsed, backdrop = backdrop)
+        IosCompactBar(stringResource(R.string.app_name), visible = collapsed, backdrop = backdrop)
     }
 }
 
@@ -378,57 +378,62 @@ private fun statusColor(mode: ConnectMode): Color {
     }
 }
 
+@Composable
 private fun shortStatus(mode: ConnectMode): String = when (mode) {
-    ConnectMode.Idle -> "Выключен"
-    ConnectMode.Searching -> "Поиск"
-    ConnectMode.Connecting -> "Подключение"
-    ConnectMode.Connected -> "Защищено"
-    ConnectMode.Error -> "Ошибка"
+    ConnectMode.Idle -> stringResource(R.string.vpn_state_off)
+    ConnectMode.Searching -> stringResource(R.string.state_searching)
+    ConnectMode.Connecting -> stringResource(R.string.settings_connection)
+    ConnectMode.Connected -> stringResource(R.string.state_protected)
+    ConnectMode.Error -> stringResource(R.string.state_error)
 }
 
+@Composable
 private fun tileStatus(mode: ConnectMode, state: UiState, node: String?): String = when (mode) {
-    ConnectMode.Idle -> "Выключен"
-    ConnectMode.Searching -> "Поиск"
-    ConnectMode.Connecting -> "Подключение"
-    ConnectMode.Connected -> node ?: "Защищено"
-    ConnectMode.Error -> "Ошибка"
+    ConnectMode.Idle -> stringResource(R.string.vpn_state_off)
+    ConnectMode.Searching -> stringResource(R.string.state_searching)
+    ConnectMode.Connecting -> stringResource(R.string.settings_connection)
+    ConnectMode.Connected -> node ?: stringResource(R.string.state_protected)
+    ConnectMode.Error -> stringResource(R.string.state_error)
 }
 
+@Composable
 private fun profileLabel(profile: NodeProfile): String = listOfNotNull(
     profile.fingerprint?.replaceFirstChar { it.uppercase() },
     "mux".takeIf { profile.mux },
-    "дробление пакетов".takeIf { profile.fragment },
-).joinToString(" + ").ifEmpty { "обычный" }.let { "профиль: $it" }
+    stringResource(R.string.profile_fragment).takeIf { profile.fragment },
+).joinToString(" + ").ifEmpty { stringResource(R.string.profile_default) }.let { stringResource(R.string.profile_label, it) }
 
+@Composable
 private fun headline(mode: ConnectMode, state: UiState): String = when (mode) {
-    ConnectMode.Idle -> "Не подключено"
+    ConnectMode.Idle -> stringResource(R.string.state_disconnected)
     ConnectMode.Searching -> when {
-        state.sensing -> "Галс проверяет сеть"
-        state.pathfinding != null -> "Галс ищет рабочие профили"
-        state.gals -> "Галс ищет рабочие узлы"
-        else -> "Проверяю узлы"
+        state.sensing -> stringResource(R.string.state_gals_network)
+        state.pathfinding != null -> stringResource(R.string.state_gals_profiles)
+        state.gals -> stringResource(R.string.state_gals_nodes)
+        else -> stringResource(R.string.state_testing)
     }
-    ConnectMode.Connecting -> "Подключаюсь"
-    ConnectMode.Connected -> "Подключено"
-    ConnectMode.Error -> "Не удалось подключиться"
+    ConnectMode.Connecting -> stringResource(R.string.state_connecting)
+    ConnectMode.Connected -> stringResource(R.string.state_connected)
+    ConnectMode.Error -> stringResource(R.string.state_failed)
 }
 
+@Composable
 private fun supporting(mode: ConnectMode, vpn: VpnState, state: UiState, sumie: Boolean): String = when (mode) {
-    ConnectMode.Idle -> if (sumie) "Нажмите на круг, чтобы подключиться" else "Нажмите кнопку, чтобы подключиться"
+    ConnectMode.Idle -> if (sumie) stringResource(R.string.connect_circle_hint) else stringResource(R.string.connect_button_hint)
     ConnectMode.Searching -> when {
-        state.sensing -> "Белые списки или обычные блокировки"
+        state.sensing -> stringResource(R.string.network_mode_detecting)
         state.pathfinding != null -> state.pathfinding.let { "«${splitFlag(it.node).second}», ${profileLabel(it.profile)}" }
         else -> state.progress?.let { p ->
             when (state.galsNet) {
-                NetMode.WHITE -> "Белые списки, отвечают ${p.alive}"
-                NetMode.BLACK -> "Обычные блокировки, отвечают ${p.alive}"
-                null -> "Отвечают ${p.alive}"
+                NetMode.WHITE -> stringResource(R.string.whitelist_alive, p.alive)
+                NetMode.BLACK -> stringResource(R.string.blocklist_alive, p.alive)
+                null -> stringResource(R.string.nodes_alive, p.alive)
             }
         }.orEmpty()
     }
     ConnectMode.Connecting -> ((vpn as? VpnState.Connecting)?.node ?: state.preflight)?.let { splitFlag(it.name).second }.orEmpty()
-    ConnectMode.Connected -> if (state.refining) "Галс ещё ищет узел быстрее" else "Трафик идёт через выбранный узел"
-    ConnectMode.Error -> (vpn as? VpnState.Failed)?.message ?: "Попробуйте другой узел"
+    ConnectMode.Connected -> if (state.refining) stringResource(R.string.gals_refining) else stringResource(R.string.traffic_selected_node)
+    ConnectMode.Error -> (vpn as? VpnState.Failed)?.message ?: stringResource(R.string.try_another_node)
 }
 
 @Composable
@@ -441,11 +446,11 @@ private fun SessionSection(vpn: VpnState.Connected, traffic: Traffic, history: L
             delay(1000)
         }
     }
-    IosSection(header = "Сеанс") {
+    IosSection(header = stringResource(R.string.session_title)) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Stat(Icons.Rounded.ArrowDownward, "Загрузка", formatSpeed(traffic.downBps), c.green, Modifier.weight(1f))
+            Stat(Icons.Rounded.ArrowDownward, stringResource(R.string.traffic_download), formatSpeed(traffic.downBps), c.green, Modifier.weight(1f))
             Box(Modifier.width(0.5.dp).height(36.dp).background(c.separator))
-            Stat(Icons.Rounded.ArrowUpward, "Отдача", formatSpeed(traffic.upBps), c.blue, Modifier.weight(1f).padding(start = 16.dp))
+            Stat(Icons.Rounded.ArrowUpward, stringResource(R.string.traffic_upload), formatSpeed(traffic.upBps), c.blue, Modifier.weight(1f).padding(start = 16.dp))
         }
         if (Ios.nothing) {
             DotBars(history, Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 16.dp, vertical = 8.dp))
@@ -455,17 +460,17 @@ private fun SessionSection(vpn: VpnState.Connected, traffic: Traffic, history: L
             Sparkline(history, c.green, Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 16.dp, vertical = 8.dp))
         }
         IosDivider()
-        IosRow(title = "В сети", value = formatDuration(now - vpn.since))
+        IosRow(title = stringResource(R.string.session_online), value = formatDuration(now - vpn.since))
         IosDivider()
-        IosRow(title = "За сеанс", value = formatBytes(traffic.upTotal + traffic.downTotal))
+        IosRow(title = stringResource(R.string.traffic_session), value = formatBytes(traffic.upTotal + traffic.downTotal))
         IosDivider()
-        IosRow(title = "За сегодня", value = formatBytes(traffic.today))
+        IosRow(title = stringResource(R.string.traffic_today), value = formatBytes(traffic.today))
         IosDivider()
         IosRow(
-            title = "Защита",
+            title = stringResource(R.string.protection_title),
             value = listOfNotNull(
-                vpn.node.securityIssue ?: protectionOf(vpn.node),
-                if (encryptedDns) "DNS по HTTPS" else null,
+                securityLabel(vpn.node.securityIssue) ?: protectionOf(vpn.node),
+                if (encryptedDns) stringResource(R.string.protection_https_dns) else null,
             ).joinToString(", "),
             valueColor = if (vpn.node.isInsecure) Ios.colors.red else Ios.colors.green,
         )
@@ -494,11 +499,20 @@ private fun Stat(icon: ImageVector, label: String, value: String, tint: Color, m
     }
 }
 
+@Composable
 private fun protectionOf(node: ProxyNode): String = when {
     node.security == "reality" -> "Reality"
     node.security == "tls" || node.protocol == Protocol.HYSTERIA2 ||
         (node.protocol == Protocol.TROJAN && node.security.isBlank()) -> "TLS"
     node.protocol == Protocol.SHADOWSOCKS -> "Shadowsocks"
     node.protocol == Protocol.VMESS -> "VMess"
-    else -> "шифрование узла"
+    else -> stringResource(R.string.protection_node)
+}
+
+@Composable
+private fun securityLabel(issue: String?): String? = when (issue) {
+    "Без проверки сертификата" -> stringResource(R.string.security_no_certificate)
+    "Без шифрования" -> stringResource(R.string.security_no_encryption)
+    "Устаревшее шифрование" -> stringResource(R.string.security_old_encryption)
+    else -> issue
 }

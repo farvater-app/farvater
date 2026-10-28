@@ -1,5 +1,8 @@
 package app.farvater.vpn
 
+import app.farvater.data.userMessage
+import app.farvater.data.localizedString
+import app.farvater.data.AppLanguages
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -59,6 +62,10 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
 
 class FarvaterVpnService : VpnService() {
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(AppLanguages.wrap(base))
+    }
+
     companion object {
         const val ACTION_START = "app.farvater.action.START"
         const val ACTION_STOP = "app.farvater.action.STOP"
@@ -155,7 +162,7 @@ class FarvaterVpnService : VpnService() {
             return START_NOT_STICKY
         }
         val node = App.prefs.lastNode
-        startForegroundCompat(notification(node?.name ?: "Подключение", "Поднимаю туннель"))
+        startForegroundCompat(notification(node?.name ?: localizedString(R.string.settings_connection), localizedString(R.string.tunnel_starting)))
         val restart = intent?.getBooleanExtra(EXTRA_RESTART, false) ?: false
         val fromSystem = intent?.action != ACTION_START || intent?.getBooleanExtra(EXTRA_CHECK_MODE, false) == true
         val generation = ++startGeneration
@@ -167,7 +174,7 @@ class FarvaterVpnService : VpnService() {
                 if (stopped || generation != startGeneration) return@launch
                 engineOwner = this@FarvaterVpnService
                 if (node == null) {
-                    fail("Сначала выберите сервер в приложении", null, generation)
+                    fail(localizedString(R.string.choose_node_first), null, generation)
                     return@launch
                 }
                 startVpn(node, restart, generation = generation)
@@ -194,7 +201,7 @@ class FarvaterVpnService : VpnService() {
             engineOwner = this
             val current = VpnBus.state.value
             if (!restart && tun != null && current is VpnState.Connected && current.node == node) {
-                updateNotification(node.name, "Подключено")
+                updateNotification(node.name, localizedString(R.string.state_connected))
                 return
             }
             connectLocked(node, fallback, generation)
@@ -232,7 +239,7 @@ class FarvaterVpnService : VpnService() {
             encryptedDns = settings.encryptedDns,
             profile = App.prefs.profileFor(node.id),
         )
-        XrayEngine.start(config).onFailure { return abort("Ядро не запустилось: ${it.message}") }
+        XrayEngine.start(config).onFailure { return abort(localizedString(R.string.xray_start_failed, it.userMessage(this))) }
 
         if (cancelled()) return
 
@@ -247,7 +254,7 @@ class FarvaterVpnService : VpnService() {
         bypass.forEach { pkg -> runCatching { builder.addDisallowedApplication(pkg) } }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false)
 
-        val fd = builder.establish() ?: return abort("Нет разрешения на VPN")
+        val fd = builder.establish() ?: return abort(localizedString(R.string.vpn_permission_missing))
         tun = fd
         runCatching { previous?.close() }
         TunBridge.start(this, fd.fd, settings.mtu).onFailure {
@@ -256,7 +263,7 @@ class FarvaterVpnService : VpnService() {
                 App.prefs.selectNode(fallback)
                 return connectLocked(fallback, generation = generation)
             }
-            return fail("TUN не запустился: ${it.message}", node, generation)
+            return fail(localizedString(R.string.tun_start_failed, it.userMessage(this)), node, generation)
         }
 
         if (cancelled()) return
@@ -264,7 +271,7 @@ class FarvaterVpnService : VpnService() {
             if (!isCurrent(generation)) return
             VpnBus.state.value = VpnState.Connected(node, System.currentTimeMillis())
             App.prefs.vpnWasOn = true
-            updateNotification(node.name, "Подключено")
+            updateNotification(node.name, localizedString(R.string.state_connected))
             monitor = scope.launch { monitorLoop(node) }
             if (networkCallback == null) watchNetwork()
         }
@@ -321,14 +328,14 @@ class FarvaterVpnService : VpnService() {
             if (tick % 5 == 0) {
                 val t = VpnBus.traffic.value
                 if (failures >= VpnBus.STALL_CHECKS) {
-                    updateNotification(node.name, "Узел не отвечает")
+                    updateNotification(node.name, localizedString(R.string.node_unresponsive))
                 } else {
-                    val speed = "↓ ${formatSpeed(t.downBps)}   ↑ ${formatSpeed(t.upBps)}"
+                    val speed = "↓ ${formatSpeed(AppLanguages.wrap(this@FarvaterVpnService), t.downBps)}   ↑ ${formatSpeed(AppLanguages.wrap(this@FarvaterVpnService), t.upBps)}"
                     updateNotification(
                         node.name,
                         speed,
-                        sub = "сегодня ${formatBytes(t.today)}",
-                        details = "$speed\nЗа сеанс ${formatBytes(t.upTotal + t.downTotal)}, за сегодня ${formatBytes(t.today)}",
+                        sub = localizedString(R.string.notification_today, formatBytes(AppLanguages.wrap(this@FarvaterVpnService), t.today)),
+                        details = localizedString(R.string.notification_traffic, speed, formatBytes(AppLanguages.wrap(this@FarvaterVpnService), t.upTotal + t.downTotal), formatBytes(AppLanguages.wrap(this@FarvaterVpnService), t.today)),
                     )
                 }
             }
@@ -435,7 +442,7 @@ class FarvaterVpnService : VpnService() {
             if (backups.mode != "ANY" && mode != null && backups.mode != mode) return@launch
             val url = App.prefs.settings.testUrl
             for (next in Failover.order(backups.nodes, current, failedBackups).filter { App.prefs.allowedForAuto(it) }.take(Failover.TRIES)) {
-                updateNotification(current.name, "Узел не отвечает, проверяю «${next.name}»")
+                updateNotification(current.name, localizedString(R.string.notification_testing_next, next.name))
                 val alive = runInterruptible { NodeTester.test(next, url) }.alive
                 ensureActive()
                 if (!alive) {
@@ -558,7 +565,7 @@ class FarvaterVpnService : VpnService() {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(open)
-            .addAction(Notification.Action.Builder(null as Icon?, "Отключить", stop).build())
+            .addAction(Notification.Action.Builder(null as Icon?, localizedString(R.string.notification_disconnect), stop).build())
             .apply {
                 if (sub != null) setSubText(sub)
                 if (details != null) setStyle(Notification.BigTextStyle().bigText(details))

@@ -1,5 +1,7 @@
 package app.farvater.ui
 
+import app.farvater.R
+import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -38,6 +40,8 @@ import app.farvater.vpn.VpnBus
 
 @Composable
 fun FarvaterRoot(vm: MainViewModel) {
+    val linkCopied = stringResource(R.string.link_copied)
+    val hwidCopied = stringResource(R.string.hwid_copied)
     val state by vm.state.collectAsStateWithLifecycle()
 
     var tab by rememberSaveable { mutableStateOf(Tab.Home) }
@@ -104,7 +108,7 @@ fun FarvaterRoot(vm: MainViewModel) {
                     onToggleGroup = vm::toggleGroup,
                     onCancelTest = vm::cancelTest,
                     onDeleteManual = vm::deleteManualNode,
-                    onCopied = { vm.showMessage("Ссылка скопирована") },
+                    onCopied = { vm.showMessage(linkCopied) },
                     onDuplicates = { remove -> vm.updateSettings { it.copy(dropDuplicates = remove, duplicatesAsked = true) } },
                 )
                 Tab.Sources -> SourcesScreen(
@@ -127,7 +131,7 @@ fun FarvaterRoot(vm: MainViewModel) {
                     pageName = settingsPage,
                     onPageName = { settingsPage = it },
                     hwid = vm.hwid,
-                    onCopied = { vm.showMessage("HWID скопирован") },
+                    onCopied = { vm.showMessage(hwidCopied) },
                     updateVersion = state.update?.versionName,
                     checkingUpdates = state.updateStage is UpdateStage.Checking,
                     onCheckUpdates = vm::openUpdate,
@@ -149,13 +153,13 @@ fun FarvaterRoot(vm: MainViewModel) {
 
     if (state.settings.onboardingDone && !reopenOnboarding && state.settings.acceptedLegalVersion < LEGAL_VERSION) {
         IosAlert(
-            title = "Условия обновились",
-            message = "Прочитайте, что изменилось в условиях и политике конфиденциальности, и подтвердите согласие.",
+            title = stringResource(R.string.legal_updated),
+            message = stringResource(R.string.legal_updated_hint),
             onDismiss = {},
             actions = listOf(
-                AlertAction("Условия") { openDocument = LegalDocs.TERMS },
-                AlertAction("Конфиденциальность") { openDocument = LegalDocs.PRIVACY },
-                AlertAction("Принимаю", AlertRole.Preferred) { vm.acceptLegal() },
+                AlertAction(stringResource(R.string.terms_short)) { openDocument = LegalDocs.TERMS },
+                AlertAction(stringResource(R.string.privacy_short)) { openDocument = LegalDocs.PRIVACY },
+                AlertAction(stringResource(R.string.action_accept), AlertRole.Preferred) { vm.acceptLegal() },
             ),
         )
     }
@@ -169,24 +173,24 @@ fun FarvaterRoot(vm: MainViewModel) {
 
     state.deadPrompt?.let { node ->
         IosAlert(
-            title = "«${splitFlag(node.name).second}» не отвечает",
-            message = "Этот узел не ответил на последних проверках. Найти рабочий узел или всё равно подключиться к этому?",
+            title = stringResource(R.string.dead_node_title, splitFlag(node.name).second),
+            message = stringResource(R.string.dead_node_hint),
             onDismiss = vm::dismissDeadPrompt,
             actions = listOf(
-                AlertAction("Подключиться") { vm.connectAnyway() },
-                AlertAction("Найти рабочий", AlertRole.Preferred) { vm.findWorkingInstead() },
+                AlertAction(stringResource(R.string.action_connect)) { vm.connectAnyway() },
+                AlertAction(stringResource(R.string.find_working_short), AlertRole.Preferred) { vm.findWorkingInstead() },
             ),
         )
     }
 
     state.pendingImport?.let { text ->
         IosAlert(
-            title = "Добавить из ссылки?",
+            title = stringResource(R.string.import_link_question),
             message = text.take(300),
             onDismiss = vm::dismissImport,
             actions = listOf(
-                AlertAction("Отмена") { vm.dismissImport() },
-                AlertAction("Добавить", AlertRole.Preferred) { vm.confirmImport() },
+                AlertAction(stringResource(R.string.action_cancel)) { vm.dismissImport() },
+                AlertAction(stringResource(R.string.action_add), AlertRole.Preferred) { vm.confirmImport() },
             ),
         )
     }

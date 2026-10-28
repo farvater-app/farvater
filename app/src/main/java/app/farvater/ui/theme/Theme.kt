@@ -27,6 +27,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -146,27 +147,27 @@ private object BaseIosType {
 
 object IosType {
     val largeTitle: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.largeTitle.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = WitchFont) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.largeTitle.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(WitchFont)) else it }
     val title1: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.title1.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = WitchFont) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.title1.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(WitchFont)) else it }
     val title2: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.title2.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = WitchFont) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.title2.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(WitchFont)) else it }
     val title3: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.title3.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = WitchFont) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.title3.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(WitchFont)) else it }
     val headline: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.headline.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = OriginFont) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.headline.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(OriginFont)) else it }
     val body: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.body.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = OriginFont) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.body.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(OriginFont)) else it }
     val callout: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.callout.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = OriginFont) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.callout.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(OriginFont)) else it }
     val subheadline: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.subheadline.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = OriginFont) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.subheadline.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(OriginFont)) else it }
     val footnote: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.footnote.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = OriginFont) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.footnote.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(OriginFont)) else it }
     val caption1: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.caption1.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = OriginFont) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.caption1.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(OriginFont)) else it }
     val caption2: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.caption2.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = OriginFont) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.caption2.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(OriginFont)) else it }
 }
 
 object Ios {
@@ -1109,7 +1110,7 @@ fun FarvaterTheme(
                 style == UiStyle.OXYGEN -> OxygenType
                 material -> MaterialType
                 else -> Type
-            },
+            }.let { if (LocalConfiguration.current.locales[0].language == "fa") it.systemFont() else it },
             shapes = when {
                 style == UiStyle.WITCH -> WitchShapes
                 style == UiStyle.SUMIE -> SumieShapes
@@ -1126,3 +1127,26 @@ fun FarvaterTheme(
         )
     }
 }
+
+@Composable
+@ReadOnlyComposable
+fun localizedFont(font: FontFamily): FontFamily =
+    if (LocalConfiguration.current.locales[0].language == "fa") FontFamily.Default else font
+
+private fun Typography.systemFont(): Typography = copy(
+    displayLarge = displayLarge.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
+    displayMedium = displayMedium.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
+    displaySmall = displaySmall.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
+    headlineLarge = headlineLarge.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
+    headlineMedium = headlineMedium.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
+    headlineSmall = headlineSmall.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
+    titleLarge = titleLarge.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
+    titleMedium = titleMedium.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
+    titleSmall = titleSmall.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
+    bodyLarge = bodyLarge.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
+    bodyMedium = bodyMedium.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
+    bodySmall = bodySmall.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
+    labelLarge = labelLarge.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
+    labelMedium = labelMedium.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
+    labelSmall = labelSmall.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
+)

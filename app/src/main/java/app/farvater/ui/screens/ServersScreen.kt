@@ -1,5 +1,7 @@
 package app.farvater.ui.screens
 
+import app.farvater.R
+import androidx.compose.ui.res.stringResource
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -91,7 +93,8 @@ import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.IosType
 import app.farvater.ui.theme.NothingLabel
 
-private val Filters = listOf("Все", "Живые", "Reality", "XHTTP")
+private val Filters: List<String>
+    @Composable get() = listOf(stringResource(R.string.filter_all), stringResource(R.string.filter_alive), "Reality", "XHTTP")
 
 @Suppress("DEPRECATION")
 @Composable
@@ -112,6 +115,7 @@ fun ServersScreen(
     var menuFor by remember { mutableStateOf<ProxyNode?>(null) }
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
+    val shareTitle = stringResource(R.string.share_node)
     val list = rememberLazyListState()
     EdgeHaptics(list)
     val collapsed by remember { derivedStateOf { list.firstVisibleItemIndex > 0 || list.firstVisibleItemScrollOffset > 70 } }
@@ -152,28 +156,28 @@ fun ServersScreen(
         ) {
             item(key = "title") {
                 val modeNote = when (state.netMode) {
-                    NetMode.WHITE -> ", режим БС"
-                    NetMode.BLACK -> ", режим ЧС"
+                    NetMode.WHITE -> stringResource(R.string.mode_whitelist_note)
+                    NetMode.BLACK -> stringResource(R.string.mode_blocklist_note)
                     null -> ""
                 }
                 IosLargeTitle(
-                    "Узлы",
+                    stringResource(R.string.tab_nodes),
                     subtitle = (
-                        if (state.results.isEmpty()) "${state.nodes.size} в списке, не проверены"
-                        else "${state.nodes.size} в списке, отвечают $alive"
-                        ) + modeNote + (if (state.hiddenInsecure > 0) ", скрыто небезопасных ${state.hiddenInsecure}" else "") +
-                        if (state.settings.dropDuplicates && state.duplicates > 0) ", скрыто дублей ${state.duplicates}" else "",
+                        if (state.results.isEmpty()) stringResource(R.string.nodes_untested, state.nodes.size)
+                        else stringResource(R.string.nodes_tested, state.nodes.size, alive)
+                        ) + modeNote + (if (state.hiddenInsecure > 0) stringResource(R.string.hidden_insecure, state.hiddenInsecure) else "") +
+                        if (state.settings.dropDuplicates && state.duplicates > 0) stringResource(R.string.hidden_duplicates, state.duplicates) else "",
                 ) {
                     if (state.progress != null) {
-                        IosCircleButton(Icons.Rounded.Stop, "Остановить проверку", onCancelTest, tint = c.red)
+                        IosCircleButton(Icons.Rounded.Stop, stringResource(R.string.stop_testing), onCancelTest, tint = c.red)
                     } else {
-                        IosCircleButton(Icons.Rounded.Speed, "Проверить все узлы", onTestAll)
+                        IosCircleButton(Icons.Rounded.Speed, stringResource(R.string.test_all_nodes), onTestAll)
                     }
                 }
             }
             item(key = "search") {
                 Column(Modifier.padding(horizontal = 16.dp)) {
-                    IosSearchField(query, { query = it }, "Страна, город или протокол")
+                    IosSearchField(query, { query = it }, stringResource(R.string.node_search_hint))
                     Spacer(Modifier.height(10.dp))
                     IosSegmented(Filters, filter, { filter = it })
                 }
@@ -188,7 +192,7 @@ fun ServersScreen(
                     if (p != null) {
                         Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp)) {
                             Text(
-                                "Проверено ${p.done} из ${p.total}, отвечают ${p.alive}",
+                                stringResource(R.string.checked_alive_progress, p.done, p.total, p.alive),
                                 style = IosType.footnote,
                                 color = c.secondaryLabel,
                             )
@@ -202,22 +206,20 @@ fun ServersScreen(
 
             if (state.duplicates > 0 && !state.settings.dropDuplicates && !state.settings.duplicatesAsked) {
                 item(key = "duplicates") {
-                    IosSection(footer = "Передумать можно в «Настройки → Проверка узлов».") {
+                    IosSection(footer = stringResource(R.string.duplicates_settings_hint)) {
                         Column(Modifier.padding(16.dp)) {
-                            Text("Найдено дублей: ${state.duplicates}", style = IosType.headline, color = c.label)
+                            Text(stringResource(R.string.duplicates_found, state.duplicates), style = IosType.headline, color = c.label)
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                "Это узлы с теми же адресом, портом и протоколом, что и у других, но с другими " +
-                                    "настройками, например SNI или отпечатком TLS. Убрать их? Из каждой группы " +
-                                    "останется один узел, проверка пойдёт быстрее, но скрытые узлы не будут проверяться.",
+                                stringResource(R.string.duplicates_explanation),
                                 style = IosType.subheadline,
                                 color = c.secondaryLabel,
                             )
                             Spacer(Modifier.height(12.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                IosButton("Убрать", onClick = { onDuplicates(true) }, modifier = Modifier.weight(1f))
+                                IosButton(stringResource(R.string.action_remove), onClick = { onDuplicates(true) }, modifier = Modifier.weight(1f))
                                 IosButton(
-                                    "Оставить",
+                                    stringResource(R.string.action_keep),
                                     onClick = { onDuplicates(false) },
                                     style = IosButtonStyle.Tinted,
                                     modifier = Modifier.weight(1f),
@@ -236,7 +238,7 @@ fun ServersScreen(
                     val collapsed = !searching && if (isDead) DeadGroupOpen !in state.collapsedGroups else sourceId in state.collapsedGroups
                     item(key = "group:$sourceId", contentType = "group") {
                         GroupHeader(
-                            title = if (isDead) "Не отвечают" else state.sourceTitle(sourceId),
+                            title = if (isDead) stringResource(R.string.nodes_dead) else state.sourceTitle(sourceId, stringResource(R.string.interval_manual)),
                             count = nodes.size,
                             alive = nodes.count { state.results[it.id]?.alive == true },
                             collapsed = collapsed,
@@ -274,29 +276,29 @@ fun ServersScreen(
                 }
             }
         }
-        IosCompactBar("Узлы", visible = collapsed, backdrop = backdrop)
+        IosCompactBar(stringResource(R.string.tab_nodes), visible = collapsed, backdrop = backdrop)
     }
 
     menuFor?.let { node ->
         IosActionPanel(
             title = splitFlag(node.name).second,
-            subtitle = "${node.protocol.title}, ${node.address}:${node.port} · ${state.sourceTitle(node.sourceId)}",
+            subtitle = "${node.protocol.title}, ${node.address}:${node.port} · ${state.sourceTitle(node.sourceId, stringResource(R.string.interval_manual))}",
             onDismiss = { menuFor = null },
         ) { close ->
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 IosButton(
-                    "Проверить",
+                    stringResource(R.string.action_test),
                     onClick = { close { onTestNode(node) } },
                     icon = Icons.Rounded.Bolt,
                     enabled = node.id !in state.checking,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 IosButton(
-                    "Поделиться",
+                    stringResource(R.string.action_share),
                     onClick = {
                         close {
                             val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, node.raw)
-                            runCatching { context.startActivity(Intent.createChooser(send, "Поделиться узлом")) }
+                            runCatching { context.startActivity(Intent.createChooser(send, shareTitle)) }
                         }
                     },
                     style = IosButtonStyle.Tinted,
@@ -304,7 +306,7 @@ fun ServersScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 IosButton(
-                    "Скопировать",
+                    stringResource(R.string.action_copy),
                     onClick = {
                         close {
                             clipboard.setText(AnnotatedString(node.raw))
@@ -317,7 +319,7 @@ fun ServersScreen(
                 )
                 if (node.sourceId == ProxyNode.MANUAL_SOURCE) {
                     IosButton(
-                        "Удалить",
+                        stringResource(R.string.action_delete),
                         onClick = { close { onDeleteManual(node) } },
                         style = IosButtonStyle.Plain,
                         color = Ios.colors.red,
@@ -356,11 +358,11 @@ private fun GroupHeader(title: String, count: Int, alive: Int, collapsed: Boolea
             maxLines = 1,
             modifier = Modifier.weight(1f),
         )
-        Text(if (alive > 0) "$alive из $count" else "$count", style = IosType.footnote, color = c.secondaryLabel)
+        Text(if (alive > 0) stringResource(R.string.count_of, alive, count) else "$count", style = IosType.footnote, color = c.secondaryLabel)
         Spacer(Modifier.width(4.dp))
         Icon(
             Icons.Rounded.KeyboardArrowDown,
-            contentDescription = if (collapsed) "Развернуть" else "Свернуть",
+            contentDescription = if (collapsed) stringResource(R.string.action_expand) else stringResource(R.string.action_collapse),
             tint = c.secondaryLabel,
             modifier = Modifier.size(18.dp).rotate(turn),
         )
@@ -377,8 +379,9 @@ private fun NodeRow(
     onLongClick: () -> Unit,
 ) {
     val c = Ios.colors
+    val selectedLabel = stringResource(R.string.node_selected)
     val (flag, title) = remember(node.name) { splitFlag(node.name) }
-    val subtitle = remember(node) { (if (node.isInsecure) "Без шифрования · " else "") + nodeSummary(node) }
+    val subtitle = (if (node.isInsecure) stringResource(R.string.node_unencrypted_prefix) else "") + nodeSummary(node)
     IosRow(
         title = title,
         subtitle = subtitle,
@@ -397,9 +400,9 @@ private fun NodeRow(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Spacer(Modifier.width(8.dp))
                     if (Ios.nothing) {
-                        Box(Modifier.size(8.dp).background(c.red, CircleShape).semantics { contentDescription = "Выбран" })
+                        Box(Modifier.size(8.dp).background(c.red, CircleShape).semantics { contentDescription = selectedLabel })
                     } else {
-                        Icon(Icons.Rounded.Check, contentDescription = "Выбран", tint = c.tint, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Rounded.Check, contentDescription = selectedLabel, tint = c.tint, modifier = Modifier.size(20.dp))
                     }
                 }
             }
@@ -416,10 +419,10 @@ private fun EmptyState(noNodes: Boolean) {
     ) {
         Icon(Icons.Rounded.Dns, contentDescription = null, tint = c.tertiaryLabel, modifier = Modifier.size(52.dp))
         Spacer(Modifier.height(12.dp))
-        Text(if (noNodes) "Узлов пока нет" else "Ничего не нашлось", style = IosType.title3, color = c.label)
+        Text(if (noNodes) stringResource(R.string.nodes_empty) else stringResource(R.string.search_empty), style = IosType.title3, color = c.label)
         Spacer(Modifier.height(4.dp))
         Text(
-            if (noNodes) "Включите источники на вкладке «Источники» или вставьте свою подписку" else "Измените запрос или фильтр",
+            if (noNodes) stringResource(R.string.nodes_empty_hint) else stringResource(R.string.search_empty_hint),
             style = IosType.subheadline,
             color = c.secondaryLabel,
             textAlign = TextAlign.Center,

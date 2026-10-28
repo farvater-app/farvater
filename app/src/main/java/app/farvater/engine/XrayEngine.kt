@@ -1,5 +1,7 @@
 package app.farvater.engine
 
+import app.farvater.R
+import app.farvater.data.LocalizedStateException
 import app.farvater.core.xray.LocalProxyAuth
 import android.content.Context
 import java.lang.reflect.Method
@@ -53,7 +55,7 @@ object XrayEngine {
     @Synchronized
     fun start(config: String): Result<Unit> = runCatching {
         ready.await()
-        check(isAvailable) { "ядро Xray не встроено — добавьте libv2ray.aar в app/libs" }
+        if (!isAvailable) throw LocalizedStateException(R.string.error_xray_missing)
         stop()
         controller = launch(config)
         LocalProxyAuth.open(LocalProxyAuth.port)
@@ -86,12 +88,12 @@ object XrayEngine {
             }
         }
         val ctrl = libMethod("newCoreController")?.invoke(null, handler)
-            ?: error("newCoreController недоступен")
+            ?: throw LocalizedStateException(R.string.error_core_controller)
         val startLoop = ctrl.javaClass.methods.first { it.name == "startLoop" }
         when (startLoop.parameterCount) {
             1 -> startLoop.invoke(ctrl, config)
             2 -> startLoop.invoke(ctrl, config, 0)
-            else -> error("неизвестная сигнатура startLoop")
+            else -> throw LocalizedStateException(R.string.error_core_signature)
         }
         return ctrl
     }

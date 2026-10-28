@@ -1,5 +1,8 @@
 package app.farvater.ui
 
+import app.farvater.R
+import androidx.compose.ui.res.stringResource
+import app.farvater.ui.theme.localizedFont
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
@@ -97,11 +100,14 @@ import app.farvater.ui.theme.OneUiFont
 import app.farvater.ui.theme.OriginFont
 import app.farvater.ui.theme.OxygenFont
 
-internal enum class Tab(val title: String, val icon: ImageVector, val iconIdle: ImageVector) {
-    Home("Фарватер", Icons.Rounded.Home, Icons.Outlined.Home),
-    Servers("Узлы", Icons.Rounded.Dns, Icons.Outlined.Dns),
-    Sources("Источники", Icons.Rounded.Layers, Icons.Outlined.Layers),
-    Settings("Настройки", Icons.Rounded.Settings, Icons.Outlined.Settings),
+internal enum class Tab(val titleRes: Int, val icon: ImageVector, val iconIdle: ImageVector) {
+    Home(R.string.app_name, Icons.Rounded.Home, Icons.Outlined.Home),
+    Servers(R.string.tab_nodes, Icons.Rounded.Dns, Icons.Outlined.Dns),
+    Sources(R.string.tab_sources, Icons.Rounded.Layers, Icons.Outlined.Layers),
+    Settings(R.string.settings_title, Icons.Rounded.Settings, Icons.Outlined.Settings);
+
+    val title: String
+        @Composable get() = stringResource(titleRes)
 }
 
 val LocalBottomInset = staticCompositionLocalOf { 0.dp }
@@ -167,7 +173,7 @@ private fun WitchFrame(
                                 modifier = Modifier.fillMaxWidth().then(
                                     if (largeText) Modifier.height((36 * LocalDensity.current.fontScale).dp) else Modifier,
                                 ),
-                                color = tint, fontFamily = OriginFont, fontSize = 11.sp,
+                                color = tint, fontFamily = localizedFont(OriginFont), fontSize = 11.sp,
                                 lineHeight = if (largeText) 16.sp else 14.sp,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                                 maxLines = if (largeText) 2 else 1, overflow = TextOverflow.Ellipsis,
@@ -361,7 +367,7 @@ private fun OriginTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick: 
         Spacer(Modifier.height(2.dp))
         Text(
             tab.title,
-            style = TextStyle(fontFamily = OriginFont, fontWeight = FontWeight.ExtraBold, fontSize = 10.5.sp, lineHeight = 13.sp),
+            style = TextStyle(fontFamily = localizedFont(OriginFont), fontWeight = FontWeight.ExtraBold, fontSize = 10.5.sp, lineHeight = 13.sp),
             color = tint,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -393,7 +399,7 @@ private fun HyperFrame(
                 ) {
                     Text(
                         data.visuals.message,
-                        style = TextStyle(fontFamily = HyperFont, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 19.sp),
+                        style = TextStyle(fontFamily = localizedFont(HyperFont), fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 19.sp),
                         color = Color.White,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
                     )
@@ -449,7 +455,7 @@ private fun HyperTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick: (
         Spacer(Modifier.height(3.dp))
         Text(
             tab.title,
-            style = TextStyle(fontFamily = HyperFont, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, lineHeight = 14.sp),
+            style = TextStyle(fontFamily = localizedFont(HyperFont), fontWeight = FontWeight.SemiBold, fontSize = 11.sp, lineHeight = 14.sp),
             color = tint,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -481,7 +487,7 @@ private fun OneUiFrame(
                 ) {
                     Text(
                         data.visuals.message,
-                        style = TextStyle(fontFamily = OneUiFont, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 19.sp),
+                        style = TextStyle(fontFamily = localizedFont(OneUiFont), fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 19.sp),
                         color = Color.White,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
                     )
@@ -518,7 +524,7 @@ private fun OneUiTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick: (
     ) {
         Text(
             tab.title,
-            style = TextStyle(fontFamily = OneUiFont, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, fontSize = 15.sp, lineHeight = 20.sp),
+            style = TextStyle(fontFamily = localizedFont(OneUiFont), fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, fontSize = 15.sp, lineHeight = 20.sp),
             color = tint,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -558,7 +564,7 @@ private fun OxygenFrame(
                 ) {
                     Text(
                         data.visuals.message,
-                        style = TextStyle(fontFamily = OxygenFont, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 19.sp),
+                        style = TextStyle(fontFamily = localizedFont(OxygenFont), fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 19.sp),
                         color = Color.White,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
                     )
@@ -597,7 +603,7 @@ private fun OxygenTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick: 
         Spacer(Modifier.height(2.dp))
         Text(
             tab.title,
-            style = TextStyle(fontFamily = OxygenFont, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 14.sp),
+            style = TextStyle(fontFamily = localizedFont(OxygenFont), fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 14.sp),
             color = tint,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -631,7 +637,7 @@ private fun HarmonyFrame(
                 ) {
                     Text(
                         data.visuals.message,
-                        style = TextStyle(fontFamily = HarmonyFont, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 19.sp),
+                        style = TextStyle(fontFamily = localizedFont(HarmonyFont), fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 19.sp),
                         color = Color.White,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
                     )
@@ -675,7 +681,7 @@ private fun HarmonyTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick:
         Spacer(Modifier.height(3.dp))
         Text(
             tab.title,
-            style = TextStyle(fontFamily = HarmonyFont, fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal, fontSize = 10.sp, lineHeight = 13.sp),
+            style = TextStyle(fontFamily = localizedFont(HarmonyFont), fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal, fontSize = 10.sp, lineHeight = 13.sp),
             color = tint,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

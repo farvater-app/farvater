@@ -1,5 +1,7 @@
 package app.farvater.ui.screens
 
+import app.farvater.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -114,12 +116,12 @@ fun ChangelogSheet(onClose: () -> Unit) {
                 .getOrDefault(emptyList())
         }
     }
-    IosSheet(title = "История изменений", onClose = onClose) {
+    IosSheet(title = stringResource(R.string.changelog_title), onClose = onClose) {
         val list = releases
         when {
             list == null -> Box(Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) { IosSpinner() }
             list.isEmpty() -> Text(
-                "Не удалось прочитать историю изменений.",
+                stringResource(R.string.changelog_open_error),
                 style = IosType.body,
                 color = c.secondaryLabel,
                 modifier = Modifier.padding(32.dp),
@@ -140,11 +142,11 @@ private fun ReleaseCard(release: ChangelogRelease) {
     val installed = release.version == BuildConfig.VERSION_NAME
     Column(Modifier.padding(top = 16.dp)) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Версия ${release.version}", style = IosType.headline, color = c.label)
+            Text(stringResource(R.string.version_label, release.version), style = IosType.headline, color = c.label)
             if (installed) {
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "установлена",
+                    stringResource(R.string.version_installed),
                     style = IosType.caption1,
                     color = c.tint,
                     modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(c.tint.copy(alpha = 0.15f)).padding(horizontal = 6.dp, vertical = 2.dp),

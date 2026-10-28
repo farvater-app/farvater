@@ -1,5 +1,7 @@
 package app.farvater.ui.ios
 
+import app.farvater.R
+import androidx.compose.ui.res.stringResource
 import android.os.Build
 import android.view.WindowManager
 import androidx.compose.animation.animateColorAsState
@@ -743,7 +745,7 @@ fun IosSearchField(value: String, onValueChange: (String) -> Unit, placeholder: 
         if (value.isNotEmpty()) {
             Icon(
                 Icons.Rounded.Cancel,
-                contentDescription = "Очистить",
+                contentDescription = stringResource(R.string.action_clear),
                 tint = c.secondaryLabel,
                 modifier = Modifier.size(20.dp).clip(CircleShape).clickable { onValueChange("") },
             )
@@ -770,7 +772,7 @@ fun IosTextField(value: String, onValueChange: (String) -> Unit, placeholder: St
             value = value,
             onValueChange = onValueChange,
             singleLine = true,
-            textStyle = textStyle.copy(color = c.label),
+            textStyle = textStyle.copy(color = c.label, textDirection = androidx.compose.ui.text.style.TextDirection.Ltr),
             cursorBrush = SolidColor(c.tint),
             modifier = Modifier.fillMaxWidth(),
         )
@@ -1160,7 +1162,7 @@ private fun GlassSheetHeader(title: String, onDone: () -> Unit) {
                     .liquidGlass(null, CircleShape, GlassStyles.Control, fallback = c.tint),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Rounded.Check, contentDescription = "Готово", tint = Color.White, modifier = Modifier.size(22.dp))
+                Icon(Icons.Rounded.Check, contentDescription = stringResource(R.string.action_done), tint = Color.White, modifier = Modifier.size(22.dp))
             }
         }
     }
@@ -1179,7 +1181,7 @@ private fun MaterialSheetHeader(title: String, onClose: () -> Unit) {
                 Modifier.size(48.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onClose),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Rounded.Close, contentDescription = "Закрыть", tint = c.label)
+                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.action_close), tint = c.label)
             }
             Spacer(Modifier.width(8.dp))
             Text(

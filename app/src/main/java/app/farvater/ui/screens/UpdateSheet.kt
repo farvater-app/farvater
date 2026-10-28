@@ -1,5 +1,7 @@
 package app.farvater.ui.screens
 
+import app.farvater.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -83,13 +85,13 @@ fun UpdateSheet(info: UpdateInfo, stage: UpdateStage, onUpdate: () -> Unit, onLa
                 AppLogo(64.dp)
                 Spacer(Modifier.height(14.dp))
                 Text(
-                    if (info.critical) "Важное обновление" else "Доступно обновление",
+                    if (info.critical) stringResource(R.string.update_important) else stringResource(R.string.update_ready),
                     style = IosType.title2,
                     color = c.label,
                     textAlign = TextAlign.Center,
                 )
                 Text(
-                    "Фарватер ${BuildConfig.VERSION_NAME} → ${info.versionName}" + if (info.published.isNotBlank()) " · ${info.published}" else "",
+                    stringResource(R.string.update_versions, BuildConfig.VERSION_NAME, info.versionName) + if (info.published.isNotBlank()) " · ${info.published}" else "",
                     style = IosType.subheadline,
                     color = c.secondaryLabel,
                 )
@@ -103,9 +105,9 @@ fun UpdateSheet(info: UpdateInfo, stage: UpdateStage, onUpdate: () -> Unit, onLa
                         .verticalScroll(rememberScrollState())
                         .padding(16.dp),
                 ) {
-                    Text("ЧТО НОВОГО", style = IosType.footnote, color = c.secondaryLabel)
+                    Text(stringResource(R.string.whats_new), style = IosType.footnote, color = c.secondaryLabel)
                     Spacer(Modifier.height(8.dp))
-                    info.notes.ifEmpty { listOf("Исправления и улучшения") }.forEach { note ->
+                    info.notes.ifEmpty { listOf(stringResource(R.string.update_generic_notes)) }.forEach { note ->
                         Row(Modifier.padding(vertical = 3.dp)) {
                             Box(Modifier.padding(top = 8.dp).size(6.dp).clip(CircleShape).background(c.tint))
                             Spacer(Modifier.width(10.dp))
@@ -117,7 +119,7 @@ fun UpdateSheet(info: UpdateInfo, stage: UpdateStage, onUpdate: () -> Unit, onLa
                 when (stage) {
                     is UpdateStage.Downloading -> {
                         Text(
-                            "Скачиваю… ${(stage.progress * 100).toInt()}%",
+                            stringResource(R.string.update_downloading, (stage.progress * 100).toInt()),
                             style = IosType.subheadline.copy(fontWeight = FontWeight.Medium),
                             color = c.label,
                         )
@@ -131,12 +133,12 @@ fun UpdateSheet(info: UpdateInfo, stage: UpdateStage, onUpdate: () -> Unit, onLa
                             Spacer(Modifier.height(10.dp))
                         }
                         IosButton(
-                            if (stage is UpdateStage.Failed) "Попробовать ещё раз" else "Обновить",
+                            if (stage is UpdateStage.Failed) stringResource(R.string.action_try_again) else stringResource(R.string.action_update),
                             onClick = onUpdate,
                             color = if (info.critical) c.red else c.tint,
                             modifier = Modifier.fillMaxWidth(),
                         )
-                        IosButton("Позже", onClick = close, style = IosButtonStyle.Plain, modifier = Modifier.fillMaxWidth())
+                        IosButton(stringResource(R.string.action_later), onClick = close, style = IosButtonStyle.Plain, modifier = Modifier.fillMaxWidth())
                     }
                 }
                 Spacer(Modifier.height(10.dp))

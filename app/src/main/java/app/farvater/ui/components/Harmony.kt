@@ -1,5 +1,8 @@
 package app.farvater.ui.components
 
+import app.farvater.R
+import androidx.compose.ui.res.stringResource
+import app.farvater.ui.theme.localizedFont
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
@@ -125,11 +128,11 @@ fun HarmonyConnect(
     val scale by animateFloatAsState(if (pressed) 0.97f else 1f, spring(dampingRatio = 0.55f, stiffness = 500f), label = "press")
 
     val description = when (mode) {
-        ConnectMode.Idle -> "Подключиться"
-        ConnectMode.Searching -> "Остановить"
-        ConnectMode.Connecting -> "Отменить подключение"
-        ConnectMode.Connected -> "Отключиться"
-        ConnectMode.Error -> "Повторить подключение"
+        ConnectMode.Idle -> stringResource(R.string.action_connect)
+        ConnectMode.Searching -> stringResource(R.string.action_stop_search)
+        ConnectMode.Connecting -> stringResource(R.string.action_cancel_connect)
+        ConnectMode.Connected -> stringResource(R.string.action_disconnect)
+        ConnectMode.Error -> stringResource(R.string.action_retry_connect)
     }
 
     Box(modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
@@ -167,11 +170,11 @@ fun HarmonyConnect(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Shield, contentDescription = null, tint = title, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("VPN", style = TextStyle(fontFamily = HarmonyFont, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 26.sp), color = title)
+                Text("VPN", style = TextStyle(fontFamily = localizedFont(HarmonyFont), fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 26.sp), color = title)
             }
             Text(
                 status,
-                style = TextStyle(fontFamily = HarmonyFont, fontWeight = FontWeight.Medium, fontSize = 15.sp, lineHeight = 20.sp),
+                style = TextStyle(fontFamily = localizedFont(HarmonyFont), fontWeight = FontWeight.Medium, fontSize = 15.sp, lineHeight = 20.sp),
                 color = sub,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,

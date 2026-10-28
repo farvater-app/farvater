@@ -18,7 +18,7 @@ import java.io.File
 import java.lang.reflect.InvocationTargetException
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [26, 27, 28, 35], application = Application::class)
+@Config(sdk = [26, 27, 28, 35], application = Application::class, qualifiers = "ru")
 @Suppress("DEPRECATION")
 class UpdateCompatibilityTest {
     private lateinit var app: Application

@@ -145,25 +145,28 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val TestUrls = listOf(
-    "https://www.gstatic.com/generate_204" to "Google, по умолчанию",
+private val TestUrls: List<Pair<String, String>>
+    @Composable get() = listOf(
+    "https://www.gstatic.com/generate_204" to stringResource(R.string.probe_google_default),
     "https://cp.cloudflare.com/generate_204" to "Cloudflare",
     "https://www.apple.com/library/test/success.html" to "Apple",
     "https://detectportal.firefox.com/success.txt" to "Firefox",
 )
 
-private val ConcurrencyOptions = listOf(8 to "Бережно", 16 to "Обычно", 32 to "Быстро")
+private val ConcurrencyOptions: List<Pair<Int, String>>
+    @Composable get() = listOf(8 to stringResource(R.string.speed_gentle), 16 to stringResource(R.string.speed_normal), 32 to stringResource(R.string.speed_fast))
 
-private enum class SettingsPage(val title: String) {
-    Appearance("Оформление"),
-    Connection("Подключение"),
-    Security("Безопасность"),
-    Subscriptions("Подписки"),
-    Testing("Проверка узлов"),
-    Background("Работа в фоне"),
-    Updates("Обновления"),
-    Documents("Документы"),
-    About("О приложении"),
+private enum class SettingsPage(val title: Int) {
+    Appearance(R.string.settings_appearance),
+    Connection(R.string.settings_connection),
+    Security(R.string.settings_security),
+    Subscriptions(R.string.settings_subscriptions),
+    Testing(R.string.settings_testing),
+    Background(R.string.settings_background),
+    Updates(R.string.settings_updates),
+    Documents(R.string.settings_documents),
+    About(R.string.settings_about),
+    Language(R.string.settings_language),
 }
 
 @Composable
@@ -184,6 +187,7 @@ fun SettingsScreen(
     val page = (if (onPageName != null) pageName else localPage)?.let { name -> SettingsPage.entries.firstOrNull { it.name == name } }
     val openPage: (SettingsPage?) -> Unit = { next -> if (onPageName != null) onPageName(next?.name) else localPage = next?.name }
     val context = LocalContext.current
+    val slideDirection = if (androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl) -1 else 1
     var appIcon by remember { mutableStateOf(AppIcons.selected(context)) }
     var showApps by remember { mutableStateOf(false) }
     var showChangelog by remember { mutableStateOf(false) }
@@ -195,11 +199,11 @@ fun SettingsScreen(
             val forward = targetState != null
             val motion = spring<IntOffset>(dampingRatio = 1f, stiffness = 420f)
             if (forward) {
-                (slideInHorizontally(motion) { it } togetherWith
-                    slideOutHorizontally(motion) { -it / 3 } + fadeOut(targetAlpha = 0.6f)).apply { targetContentZIndex = 1f }
+                (slideInHorizontally(motion) { it * slideDirection } togetherWith
+                    slideOutHorizontally(motion) { -it * slideDirection / 3 } + fadeOut(targetAlpha = 0.6f)).apply { targetContentZIndex = 1f }
             } else {
-                (slideInHorizontally(motion) { -it / 3 } + fadeIn(initialAlpha = 0.6f) togetherWith
-                    slideOutHorizontally(motion) { it }).apply { targetContentZIndex = -1f }
+                (slideInHorizontally(motion) { -it * slideDirection / 3 } + fadeIn(initialAlpha = 0.6f) togetherWith
+                    slideOutHorizontally(motion) { it * slideDirection }).apply { targetContentZIndex = -1f }
             }
         },
         label = "settings",
@@ -212,7 +216,7 @@ fun SettingsScreen(
                 onOpen = { openPage(it) },
                 onChangelog = { showChangelog = true },
             )
-            else -> IosPushedPage(title = current.title, backTitle = "Настройки", onBack = { openPage(null) }) {
+            else -> IosPushedPage(title = stringResource(current.title), backTitle = stringResource(R.string.settings_title), onBack = { openPage(null) }) {
                 when (current) {
                     SettingsPage.Appearance -> AppearancePage(settings, onChange, appIcon) { icon ->
                         AppIcons.choose(context, icon)
@@ -226,6 +230,7 @@ fun SettingsScreen(
                     SettingsPage.Updates -> UpdatesPage(settings, onChange, updateVersion, checkingUpdates, onCheckUpdates) { showChangelog = true }
                     SettingsPage.Documents -> DocumentsPage(onOpenDocument)
                     SettingsPage.About -> AboutPage()
+                    SettingsPage.Language -> LanguagePage()
                 }
                 Spacer(Modifier.height(24.dp + LocalBottomInset.current))
             }
@@ -273,12 +278,12 @@ private fun SettingsRoot(
     val backdrop = rememberGlassBackdrop()
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().glassSource(backdrop).verticalScroll(scroll)) {
-            IosLargeTitle("Настройки")
+            IosLargeTitle(stringResource(R.string.settings_title))
 
             IosSection {
                 IosRow(
-                    title = "Фарватер",
-                    subtitle = "Версия ${BuildConfig.VERSION_NAME}" + (XrayEngine.version?.let { " · Xray $it" } ?: ""),
+                    title = stringResource(R.string.app_name),
+                    subtitle = stringResource(R.string.version_label, BuildConfig.VERSION_NAME) + (XrayEngine.version?.let { " · Xray $it" } ?: ""),
                     leading = { AppIconImage(appIcon, 58.dp) },
                     chevron = true,
                     onClick = { onOpen(SettingsPage.About) },
@@ -288,60 +293,71 @@ private fun SettingsRoot(
 
             IosSection {
                 IosRow(
-                    title = "Оформление",
+                    title = stringResource(R.string.settings_appearance),
                     icon = Icons.Rounded.Palette,
                     iconTint = c.pink,
                     value = when (settings.uiStyle) {
                         UiStyle.IOS -> "iOS 26"
                         UiStyle.MATERIAL -> "Material You"
-                        UiStyle.ROSKOMPOZOR -> "#РосКомПозор"
-                        UiStyle.SUMIE -> "Сумиэ"
-                        UiStyle.NOTHING -> "Nothing"
-                        UiStyle.ORIGIN -> "Origin"
-                        UiStyle.HYPER -> "Hyper"
-                        UiStyle.HARMONY -> "Harmony"
-                        UiStyle.ONEUI -> "One UI"
-                        UiStyle.OXYGEN -> "Oxygen"
+                        UiStyle.ROSKOMPOZOR -> stringResource(R.string.style_rkp)
+                        UiStyle.SUMIE -> stringResource(R.string.style_sumie)
+                        UiStyle.NOTHING -> stringResource(R.string.brand_nothing)
+                        UiStyle.ORIGIN -> stringResource(R.string.brand_origin)
+                        UiStyle.HYPER -> stringResource(R.string.brand_hyper)
+                        UiStyle.HARMONY -> stringResource(R.string.brand_harmony)
+                        UiStyle.ONEUI -> stringResource(R.string.brand_one_ui)
+                        UiStyle.OXYGEN -> stringResource(R.string.brand_oxygen)
                         UiStyle.WITCH -> stringResource(R.string.style_witch)
                     },
                     chevron = true,
                     onClick = { onOpen(SettingsPage.Appearance) },
                 )
+                IosRow(
+                    title = stringResource(R.string.settings_language),
+                    value = when (app.farvater.data.AppLanguages.selected(LocalContext.current).substringBefore('-')) {
+                        "ru" -> stringResource(R.string.language_ru)
+                        "en" -> stringResource(R.string.language_en)
+                        "fa" -> stringResource(R.string.language_fa)
+                        else -> stringResource(R.string.language_system)
+                    },
+                    chevron = true,
+                    onClick = { onOpen(SettingsPage.Language) },
+                )
             }
 
             IosSection(
-                footer = if (complete) null else "Неполная сборка: каталог и проверка работают, а подключиться нельзя. Скачайте официальную сборку.",
+                footer = if (complete) null else stringResource(R.string.incomplete_build),
                 footerColor = c.red,
             ) {
                 IosRow(
-                    title = "Подключение",
+                    title = stringResource(R.string.settings_connection),
                     icon = Icons.Rounded.Hub,
                     iconTint = c.green,
-                    value = if (settings.directRuServices) "РФ напрямую" else null,
+                    value = if (settings.directRuServices) stringResource(R.string.russian_direct_short) else null,
                     chevron = true,
                     onClick = { onOpen(SettingsPage.Connection) },
                 )
                 IosDivider(start = divider)
                 IosRow(
-                    title = "Безопасность",
+                    title = stringResource(R.string.settings_security),
                     icon = Icons.Rounded.Shield,
                     iconTint = c.blue,
-                    value = if (settings.encryptedDns && settings.safeMode) "всё включено" else "частично",
+                    value = if (settings.encryptedDns && settings.safeMode) stringResource(R.string.all_enabled) else stringResource(R.string.partly_enabled),
                     chevron = true,
                     onClick = { onOpen(SettingsPage.Security) },
                 )
                 IosDivider(start = divider)
                 IosRow(
-                    title = "Подписки",
+                    title = stringResource(R.string.settings_subscriptions),
                     icon = Icons.Rounded.Link,
                     iconTint = c.indigo,
-                    value = if (settings.sendHwid) "HWID вкл." else "HWID выкл.",
+                    value = if (settings.sendHwid) stringResource(R.string.hwid_on) else stringResource(R.string.hwid_off),
                     chevron = true,
                     onClick = { onOpen(SettingsPage.Subscriptions) },
                 )
                 IosDivider(start = divider)
                 IosRow(
-                    title = "Проверка узлов",
+                    title = stringResource(R.string.settings_testing),
                     icon = Icons.Rounded.Speed,
                     iconTint = c.tint,
                     value = ConcurrencyOptions.minBy { kotlin.math.abs(it.first - settings.concurrency) }.second,
@@ -350,10 +366,10 @@ private fun SettingsRoot(
                 )
                 IosDivider(start = divider)
                 IosRow(
-                    title = "Работа в фоне",
+                    title = stringResource(R.string.settings_background),
                     icon = Icons.Rounded.BatteryChargingFull,
                     iconTint = if (unrestricted) c.green else c.red,
-                    value = if (unrestricted) "разрешена" else "ограничена",
+                    value = if (unrestricted) stringResource(R.string.background_allowed) else stringResource(R.string.background_restricted),
                     valueColor = if (unrestricted) null else c.red,
                     chevron = true,
                     onClick = { onOpen(SettingsPage.Background) },
@@ -362,10 +378,10 @@ private fun SettingsRoot(
 
             IosSection {
                 IosRow(
-                    title = "Обновления",
+                    title = stringResource(R.string.settings_updates),
                     icon = Icons.Rounded.SystemUpdate,
                     iconTint = c.blue,
-                    value = updateVersion?.let { "есть $it" },
+                    value = updateVersion?.let { stringResource(R.string.update_exists, it) },
                     valueColor = c.blue,
                     chevron = true,
                     onClick = { onOpen(SettingsPage.Updates) },
@@ -375,7 +391,7 @@ private fun SettingsRoot(
                 )
                 IosDivider(start = divider)
                 IosRow(
-                    title = "История изменений",
+                    title = stringResource(R.string.changelog_title),
                     icon = Icons.Rounded.History,
                     iconTint = c.indigo,
                     chevron = true,
@@ -385,10 +401,10 @@ private fun SettingsRoot(
 
             IosSection {
                 IosRow(
-                    title = "Телеграм-канал",
+                    title = stringResource(R.string.telegram_channel),
                     icon = ImageVector.vectorResource(R.drawable.ic_telegram),
                     iconTint = c.blue,
-                    value = "@farvater_app",
+                    value = app.farvater.ui.ltrText("@farvater_app"),
                     chevron = true,
                     onClick = { runCatching { uri.openUri(ChannelUrl) } },
                 )
@@ -396,7 +412,7 @@ private fun SettingsRoot(
 
             IosSection {
                 IosRow(
-                    title = "Документы",
+                    title = stringResource(R.string.settings_documents),
                     icon = Icons.Rounded.Description,
                     iconTint = c.gray,
                     chevron = true,
@@ -404,7 +420,7 @@ private fun SettingsRoot(
                 )
                 IosDivider(start = divider)
                 IosRow(
-                    title = "О приложении",
+                    title = stringResource(R.string.settings_about),
                     icon = Icons.Rounded.Info,
                     iconTint = c.gray,
                     chevron = true,
@@ -413,15 +429,15 @@ private fun SettingsRoot(
             }
             Spacer(Modifier.height(20.dp + LocalBottomInset.current))
         }
-        IosCompactBar("Настройки", visible = collapsed, backdrop = backdrop)
+        IosCompactBar(stringResource(R.string.settings_title), visible = collapsed, backdrop = backdrop)
     }
 }
 
 @Composable
 private fun AppIconSection(selected: AppIcon, onSelect: (AppIcon) -> Unit) {
     IosSection(
-        header = "Значок приложения",
-        footer = "Значок сменится, когда вы выйдете из приложения. На некоторых телефонах ярлык на рабочем столе пропадёт: верните его из списка приложений.",
+        header = stringResource(R.string.app_icon_title),
+        footer = stringResource(R.string.app_icon_hint),
     ) {
         AppIcon.entries.chunked(4).forEach { row ->
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 8.dp)) {
@@ -456,7 +472,7 @@ private fun IconChoice(icon: AppIcon, selected: Boolean, modifier: Modifier, onC
         }
         Spacer(Modifier.height(6.dp))
         Text(
-            icon.title,
+            stringResource(icon.titleRes),
             style = IosType.caption1,
             color = if (selected) c.tint else c.secondaryLabel,
             maxLines = 1,
@@ -473,12 +489,12 @@ private fun AppearancePage(
     onIcon: (AppIcon) -> Unit,
 ) {
     IosSection(
-        header = "Стиль",
-        footer = "Меняет вид всего приложения: панели, кнопки, списки, переключатели и окна.",
+        header = stringResource(R.string.style_title),
+        footer = stringResource(R.string.style_hint),
     ) {
         IosChoiceRow(
             title = "iOS 26",
-            subtitle = "Liquid Glass: стеклянные панели с размытием и преломлением",
+            subtitle = stringResource(R.string.style_ios_hint),
             selected = settings.uiStyle == UiStyle.IOS,
             leading = { StyleMark { OsLogoMark(OsLogo.IOS) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.IOS) } },
@@ -486,71 +502,71 @@ private fun AppearancePage(
         IosDivider(start = StyleDivider.dp)
         IosChoiceRow(
             title = "Material You",
-            subtitle = "Стиль Android: Material 3 и цвета под обои телефона",
+            subtitle = stringResource(R.string.style_material_hint),
             selected = settings.uiStyle == UiStyle.MATERIAL,
             leading = { StyleMark { OsLogoMark(OsLogo.MATERIAL) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.MATERIAL) } },
         )
         IosDivider(start = StyleDivider.dp)
         IosChoiceRow(
-            title = "#РосКомПозор",
-            subtitle = "Material 3 в цветах #РКП: голубой на тёмно-сером фоне",
+            title = stringResource(R.string.style_rkp),
+            subtitle = stringResource(R.string.style_rkp_hint),
             selected = settings.uiStyle == UiStyle.ROSKOMPOZOR,
             leading = { StyleMark { IosIcon(ImageVector.vectorResource(R.drawable.ic_rkp), RkpBlue) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.ROSKOMPOZOR) } },
         )
         IosDivider(start = StyleDivider.dp)
         IosChoiceRow(
-            title = "Сумиэ",
-            subtitle = "Тушь на рисовой бумаге: круг энсо, красная печать и кот-лодочник",
+            title = stringResource(R.string.style_sumie),
+            subtitle = stringResource(R.string.style_sumie_hint),
             selected = settings.uiStyle == UiStyle.SUMIE,
             leading = { StyleMark { IosIcon(Icons.Rounded.Brush, SumieSeal) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.SUMIE) } },
         )
         IosDivider(start = StyleDivider.dp)
         IosChoiceRow(
-            title = "Nothing",
-            subtitle = "Точки, монохром и красный акцент, как в Nothing OS",
+            title = stringResource(R.string.brand_nothing),
+            subtitle = stringResource(R.string.style_nothing_hint),
             selected = settings.uiStyle == UiStyle.NOTHING,
             leading = { StyleMark { OsLogoMark(OsLogo.NOTHING) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.NOTHING) } },
         )
         IosDivider(start = StyleDivider.dp)
         IosChoiceRow(
-            title = "Origin",
-            subtitle = "Крупные плитки, мягкое свечение и пружинистые кнопки, как в OriginOS",
+            title = stringResource(R.string.brand_origin),
+            subtitle = stringResource(R.string.style_origin_hint),
             selected = settings.uiStyle == UiStyle.ORIGIN,
             leading = { StyleMark { OsLogoMark(OsLogo.ORIGIN) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.ORIGIN) } },
         )
         IosDivider(start = StyleDivider.dp)
         IosChoiceRow(
-            title = "Hyper",
-            subtitle = "Живой остров сверху, плитка VPN с бликом и столбики скорости, как в HyperOS",
+            title = stringResource(R.string.brand_hyper),
+            subtitle = stringResource(R.string.style_hyper_hint),
             selected = settings.uiStyle == UiStyle.HYPER,
             leading = { StyleMark { OsLogoMark(OsLogo.HYPER) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.HYPER) } },
         )
         IosDivider(start = StyleDivider.dp)
         IosChoiceRow(
-            title = "Harmony",
-            subtitle = "Большая карточка VPN, капсула статуса сверху и фирменный синий, как в HarmonyOS",
+            title = stringResource(R.string.brand_harmony),
+            subtitle = stringResource(R.string.style_harmony_hint),
             selected = settings.uiStyle == UiStyle.HARMONY,
             leading = { StyleMark { OsLogoMark(OsLogo.HARMONY) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.HARMONY) } },
         )
         IosDivider(start = StyleDivider.dp)
         IosChoiceRow(
-            title = "One UI",
-            subtitle = "Большое кольцо подключения, вкладки-надписи и спокойные цвета, как в One UI",
+            title = stringResource(R.string.brand_one_ui),
+            subtitle = stringResource(R.string.style_oneui_hint),
             selected = settings.uiStyle == UiStyle.ONEUI,
             leading = { StyleMark { OsLogoMark(OsLogo.ONEUI) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.ONEUI) } },
         )
         IosDivider(start = StyleDivider.dp)
         IosChoiceRow(
-            title = "Oxygen",
-            subtitle = "Переключатель-ползунок, капсула статуса сверху и красный акцент, как в OxygenOS",
+            title = stringResource(R.string.brand_oxygen),
+            subtitle = stringResource(R.string.style_oxygen_hint),
             selected = settings.uiStyle == UiStyle.OXYGEN,
             leading = { StyleMark { OsLogoMark(OsLogo.OXYGEN) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.OXYGEN) } },
@@ -567,7 +583,7 @@ private fun AppearancePage(
     }
 
     if (settings.uiStyle !in setOf(UiStyle.ROSKOMPOZOR, UiStyle.WITCH)) {
-        IosSection(header = "Тема") {
+        IosSection(header = stringResource(R.string.theme_title)) {
             ThemeChoices.forEachIndexed { i, (mode, title) ->
                 if (i > 0) IosDivider()
                 IosChoiceRow(
@@ -581,10 +597,10 @@ private fun AppearancePage(
 
     if (settings.uiStyle == UiStyle.MATERIAL && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         IosSection(
-            footer = "Цвета интерфейса подбираются под обои телефона. Если выключить, будет фирменный оранжевый.",
+            footer = stringResource(R.string.theme_wallpaper_hint),
         ) {
             IosRow(
-                title = "Цвета обоев",
+                title = stringResource(R.string.theme_wallpaper),
                 checked = settings.dynamicColor,
                 onCheckedChange = { v -> onChange { it.copy(dynamicColor = v) } },
             )
@@ -596,10 +612,11 @@ private fun AppearancePage(
 
 private val MtuChoices = listOf(8500, 1500, 1480, 1400, 1280)
 
-private val ThemeChoices = listOf(
-    ThemeMode.SYSTEM to "Как в системе",
-    ThemeMode.LIGHT to "Светлая",
-    ThemeMode.DARK to "Тёмная",
+private val ThemeChoices: List<Pair<ThemeMode, String>>
+    @Composable get() = listOf(
+    ThemeMode.SYSTEM to stringResource(R.string.language_system),
+    ThemeMode.LIGHT to stringResource(R.string.theme_light),
+    ThemeMode.DARK to stringResource(R.string.theme_dark),
 )
 
 @Composable
@@ -611,11 +628,10 @@ private fun ConnectionPage(settings: AppSettings, onChange: ((AppSettings) -> Ap
         value = withContext(Dispatchers.IO) { context.installedCount(packages) }
     }
     IosSection(
-        footer = "Сайты и приложения банков, Госуслуг, Яндекса, VK и маркетплейсов работают напрямую, как без VPN: " +
-            "они видят ваш обычный адрес, а не адрес сервера. Что VPN включён, приложения всё равно могут узнать у Android.",
+        footer = stringResource(R.string.russian_services_hint),
     ) {
         IosRow(
-            title = "Российские сервисы",
+            title = stringResource(R.string.russian_services),
             titleLines = 2,
             icon = Icons.Rounded.AccountBalance,
             iconTint = c.green,
@@ -623,24 +639,23 @@ private fun ConnectionPage(settings: AppSettings, onChange: ((AppSettings) -> Ap
             onCheckedChange = { v -> onChange { it.copy(directRuServices = v) } },
         )
     }
-    IosSection(footer = "Выбранные приложения ходят в интернет напрямую. Пригодится, если приложение не работает через VPN.") {
+    IosSection(footer = stringResource(R.string.bypass_apps_hint)) {
         IosRow(
-            title = "Приложения мимо VPN",
+            title = stringResource(R.string.bypass_apps),
             titleLines = 2,
             icon = Icons.Rounded.Apps,
             iconTint = c.indigo,
-            value = bypassCount?.let { if (it == 0) "нет" else it.toString() },
+            value = bypassCount?.let { if (it == 0) stringResource(R.string.none) else it.toString() },
             chevron = true,
             onClick = onApps,
         )
     }
     IosSection(
-        header = "Режим сети",
-        footer = "Фарватер помнит узел для белых списков и узел для обычных блокировок. Когда режим сети меняется, " +
-            "он сам переключается на узел, который вы выбирали для этого режима. Режим определяется сам, если в «Источниках» выбрано «Авто».",
+        header = stringResource(R.string.network_mode_title),
+        footer = stringResource(R.string.mode_nodes_hint),
     ) {
         IosRow(
-            title = "Свой узел для БС и ЧС",
+            title = stringResource(R.string.mode_nodes),
             titleLines = 2,
             icon = Icons.Rounded.SwapHoriz,
             iconTint = c.teal,
@@ -649,12 +664,11 @@ private fun ConnectionPage(settings: AppSettings, onChange: ((AppSettings) -> Ap
         )
     }
     IosSection(
-        header = "При сбое",
-        footer = "Если подключённый узел перестал отвечать, Фарватер сам проверит запасные узлы из последней проверки " +
-            "и переключится на рабочий: сначала из той же подписки, потом из остальных. Не чаще раза в две минуты.",
+        header = stringResource(R.string.on_failure),
+        footer = stringResource(R.string.failover_hint),
     ) {
         IosRow(
-            title = "Переключаться на рабочий узел",
+            title = stringResource(R.string.failover_enabled),
             titleLines = 2,
             icon = Icons.Rounded.SyncAlt,
             iconTint = c.green,
@@ -663,17 +677,13 @@ private fun ConnectionPage(settings: AppSettings, onChange: ((AppSettings) -> Ap
         )
     }
     IosSection(
-        header = "Автозапуск",
-        footer = "Как включить постоянный VPN: в открывшихся настройках нажмите на значок настроек рядом с Фарватером " +
-            "и включите переключатель «Постоянная VPN». У некоторых производителей он называется немного иначе. " +
-            "Там же можно запретить выход в интернет без VPN.\n\n" +
-            "Автоподключение срабатывает и после обновления Фарватера, если VPN был включён. " +
-            "На Xiaomi, Huawei, Honor, OPPO и vivo для него нужно ещё системное разрешение на автозапуск: оно описано в «Работе в фоне».",
+        header = stringResource(R.string.autostart_title),
+        footer = stringResource(R.string.autostart_hint),
     ) {
         IosRow(
-            title = "Автоподключение",
+            title = stringResource(R.string.autoconnect_title),
             titleLines = 2,
-            subtitle = "Подключаться к последнему узлу, когда телефон включится",
+            subtitle = stringResource(R.string.autoconnect_hint),
             subtitleLines = Int.MAX_VALUE,
             icon = Icons.Rounded.PowerSettingsNew,
             iconTint = c.green,
@@ -682,9 +692,9 @@ private fun ConnectionPage(settings: AppSettings, onChange: ((AppSettings) -> Ap
         )
         IosDivider(start = Divider.dp)
         IosRow(
-            title = "Постоянный VPN в Android",
+            title = stringResource(R.string.always_on_title),
             titleLines = 2,
-            subtitle = "Системная функция: Android сам включает VPN после перезагрузки и следит, чтобы он не отключался. Надёжнее автоподключения",
+            subtitle = stringResource(R.string.always_on_hint),
             subtitleLines = Int.MAX_VALUE,
             icon = Icons.Rounded.Lock,
             iconTint = c.blue,
@@ -696,12 +706,12 @@ private fun ConnectionPage(settings: AppSettings, onChange: ((AppSettings) -> Ap
     }
     IosSection(
         header = "MTU",
-        footer = "Самый большой пакет в туннеле. Понизьте, если в играх, звонках или отдельных приложениях что-то не работает.",
+        footer = stringResource(R.string.mtu_hint),
     ) {
         MtuChoices.forEachIndexed { i, mtu ->
             if (i > 0) IosDivider()
             IosChoiceRow(
-                title = if (i == 0) "$mtu, по умолчанию" else mtu.toString(),
+                title = if (i == 0) stringResource(R.string.mtu_default, mtu) else mtu.toString(),
                 selected = settings.mtu == mtu,
                 onClick = { onChange { it.copy(mtu = mtu) } },
             )
@@ -714,14 +724,12 @@ private fun SecurityPage(settings: AppSettings, onChange: ((AppSettings) -> AppS
     val c = Ios.colors
     val divider = Divider.dp
     IosSection(
-        footer = "Владелец сервера видит, на какие сайты вы заходите. Содержимое защищает HTTPS: " +
-            "не вводите пароли на сайтах без замочка и через публичные узлы. " +
-            "Внутренний прокси Фарватера всегда под паролем: другие приложения на телефоне не смогут пользоваться туннелем.",
+        footer = stringResource(R.string.security_hint),
     ) {
         IosRow(
-            title = "Только защищённые узлы",
+            title = stringResource(R.string.safe_nodes),
             titleLines = 2,
-            subtitle = "В публичных подписках скрывать узлы без шифрования, со старым шифрованием или без проверки сертификата",
+            subtitle = stringResource(R.string.safe_nodes_hint),
             subtitleLines = Int.MAX_VALUE,
             icon = Icons.Rounded.GppGood,
             iconTint = c.green,
@@ -730,8 +738,8 @@ private fun SecurityPage(settings: AppSettings, onChange: ((AppSettings) -> AppS
         )
         IosDivider(start = divider)
         IosRow(
-            title = "Зашифрованный DNS",
-            subtitle = "Адреса сайтов узнаются по HTTPS, сервер не сможет подменить их",
+            title = stringResource(R.string.encrypted_dns),
+            subtitle = stringResource(R.string.encrypted_dns_hint),
             icon = Icons.Rounded.Dns,
             iconTint = c.blue,
             checked = settings.encryptedDns,
@@ -751,11 +759,10 @@ private fun SubscriptionsPage(
     val c = Ios.colors
     val clipboard = LocalClipboardManager.current
     IosSection(
-        footer = "HWID нужен подпискам с лимитом устройств, иначе панель может выдать урезанный список. " +
-            "Это случайный номер этой установки, не связанный с телефоном. Его получают только ваши подписки. Нажмите на HWID, чтобы скопировать.",
+        footer = stringResource(R.string.hwid_hint),
     ) {
         IosRow(
-            title = "Отправлять HWID",
+            title = stringResource(R.string.send_hwid),
             icon = Icons.Rounded.PhoneAndroid,
             iconTint = c.indigo,
             checked = settings.sendHwid,
@@ -779,13 +786,10 @@ private fun SubscriptionsPage(
 private fun TestingPage(settings: AppSettings, onChange: ((AppSettings) -> AppSettings) -> Unit, duplicates: Int) {
     val c = Ios.colors
     IosSection(
-        footer = "Узлы, которые дважды подряд не ответили, собираются в свёрнутую группу «Не отвечают» и сами не выбираются. " +
-            "Узел, к которому вы подключены, проверяется через сам туннель, а неответы других узлов той же подписки при включённом VPN " +
-            "в этот счёт не идут: платные подписки часто не пускают второе подключение. " +
-            "Если выключить, такие узлы остаются в своих подписках.",
+        footer = stringResource(R.string.dead_group_hint),
     ) {
         IosRow(
-            title = "Группа «Не отвечают»",
+            title = stringResource(R.string.dead_group),
             titleLines = 2,
             icon = Icons.Rounded.CloudOff,
             iconTint = c.red,
@@ -794,15 +798,10 @@ private fun TestingPage(settings: AppSettings, onChange: ((AppSettings) -> AppSe
         )
     }
     IosSection(
-        footer = "Полные копии узлов, то есть одинаковые ссылки с разными названиями, Фарватер убирает всегда. " +
-            "Этот переключатель убирает ещё и узлы с теми же адресом, портом и протоколом, даже если у них " +
-            "другие SNI, ключ Reality, отпечаток TLS, пользователь или транспорт. Из каждой такой группы " +
-            "остаётся выбранный узел, а если его там нет, тот, что раньше в подписке. Остальные не " +
-            "показываются, не проверяются и не участвуют в поиске рабочего узла. Поэтому по умолчанию " +
-            "выключено: если оставшийся узел не работает, другой из группы иногда работает.",
+        footer = stringResource(R.string.duplicates_hint),
     ) {
         IosRow(
-            title = "Скрывать неработающие",
+            title = stringResource(R.string.hide_dead),
             icon = Icons.Rounded.VisibilityOff,
             iconTint = c.gray,
             checked = settings.hideDead,
@@ -810,8 +809,8 @@ private fun TestingPage(settings: AppSettings, onChange: ((AppSettings) -> AppSe
         )
         IosDivider(start = Divider.dp)
         IosRow(
-            title = "Сортировать во время проверки",
-            subtitle = "Быстрые узлы поднимаются наверх сразу",
+            title = stringResource(R.string.sort_testing),
+            subtitle = stringResource(R.string.sort_testing_hint),
             icon = Icons.AutoMirrored.Rounded.Sort,
             iconTint = c.teal,
             checked = settings.liveSort,
@@ -819,11 +818,11 @@ private fun TestingPage(settings: AppSettings, onChange: ((AppSettings) -> AppSe
         )
         IosDivider(start = Divider.dp)
         IosRow(
-            title = "Убирать дубли",
+            title = stringResource(R.string.remove_duplicates),
             subtitle = when {
-                duplicates == 0 -> "Сейчас дублей нет"
-                settings.dropDuplicates -> "Скрыто дублей: $duplicates"
-                else -> "Найдено дублей: $duplicates"
+                duplicates == 0 -> stringResource(R.string.duplicates_none)
+                settings.dropDuplicates -> stringResource(R.string.duplicates_hidden_count, duplicates)
+                else -> stringResource(R.string.duplicates_found, duplicates)
             },
             icon = Icons.Rounded.ContentCopy,
             iconTint = c.indigo,
@@ -832,8 +831,8 @@ private fun TestingPage(settings: AppSettings, onChange: ((AppSettings) -> AppSe
         )
     }
     IosSection(
-        header = "Адрес проверки",
-        footer = "Через узел открывается этот адрес, по ответу считается пинг. Если с Google узлы не отвечают, попробуйте другой.",
+        header = stringResource(R.string.probe_url),
+        footer = stringResource(R.string.probe_url_hint),
     ) {
         TestUrls.forEachIndexed { i, (url, title) ->
             if (i > 0) IosDivider()
@@ -845,12 +844,13 @@ private fun TestingPage(settings: AppSettings, onChange: ((AppSettings) -> AppSe
             )
         }
     }
-    IosSection(header = "Скорость проверки", footer = "Быстрая проверка нагружает сеть: оператор может начать сбрасывать соединения. На слабом мобильном интернете она может ошибаться и показывать рабочие узлы как неработающие.") {
-        val current = ConcurrencyOptions.minBy { kotlin.math.abs(it.first - settings.concurrency) }.first
+    val concurrencyOptions = ConcurrencyOptions
+    IosSection(header = stringResource(R.string.probe_speed), footer = stringResource(R.string.probe_speed_hint)) {
+        val current = concurrencyOptions.minBy { kotlin.math.abs(it.first - settings.concurrency) }.first
         IosSegmented(
-            options = ConcurrencyOptions.map { it.second },
-            selected = ConcurrencyOptions.indexOfFirst { it.first == current },
-            onSelect = { i -> onChange { it.copy(concurrency = ConcurrencyOptions[i].first) } },
+            options = concurrencyOptions.map { it.second },
+            selected = concurrencyOptions.indexOfFirst { it.first == current },
+            onSelect = { i -> onChange { it.copy(concurrency = concurrencyOptions[i].first) } },
             modifier = Modifier.padding(12.dp),
         )
     }
@@ -865,28 +865,28 @@ private fun BackgroundPage() {
         unrestricted = context.isBatteryUnrestricted()
         onPauseOrDispose { }
     }
-    IosSection(footer = "Чтобы Android не останавливал VPN, когда приложение закрыто, снимите для Фарватера ограничения батареи.") {
+    IosSection(footer = stringResource(R.string.battery_hint)) {
         IosRow(
-            title = "Ограничения батареи",
+            title = stringResource(R.string.battery_restrictions),
             icon = Icons.Rounded.BatteryChargingFull,
             iconTint = if (unrestricted) c.green else c.red,
-            value = if (unrestricted) "нет" else "есть",
+            value = if (unrestricted) stringResource(R.string.none) else stringResource(R.string.present),
             valueColor = if (unrestricted) null else c.red,
         )
         IosDivider(start = Divider.dp)
         IosRow(
-            title = "Открыть настройки Фарватера",
+            title = stringResource(R.string.open_app_settings),
             titleColor = c.tint,
             icon = Icons.Rounded.Tune,
             iconTint = c.gray,
             onClick = { runCatching { context.startActivity(context.appSettingsIntent()) } },
         )
     }
-    IosSection(header = "Как снять ограничения") {
+    IosSection(header = stringResource(R.string.remove_restrictions)) {
         Column(Modifier.padding(16.dp)) {
-            BackgroundTip("1", "Откройте настройки Фарватера кнопкой выше.")
-            BackgroundTip("2", "Выберите «Батарея» или «Использование батареи» и отметьте «Без ограничений».")
-            BackgroundTip("3", "На Xiaomi, Huawei, Honor, OPPO и vivo включите ещё «Автозапуск».")
+            BackgroundTip("1", stringResource(R.string.battery_step_one))
+            BackgroundTip("2", stringResource(R.string.battery_step_two))
+            BackgroundTip("3", stringResource(R.string.battery_step_three))
         }
     }
 }
@@ -914,10 +914,10 @@ private fun UpdatesPage(
 ) {
     val c = Ios.colors
     IosSection(
-        footer = "Новые версии проверяются примерно раз в 15 минут. Скачанный файл сверяется по SHA-256 перед установкой.",
+        footer = stringResource(R.string.update_check_hint),
     ) {
         IosRow(
-            title = if (updateVersion != null) "Установить $updateVersion" else "Проверить обновления",
+            title = if (updateVersion != null) stringResource(R.string.update_install, updateVersion.orEmpty()) else stringResource(R.string.update_check),
             titleColor = c.tint,
             icon = Icons.Rounded.SystemUpdate,
             iconTint = c.blue,
@@ -926,8 +926,8 @@ private fun UpdatesPage(
         )
         IosDivider(start = Divider.dp)
         IosRow(
-            title = "Проверять автоматически",
-            subtitle = "Уведомлять о новых версиях и срочных исправлениях",
+            title = stringResource(R.string.update_auto),
+            subtitle = stringResource(R.string.update_auto_hint),
             icon = Icons.Rounded.NotificationsActive,
             iconTint = c.red,
             checked = settings.autoUpdates,
@@ -936,7 +936,7 @@ private fun UpdatesPage(
     }
     IosSection {
         IosRow(
-            title = "История изменений",
+            title = stringResource(R.string.changelog_title),
             icon = Icons.Rounded.History,
             iconTint = c.indigo,
             chevron = true,
@@ -950,11 +950,11 @@ private fun DocumentsPage(onOpenDocument: (String) -> Unit) {
     val c = Ios.colors
     val divider = Divider.dp
     IosSection {
-        IosRow("Условия использования", icon = Icons.Rounded.Description, iconTint = c.gray, chevron = true, onClick = { onOpenDocument(LegalDocs.TERMS) })
+        IosRow(stringResource(R.string.terms_title), icon = Icons.Rounded.Description, iconTint = c.gray, chevron = true, onClick = { onOpenDocument(LegalDocs.TERMS) })
         IosDivider(start = divider)
-        IosRow("Политика конфиденциальности", icon = Icons.Rounded.Lock, iconTint = c.gray, chevron = true, onClick = { onOpenDocument(LegalDocs.PRIVACY) })
+        IosRow(stringResource(R.string.privacy_title), icon = Icons.Rounded.Lock, iconTint = c.gray, chevron = true, onClick = { onOpenDocument(LegalDocs.PRIVACY) })
         IosDivider(start = divider)
-        IosRow("Лицензии открытого ПО", icon = Icons.Rounded.Code, iconTint = c.gray, chevron = true, onClick = { onOpenDocument(LegalDocs.LICENSES) })
+        IosRow(stringResource(R.string.licenses_title), icon = Icons.Rounded.Code, iconTint = c.gray, chevron = true, onClick = { onOpenDocument(LegalDocs.LICENSES) })
     }
 }
 
@@ -966,29 +966,29 @@ private fun AboutPage() {
     Column(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         AppLogo(96.dp)
         Spacer(Modifier.height(14.dp))
-        Text("Фарватер", style = IosType.title2, color = c.label)
-        Text("Версия ${BuildConfig.VERSION_NAME}", style = IosType.subheadline, color = c.secondaryLabel)
+        Text(stringResource(R.string.app_name), style = IosType.title2, color = c.label)
+        Text(stringResource(R.string.version_label, BuildConfig.VERSION_NAME), style = IosType.subheadline, color = c.secondaryLabel)
     }
     IosSection {
         IosRow(
-            "Ядро Xray",
+            stringResource(R.string.xray_core),
             icon = Icons.Rounded.Memory,
             iconTint = c.purple,
-            value = XrayEngine.version ?: if (XrayEngine.isAvailable) "встроено" else "нет",
+            value = XrayEngine.version ?: if (XrayEngine.isAvailable) stringResource(R.string.built_in_core) else stringResource(R.string.none),
             valueColor = if (XrayEngine.isAvailable) null else c.red,
         )
         IosDivider(start = divider)
         IosRow(
-            "TUN-мост",
+            stringResource(R.string.tun_bridge),
             icon = Icons.Rounded.SwapVert,
             iconTint = c.teal,
-            value = if (TunBridge.isAvailable) "встроен" else "нет",
+            value = if (TunBridge.isAvailable) stringResource(R.string.built_in_bridge) else stringResource(R.string.none),
             valueColor = if (TunBridge.isAvailable) null else c.red,
         )
     }
-    IosSection(footer = "Фарватер бесплатный и с открытым кодом. Лицензия GPL-3.0.") {
+    IosSection(footer = stringResource(R.string.about_license)) {
         IosRow(
-            "Исходный код",
+            stringResource(R.string.source_code),
             icon = Icons.Rounded.Code,
             iconTint = c.gray,
             chevron = true,
@@ -996,16 +996,16 @@ private fun AboutPage() {
         )
         IosDivider(start = divider)
         IosRow(
-            "Телеграм-канал",
+            stringResource(R.string.telegram_channel),
             icon = ImageVector.vectorResource(R.drawable.ic_telegram),
             iconTint = c.blue,
-            value = "@farvater_app",
+            value = app.farvater.ui.ltrText("@farvater_app"),
             chevron = true,
             onClick = { runCatching { uri.openUri(ChannelUrl) } },
         )
         IosDivider(start = divider)
         IosRow(
-            "Написать разработчику",
+            stringResource(R.string.contact_developer),
             icon = Icons.Rounded.Email,
             iconTint = c.blue,
             chevron = true,
@@ -1049,36 +1049,36 @@ fun OnboardingDialog(onChoice: (enableCommunity: Boolean) -> Unit, onOpenDocumen
                 Spacer(Modifier.height(36.dp))
                 AppLogo(84.dp)
                 Spacer(Modifier.height(20.dp))
-                Text("Добро пожаловать\nв Фарватер", style = IosType.title1, color = c.label, textAlign = TextAlign.Center)
+                Text(stringResource(R.string.welcome_title), style = IosType.title1, color = c.label, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(28.dp))
-                Feature(Icons.Rounded.Lock, c.green, "Ваши подписки", "VLESS, Trojan, Shadowsocks, VMess и Hysteria2. Российские сервисы идут мимо VPN.")
-                Feature(Icons.Rounded.Public, c.tint, "Публичные подписки", "Бесплатные серверы сообщества помогают при белых списках.")
-                Feature(Icons.Rounded.Shield, c.red, "Осторожно с паролями", "Владельцы чужих серверов видят, куда вы ходите. Не вводите через них пароли.")
+                Feature(Icons.Rounded.Lock, c.green, stringResource(R.string.own_subscriptions), stringResource(R.string.welcome_own_hint))
+                Feature(Icons.Rounded.Public, c.tint, stringResource(R.string.public_subscriptions), stringResource(R.string.welcome_public_hint))
+                Feature(Icons.Rounded.Shield, c.red, stringResource(R.string.password_caution), stringResource(R.string.welcome_password_hint))
                 Spacer(Modifier.height(20.dp))
                 Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        "Условия",
+                        stringResource(R.string.terms_short),
                         style = IosType.footnote.copy(fontWeight = FontWeight.SemiBold),
                         color = c.tint,
                         modifier = Modifier.clickable { onOpenDocument(LegalDocs.TERMS) }.padding(8.dp),
                     )
                     Text(
-                        "Конфиденциальность",
+                        stringResource(R.string.privacy_short),
                         style = IosType.footnote.copy(fontWeight = FontWeight.SemiBold),
                         color = c.tint,
                         modifier = Modifier.clickable { onOpenDocument(LegalDocs.PRIVACY) }.padding(8.dp),
                     )
                 }
                 Text(
-                    "Продолжая, вы принимаете условия использования и политику конфиденциальности.",
+                    stringResource(R.string.welcome_agreement),
                     style = IosType.caption1,
                     color = c.secondaryLabel,
                     textAlign = TextAlign.Center,
                 )
                 Spacer(Modifier.height(16.dp))
-                IosButton("Включить публичные", onClick = { close(true) }, modifier = Modifier.fillMaxWidth())
+                IosButton(stringResource(R.string.welcome_public_action), onClick = { close(true) }, modifier = Modifier.fillMaxWidth())
                 IosButton(
-                    "Только мои подписки",
+                    stringResource(R.string.welcome_own_action),
                     onClick = { close(false) },
                     style = IosButtonStyle.Plain,
                     modifier = Modifier.fillMaxWidth(),
@@ -1115,3 +1115,17 @@ private fun Context.isBatteryUnrestricted(): Boolean =
 
 private fun Context.appSettingsIntent(): Intent =
     Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
+
+@Composable
+private fun LanguagePage() {
+    val context = LocalContext.current
+    val selected = app.farvater.data.AppLanguages.selected(context).substringBefore('-')
+    IosSection {
+        listOf("" to R.string.language_system, "ru" to R.string.language_ru,
+            "en" to R.string.language_en, "fa" to R.string.language_fa).forEach { (tag, label) ->
+            IosChoiceRow(stringResource(label), selected == tag, {
+                app.farvater.data.AppLanguages.set(context, tag)
+            })
+        }
+    }
+}

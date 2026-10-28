@@ -33,20 +33,23 @@ private val SectionTitle = Regex("""^\d{1,2}\. \S.*""")
 fun LegalDocument(asset: String, onClose: () -> Unit) {
     val c = Ios.colors
     val context = LocalContext.current
-    val lines = remember(asset) {
+    val failure = androidx.compose.ui.res.stringResource(app.farvater.R.string.document_open_error)
+    val lines = remember(asset, context, failure) {
         runCatching { context.assets.open(asset).bufferedReader().use { it.readText() } }
-            .getOrDefault("Не удалось открыть документ.")
+            .getOrDefault(failure)
             .trim()
             .lines()
     }
     IosSheet(title = lines.firstOrNull().orEmpty(), onClose = onClose) {
-        Column(
-            Modifier
-                .verticalScroll(rememberScrollState())
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 40.dp),
-        ) {
-            lines.forEachIndexed { index, line -> DocumentLine(line, isTitle = index == 0) }
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
+            Column(
+                Modifier
+                    .verticalScroll(rememberScrollState())
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 40.dp),
+            ) {
+                lines.forEachIndexed { index, line -> DocumentLine(line, isTitle = index == 0) }
+            }
         }
     }
 }

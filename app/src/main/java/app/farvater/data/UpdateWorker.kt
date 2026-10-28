@@ -1,5 +1,6 @@
 package app.farvater.data
 
+import app.farvater.data.localizedString
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
@@ -59,10 +60,10 @@ class UpdateWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
-            val text = info.notes.take(3).joinToString("\n").ifBlank { "Нажмите, чтобы обновить" }
+            val text = info.notes.take(3).joinToString("\n").ifBlank { context.localizedString(R.string.notification_update_hint) }
             val notification = NotificationCompat.Builder(context, CHANNEL)
                 .setSmallIcon(R.drawable.ic_logo)
-                .setContentTitle(if (info.critical) "Важное обновление Фарватера ${info.versionName}" else "Доступен Фарватер ${info.versionName}")
+                .setContentTitle(if (info.critical) context.localizedString(R.string.notification_critical_update, info.versionName) else context.localizedString(R.string.update_available, info.versionName))
                 .setContentText(text.lineSequence().first())
                 .setStyle(NotificationCompat.BigTextStyle().bigText(text))
                 .setPriority(NotificationCompat.PRIORITY_HIGH)

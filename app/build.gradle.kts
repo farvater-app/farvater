@@ -54,6 +54,10 @@ android {
         }
     }
 
+    bundle {
+        language { enableSplit = false }
+    }
+
     splits {
         abi {
             isEnable = true

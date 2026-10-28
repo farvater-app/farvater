@@ -1,5 +1,7 @@
 package app.farvater.engine
 
+import app.farvater.R
+import app.farvater.data.LocalizedStateException
 import android.content.Context
 import app.farvater.core.xray.LocalProxyAuth
 import app.farvater.core.xray.XrayConfigBuilder
@@ -15,10 +17,10 @@ object TunBridge {
 
     @Synchronized
     fun start(context: Context, fd: Int, mtu: Int): Result<Unit> = runCatching {
-        check(isAvailable) { "в сборке нет libhev-socks5-tunnel.so" }
+        if (!isAvailable) throw LocalizedStateException(R.string.error_tun_missing)
         val config = File(context.filesDir, "hev.yml")
         config.writeText(buildConfig(mtu))
-        check(TProxyService.TProxyStartService(config.absolutePath, fd)) { "hev-socks5-tunnel не принял конфиг" }
+        if (!TProxyService.TProxyStartService(config.absolutePath, fd)) throw LocalizedStateException(R.string.error_tun_config)
         running = true
     }
 

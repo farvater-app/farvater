@@ -1,5 +1,6 @@
 package app.farvater.vpn
 
+import app.farvater.data.AppLanguages
 import android.content.Intent
 import android.net.VpnService
 import android.os.Bundle
@@ -9,6 +10,10 @@ import app.farvater.App
 import app.farvater.FarvaterActivity
 
 class ToggleActivity : ComponentActivity() {
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(AppLanguages.wrap(base))
+    }
+
     private val consent = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) App.prefs.lastNode?.let { FarvaterVpnService.start(this, it) }
         finish()

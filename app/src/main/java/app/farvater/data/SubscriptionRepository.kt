@@ -1,5 +1,6 @@
 package app.farvater.data
 
+import app.farvater.R
 import android.content.Context
 import app.farvater.BuildConfig
 import app.farvater.core.model.ProxyNode
@@ -33,6 +34,7 @@ data class SourceSnapshot(
 )
 
 class SubscriptionRepository(context: Context) {
+    private val application = context.applicationContext as android.app.Application
     private val dir = File(context.filesDir, "subs").apply { mkdirs() }
     private val manualFile = File(dir, "${ProxyNode.MANUAL_SOURCE}.txt")
 
@@ -61,7 +63,7 @@ class SubscriptionRepository(context: Context) {
             var lastError: String? = null
             for (url in urls) for (asJson in if (json) listOf(true, false) else listOf(false)) {
                 try {
-                    val base = SafeHttp.parse(url) ?: throw IOException("недопустимый адрес подписки")
+                    val base = SafeHttp.parse(url) ?: throw IOException(application.localizedString(R.string.error_subscription_address))
                     val target = if (asJson) base.jsonVariant() ?: continue else base
                     SafeHttp.execute(
                         client, target,
@@ -77,9 +79,9 @@ class SubscriptionRepository(context: Context) {
                         val parsed = SubscriptionParser.parse(body, sourceId, headers)
                         if (parsed.nodes.isEmpty() && parsed.notices.isEmpty()) {
                             lastError = if (body.trimStart().startsWith("<")) {
-                                "вместо подписки пришла веб-страница"
+                                application.localizedString(R.string.error_subscription_html)
                             } else {
-                                "в подписке сейчас нет серверов"
+                                application.localizedString(R.string.error_subscription_empty)
                             }
                             return@use
                         }
@@ -98,7 +100,7 @@ class SubscriptionRepository(context: Context) {
                         )
                     }
                 } catch (e: Exception) {
-                    lastError = e.message ?: e.javaClass.simpleName
+                    lastError = e.userMessage(application)
                 }
             }
             val cached = loadCached(sourceId)
@@ -107,9 +109,9 @@ class SubscriptionRepository(context: Context) {
         }
 
     private fun readLimited(body: ResponseBody): String {
-        if (body.contentLength() > MAX_BODY) throw IOException("подписка больше ${MAX_BODY / 1024 / 1024} МБ")
+        if (body.contentLength() > MAX_BODY) throw IOException(application.localizedString(R.string.error_subscription_size, MAX_BODY / 1024 / 1024))
         val source = body.source()
-        if (source.request(MAX_BODY + 1)) throw IOException("подписка больше ${MAX_BODY / 1024 / 1024} МБ")
+        if (source.request(MAX_BODY + 1)) throw IOException(application.localizedString(R.string.error_subscription_size, MAX_BODY / 1024 / 1024))
         return source.buffer.readUtf8()
     }
 

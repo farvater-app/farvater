@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class, shadows = [NodeTesterConcurrencyTest.Core::class],
-    instrumentedPackages = ["app.farvater.engine.XrayEngine"])
+    instrumentedPackages = ["app.farvater.engine.XrayEngine"] , qualifiers = "ru")
 class NodeTesterConcurrencyTest {
     @Test
     fun configuredConcurrencyIsClampedToOneThroughThirtyTwo() {

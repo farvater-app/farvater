@@ -1,5 +1,6 @@
 package app.farvater.vpn
 
+import app.farvater.data.localizedString
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -39,7 +40,7 @@ class VpnWidget : AppWidgetProvider() {
                 setInt(R.id.widget_icon, "setColorFilter", if (on) 0 else OFF_TINT)
                 setContentDescription(
                     R.id.widget_button,
-                    if (on) "Фарватер включён, нажмите, чтобы отключить" else "Фарватер выключен, нажмите, чтобы подключиться",
+                    if (on) context.localizedString(R.string.widget_on) else context.localizedString(R.string.widget_off),
                 )
                 setOnClickPendingIntent(R.id.widget_button, toggle)
             }

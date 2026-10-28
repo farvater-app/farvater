@@ -1,5 +1,8 @@
 package app.farvater.ui.components
 
+import app.farvater.R
+import androidx.compose.ui.res.stringResource
+import app.farvater.ui.theme.localizedFont
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -54,11 +57,12 @@ fun delayColor(result: TestResult?): Color {
     }
 }
 
+@Composable
 fun delayText(result: TestResult?): String = when {
     result == null -> "—"
-    !result.alive -> "нет ответа"
-    result.method == TestMethod.TCP -> "${result.delayMs} мс*"
-    else -> "${result.delayMs} мс"
+    !result.alive -> stringResource(R.string.no_response)
+    result.method == TestMethod.TCP -> stringResource(R.string.latency_tcp, result.delayMs)
+    else -> stringResource(R.string.latency_ms, result.delayMs)
 }
 
 @Composable
@@ -68,7 +72,7 @@ fun DelayLabel(result: TestResult?, modifier: Modifier = Modifier) {
     Text(
         delayText(result),
         style = when {
-            dots -> TextStyle(fontFamily = NothingDot, fontSize = 21.sp, lineHeight = 24.sp)
+            dots -> TextStyle(fontFamily = localizedFont(NothingDot), fontSize = 21.sp, lineHeight = 24.sp)
             Ios.nothing -> NothingLabel.copy(fontSize = 10.sp)
             else -> IosType.subheadline.merge(Numeric).copy(fontWeight = FontWeight.Medium)
         },
