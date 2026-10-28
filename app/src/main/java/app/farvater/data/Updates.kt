@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
+import androidx.core.content.pm.PackageInfoCompat
 import app.farvater.BuildConfig
 import app.farvater.core.xray.XrayConfigBuilder
 import kotlinx.coroutines.Dispatchers
@@ -131,7 +132,7 @@ class UpdateRepository(private val context: Context) {
         }
         val archive = pm.getPackageArchiveInfo(apk.path, flags) ?: error("скачанный файл не является APK")
         if (archive.packageName != context.packageName) error("APK от другого приложения")
-        if (archive.longVersionCode != info.versionCode.toLong()) error("версия APK не совпадает с объявленной")
+        if (PackageInfoCompat.getLongVersionCode(archive) != info.versionCode.toLong()) error("версия APK не совпадает с объявленной")
         val installed = pm.getPackageInfo(context.packageName, flags)
         val expected = signers(installed)
         if (expected.isEmpty() || signers(archive) != expected) error("APK подписан чужим ключом")
