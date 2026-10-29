@@ -550,30 +550,17 @@ private fun WitchFeedback(content: @Composable () -> Unit) {
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalHapticFeedback provides feedback, content = content)
 }
 
-private class WitchPurr(context: android.content.Context) {
-    private val audio = context.getSystemService(android.media.AudioManager::class.java)
-    private val pool = android.media.SoundPool.Builder()
-        .setMaxStreams(1)
-        .setAudioAttributes(
-            android.media.AudioAttributes.Builder()
-                .setUsage(android.media.AudioAttributes.USAGE_GAME)
-                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build(),
-        )
-        .build()
-    private val sound = pool.load(context, R.raw.witch_purr, 1)
-
-    fun play() {
-        if (audio?.ringerMode == android.media.AudioManager.RINGER_MODE_NORMAL) pool.play(sound, 1f, 1f, 1, 0, 1f)
-    }
-
-    fun release() = pool.release()
-}
-
 @Composable
 private fun rememberWitchPurr(): WitchPurr {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val purr = remember(context) { WitchPurr(context) }
-    androidx.compose.runtime.DisposableEffect(purr) { onDispose { purr.release() } }
+    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val purr = remember(context, owner) { WitchPurr(context.applicationContext) }
+    androidx.compose.runtime.DisposableEffect(purr, owner) {
+        owner.lifecycle.addObserver(purr)
+        onDispose {
+            owner.lifecycle.removeObserver(purr)
+            purr.release()
+        }
+    }
     return purr
 }
