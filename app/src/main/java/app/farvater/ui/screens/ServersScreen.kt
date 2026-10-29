@@ -427,7 +427,7 @@ private fun NodeRow(
         onLongClick = onLongClick,
         trailing = {
             Box(
-                Modifier.size(48.dp).toggleable(value = favorite, role = Role.Checkbox, onValueChange = { onFavorite() }),
+                Modifier.size(48.dp).clip(CircleShape).toggleable(value = favorite, role = Role.Checkbox, onValueChange = { onFavorite() }),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
