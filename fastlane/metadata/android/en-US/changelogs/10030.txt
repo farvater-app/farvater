@@ -1,0 +1,6 @@
+- Closed vulnerabilities in JSON subscriptions: they can no longer disable certificate checks or route traffic around the proxy
+- Fixed installing updates on Android 8 and 8.1
+- Witch's Cat style with purring and three new icons
+- Russian, English and Persian to choose from
+- Favorite nodes and traffic history for 7 or 30 days
+- App sharing without a cache copy, more reliable connection cancel and node choice
