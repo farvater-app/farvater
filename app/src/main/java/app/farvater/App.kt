@@ -34,6 +34,7 @@ class App : Application() {
     override fun onCreate() {
         super.onCreate()
         AppLanguages.migrate(this)
+        MainScope().launch { app.farvater.data.ApkSharing.clearLegacyCache(this@App) }
         instance = this
         prefs = Prefs(this)
         repo = SubscriptionRepository(this)
