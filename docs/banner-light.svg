@@ -1,49 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="400" viewBox="0 0 1280 400" role="img" aria-label="Фарватер">
-<defs>
-<linearGradient id="bg" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#FBFCFE"/><stop offset="1" stop-color="#E3EAF4"/></linearGradient>
-<linearGradient id="tile" x1="0" y1="0" x2="0.6" y2="1"><stop offset="0" stop-color="#173A6B"/><stop offset="1" stop-color="#081628"/></linearGradient>
-<radialGradient id="glow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#2F6FE0" stop-opacity="0.18"/><stop offset="1" stop-color="#2F6FE0" stop-opacity="0"/></radialGradient>
-<clipPath id="card"><rect width="1280" height="400" rx="28"/></clipPath>
-<clipPath id="tileclip"><rect x="0" y="0" width="200" height="200" rx="47"/></clipPath>
-<style>
-.route { stroke-dasharray: 2 18; animation: flow 3s linear infinite; }
-.b1 { animation: bob 3.2s ease-in-out infinite; }
-.b2 { animation: bob 3.6s ease-in-out infinite reverse; }
-.halo { animation: breathe 5s ease-in-out infinite; transform-origin: 236px 200px; }
-@keyframes flow { to { stroke-dashoffset: -40; } }
-@keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-@keyframes breathe { 0%,100% { opacity: .7; transform: scale(1); } 50% { opacity: 1; transform: scale(1.06); } }
-@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
-</style>
-</defs>
-<g clip-path="url(#card)">
-<rect width="1280" height="400" fill="url(#bg)"/>
-<circle class="halo" cx="236" cy="200" r="190" fill="url(#glow)"/>
-<path class="route" d="M-20,339.0 L0,339.9 L20,341.8 L40,344.7 L60,348.2 L80,352.0 L100,355.8 L120,359.3 L140,362.2 L160,364.1 L180,365.0 L200,364.7 L220,363.3 L240,360.8 L260,357.6 L280,353.9 L300,350.1 L320,346.4 L340,343.2 L360,340.7 L380,339.3 L400,339.0 L420,339.9 L440,341.8 L460,344.7 L480,348.2 L500,352.0 L520,355.8 L540,359.3 L560,362.2 L580,364.1 L600,365.0 L620,364.7 L640,363.3 L660,360.8 L680,357.6 L700,353.9 L720,350.1 L740,346.4 L760,343.2 L780,340.7 L800,339.3 L820,339.0 L840,339.9 L860,341.8 L880,344.7 L900,348.2 L920,352.0 L940,355.8 L960,359.3 L980,362.2 L1000,364.1 L1020,365.0 L1040,364.7 L1060,363.3 L1080,360.8 L1100,357.6 L1120,353.9 L1140,350.1 L1160,346.4 L1180,343.2 L1200,340.7 L1220,339.3 L1240,339.0 L1260,339.9 L1280,341.8 L1300,344.7" fill="none" stroke="#173A6B" stroke-opacity="0.25" stroke-width="4" stroke-linecap="round"/>
-<rect class="b1" x="413" y="309" width="14" height="18" rx="3.5" fill="#FF453A" fill-opacity="0.85"/>
-<path class="b2" d="M560,374 L570,393 L550,393 Z" fill="#30D158" fill-opacity="0.85" stroke="#30D158" stroke-opacity="0.85" stroke-width="2" stroke-linejoin="round"/>
-<rect class="b1" x="693" y="323" width="14" height="18" rx="3.5" fill="#FF453A" fill-opacity="0.85"/>
-<path class="b2" d="M840,352 L850,371 L830,371 Z" fill="#30D158" fill-opacity="0.85" stroke="#30D158" stroke-opacity="0.85" stroke-width="2" stroke-linejoin="round"/>
-<rect class="b1" x="973" y="331" width="14" height="18" rx="3.5" fill="#FF453A" fill-opacity="0.85"/>
-<path class="b2" d="M1120,366 L1130,385 L1110,385 Z" fill="#30D158" fill-opacity="0.85" stroke="#30D158" stroke-opacity="0.85" stroke-width="2" stroke-linejoin="round"/>
-<rect class="b1" x="1253" y="309" width="14" height="18" rx="3.5" fill="#FF453A" fill-opacity="0.85"/>
-<g transform="translate(136 100)">
-<rect width="200" height="200" rx="47" fill="url(#tile)"/>
-<g clip-path="url(#tileclip)"><g transform="translate(-50 -50) scale(2.7778)"><path d="M49,81 C49,71 60,68 60,58.5 C60,50.5 54,48 54,42" fill="none" stroke="#FFFFFF" stroke-width="6.5" stroke-linecap="round"/>
-<path d="M54,28.5 L62.5,41.5 L45.5,41.5 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="2" stroke-linejoin="round"/>
-<rect x="33" y="50" width="8.5" height="11" rx="2" fill="#FF453A"/>
-<path d="M73.5,49 L79.5,60.5 L67.5,60.5 Z" fill="#30D158" stroke="#30D158" stroke-width="1.4" stroke-linejoin="round"/></g></g>
-<rect width="200" height="200" rx="47" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="2"/>
-</g>
-<text x="400" y="178" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="104" font-weight="800" letter-spacing="-3" fill="#0B1220">Фарватер</text>
-<text x="404" y="226" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="28" font-weight="500" fill="#566173">Свободный VPN-клиент для Android на ядре Xray</text>
-<rect x="404" y="250" width="160" height="38" rx="19" fill="#0B1220" fill-opacity="0.06"/>
-<text x="484" y="275" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="18" font-weight="600" fill="#2B3445">Открытый код</text>
-<rect x="574.4" y="250" width="149" height="38" rx="19" fill="#0B1220" fill-opacity="0.06"/>
-<text x="649" y="275" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="18" font-weight="600" fill="#2B3445">Без рекламы</text>
-<rect x="733.5999999999999" y="250" width="160" height="38" rx="19" fill="#0B1220" fill-opacity="0.06"/>
-<text x="814" y="275" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="18" font-weight="600" fill="#2B3445">Без трекеров</text>
-<rect x="903.9999999999999" y="250" width="138" height="38" rx="19" fill="#0B1220" fill-opacity="0.06"/>
-<text x="973" y="275" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="18" font-weight="600" fill="#2B3445">Android 8+</text>
-</g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="440" viewBox="0 0 1440 440" role="img" aria-label="Фарватер. VPN-клиент для Android. Версия 1.0.30">
+<defs><clipPath id="clip"><rect width="1440" height="440" rx="28"/></clipPath><linearGradient id="mark" x2="0" y2="1"><stop stop-color="#254a7a"/><stop offset="1" stop-color="#0a1a2d"/></linearGradient></defs>
+<g clip-path="url(#clip)"><rect width="1440" height="440" fill="#eef3fa"/>
+<g fill="none" stroke="#d4e0ee" stroke-width="1.5"><path d="M800-30c-120 160 180 150 90 310s160 150 130 240"/><path d="M850-30c-120 160 180 150 90 310s160 150 130 240"/><path d="M900-30c-120 160 180 150 90 310s160 150 130 240"/><path d="M950-30c-120 160 180 150 90 310s160 150 130 240"/><path d="M1000-30c-120 160 180 150 90 310s160 150 130 240"/><path d="M1050-30c-120 160 180 150 90 310s160 150 130 240"/></g>
+<circle cx="1193" cy="213" r="140" fill="none" stroke="#d4e0ee"/><circle cx="1193" cy="213" r="161" fill="none" stroke="#d4e0ee" stroke-dasharray="2 11"/>
+<rect x="1093" y="113" width="200" height="200" rx="48" fill="url(#mark)"/>
+<path d="M1183 276c-2-29 39-42 24-75-6-13-15-26-15-42" fill="none" stroke="white" stroke-width="15" stroke-linecap="round"/><path d="m1193 141-23 38h46Z" fill="white"/><rect x="1123" y="207" width="17" height="27" rx="5" fill="#ff5146"/><path d="m1250 204-16 30h32Z" fill="#31d17a"/>
+<g font-family="Arial, Helvetica, sans-serif"><text x="76" y="91" fill="#445f7e" font-size="20" letter-spacing="4">ANDROID · ОТКРЫТЫЙ КОД</text><text x="70" y="207" fill="#152a45" font-size="100" font-weight="700" letter-spacing="-4">Фарватер</text><text x="76" y="271" fill="#445f7e" font-size="27">Ваши узлы. Ваши настройки. Ваш стиль.</text><rect x="76" y="324" width="98" height="38" rx="19" fill="#d4e0ee"/><text x="125" y="350" text-anchor="middle" fill="#152a45" font-size="20">1.0.30</text><text x="193" y="350" fill="#275fa8" font-size="20">11 стилей / 16 значков / 3 языка</text></g></g></svg>
