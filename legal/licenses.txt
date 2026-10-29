@@ -201,6 +201,9 @@ https://hub.mos.ru/rkp/sub-roskompozor
 
 Спасибо всем этим людям. Без них Фарватера бы не было.
 
+Мурлыканье кота в стиле «Ведьмин кот» — фрагмент записи «Whiskers' purr» (Adam Cuerden, правка X!) с Wikimedia Commons, общественное достояние. Фрагмент обрезан, очищен от низкого гула и выровнен по громкости.
+https://commons.wikimedia.org/wiki/File:Whiskers'_purr_edit.ogg
+
 Шрифт Farvater Witch для стиля «Ведьмин кот» — подмножество Underdog: оставлены латиница и кириллица, имя изменено согласно условию Reserved Font Name. Авторы: Sergey Steblina и Jovanny Lemonad. SIL Open Font License 1.1.
 https://github.com/google/fonts/tree/main/ofl/underdog
 

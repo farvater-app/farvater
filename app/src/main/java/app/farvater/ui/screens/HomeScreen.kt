@@ -529,10 +529,12 @@ private fun WitchFeedback(content: @Composable () -> Unit) {
     val system = androidx.compose.ui.platform.LocalHapticFeedback.current
     val view = androidx.compose.ui.platform.LocalView.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    val feedback = remember(system, view, scope) {
+    val purr = rememberWitchPurr()
+    val feedback = remember(system, view, scope, purr) {
         object : androidx.compose.ui.hapticfeedback.HapticFeedback {
             override fun performHapticFeedback(hapticFeedbackType: androidx.compose.ui.hapticfeedback.HapticFeedbackType) {
                 if (hapticFeedbackType == androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm) {
+                    purr.play()
                     scope.launch {
                         repeat(3) {
                             view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
@@ -546,4 +548,32 @@ private fun WitchFeedback(content: @Composable () -> Unit) {
         }
     }
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalHapticFeedback provides feedback, content = content)
+}
+
+private class WitchPurr(context: android.content.Context) {
+    private val audio = context.getSystemService(android.media.AudioManager::class.java)
+    private val pool = android.media.SoundPool.Builder()
+        .setMaxStreams(1)
+        .setAudioAttributes(
+            android.media.AudioAttributes.Builder()
+                .setUsage(android.media.AudioAttributes.USAGE_GAME)
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build(),
+        )
+        .build()
+    private val sound = pool.load(context, R.raw.witch_purr, 1)
+
+    fun play() {
+        if (audio?.ringerMode == android.media.AudioManager.RINGER_MODE_NORMAL) pool.play(sound, 1f, 1f, 1, 0, 1f)
+    }
+
+    fun release() = pool.release()
+}
+
+@Composable
+private fun rememberWitchPurr(): WitchPurr {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val purr = remember(context) { WitchPurr(context) }
+    androidx.compose.runtime.DisposableEffect(purr) { onDispose { purr.release() } }
+    return purr
 }
