@@ -13,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Proxy
@@ -38,6 +39,7 @@ object Pathfinder {
     private val urls = listOf(
         "https://speed.cloudflare.com/__down?bytes=$PAYLOAD",
         "https://proof.ovh.net/files/1Mb.dat",
+        "https://fsn1-speed.hetzner.com/100MB.bin",
     )
 
     private val base by lazy {
@@ -88,15 +90,7 @@ object Pathfinder {
         LocalProxyAuth.open(port)
         try {
             val client = base.newBuilder().proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port))).build()
-            var speed: Long? = null
-            for (url in urls) {
-                val start = System.nanoTime()
-                val bytes = download(client, url)
-                if (bytes >= ENOUGH) {
-                    speed = bytes * 1_000_000_000L / (System.nanoTime() - start).coerceAtLeast(1)
-                    break
-                }
-            }
+            val speed = measureSpeed(client)
             when {
                 speed == null -> Check(Verdict.NO_DATA)
                 !reachable(client, TELEGRAM) -> Check(Verdict.NO_TELEGRAM, speedBps = speed)
@@ -109,19 +103,36 @@ object Pathfinder {
         }
     }
 
-    private suspend fun reachable(client: OkHttpClient, url: String): Boolean = orDefault(false) {
+    internal suspend fun measureSpeed(client: OkHttpClient): Long? {
+        for (url in urls) {
+            val start = System.nanoTime()
+            val bytes = download(client, url)
+            if (bytes >= ENOUGH) {
+                return bytes * 1_000_000_000L / (System.nanoTime() - start).coerceAtLeast(1)
+            }
+        }
+        return null
+    }
+
+    internal suspend fun reachable(client: OkHttpClient, url: String): Boolean = orDefault(false) {
         client.newBuilder().followRedirects(false).build()
-            .newCall(Request.Builder().url(url).head().build()).await { true }
+            .newCall(Request.Builder().url(url).head().build()).await { response ->
+                val redirect = response.header("Location")?.toHttpUrlOrNull()
+                response.isSuccessful || (response.code in setOf(301, 302, 303, 307, 308) &&
+                    redirect?.scheme == "https" && redirect.host == "core.telegram.org" &&
+                    redirect.port == 443 && redirect.username.isEmpty() && redirect.password.isEmpty() &&
+                    redirect.encodedPath in setOf("/bots", "/bots/", "/bots/api"))
+            }
     }
 
     private suspend fun download(client: OkHttpClient, url: String): Int = orDefault(0) {
-        client.newCall(Request.Builder().url(url).build()).await { response ->
+        client.newCall(Request.Builder().url(url).header("Range", "bytes=0-${PAYLOAD - 1}").build()).await { response ->
             if (!response.isSuccessful) return@await 0
             val source = response.body?.byteStream() ?: return@await 0
             val buffer = ByteArray(16 * 1024)
             var total = 0
             while (total < PAYLOAD) {
-                val n = source.read(buffer)
+                val n = source.read(buffer, 0, minOf(buffer.size, PAYLOAD - total))
                 if (n < 0) break
                 total += n
             }

@@ -17,7 +17,7 @@ class LegalDocumentsTest {
 
     @Test fun packagedPolicyMatchesConsentRevisionAndReleaseDate() {
         val policy = app.assets.open("privacy.txt").bufferedReader().use { it.readText() }
-        assertTrue(policy.contains("Редакция $LEGAL_VERSION. Действует с 30 октября 2026 года."))
+        assertTrue(policy.contains("Редакция $LEGAL_VERSION. Действует с 31 октября 2026 года."))
         assertTrue(policy.contains("не больше 60 суточных записей"))
         assertTrue(policy.contains("избранные узлы"))
         assertTrue(policy.contains("Поделиться приложением"))
@@ -29,7 +29,7 @@ class LegalDocumentsTest {
 
     @Test fun existingConsentRequiresNewRevisionWithoutLosingOtherSettings() {
         val store = app.getSharedPreferences("farvater", 0)
-        store.edit().clear().putString("settings", "{\"onboardingDone\":true,\"acceptedLegalVersion\":3,\"communityEnabled\":false}").commit()
+        store.edit().clear().putString("settings", "{\"onboardingDone\":true,\"acceptedLegalVersion\":4,\"communityEnabled\":false}").commit()
         val settings = Prefs(app).settings
         assertTrue(settings.onboardingDone)
         assertFalse(settings.communityEnabled)

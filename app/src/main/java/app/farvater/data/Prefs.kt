@@ -12,10 +12,10 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
 
-const val LEGAL_VERSION = 4
+const val LEGAL_VERSION = 5
 
 @Serializable
-enum class UiStyle { IOS, MATERIAL, ROSKOMPOZOR, SUMIE, NOTHING, ORIGIN, HYPER, HARMONY, ONEUI, OXYGEN, WITCH }
+enum class UiStyle { IOS, MATERIAL, ROSKOMPOZOR, SUMIE, NOTHING, ORIGIN, HYPER, HARMONY, ONEUI, OXYGEN, WITCH, WINTER, COLOROS }
 
 @Serializable
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
@@ -27,7 +27,7 @@ data class AppSettings(
     val liveSort: Boolean = false,
     val dropDuplicates: Boolean = false,
     val duplicatesAsked: Boolean = false,
-    val testUrl: String = "https://www.gstatic.com/generate_204",
+    val testUrl: String = ProbeUrls.GOOGLE,
     val concurrency: Int = 16,
     val onboardingDone: Boolean = false,
     val communityEnabled: Boolean = false,
@@ -48,6 +48,10 @@ data class AppSettings(
     val autoSwitch: Boolean = true,
     val witchSeen: Boolean = false,
     val favoriteNodeIds: Set<String> = emptySet(),
+    val serviceChecksEnabled: Boolean = false,
+    val checkedServices: Set<ServiceKind> = emptySet(),
+    val serviceCustomUrl: String = "",
+    val serviceExpectedCode: Int = 200,
 )
 
 @Serializable
@@ -73,7 +77,7 @@ class Prefs(context: Context) {
 
     var settings: AppSettings
         get() = cachedSettings ?: (read<AppSettings>("settings") ?: AppSettings()).also { cachedSettings = it }
-        set(value) {
+        set(value) = synchronized(selectionLock) {
             cachedSettings = value
             write("settings", value)
         }
@@ -87,7 +91,7 @@ class Prefs(context: Context) {
             sp.edit().putStringSet("enabled_sources", result).putStringSet("catalog_seen", all).apply()
             result
         }.also { cachedEnabled = it }
-        set(value) {
+        set(value) = synchronized(selectionLock) {
             cachedEnabled = value
             sp.edit().putStringSet("enabled_sources", value)
                 .putStringSet("catalog_seen", BuiltInCatalog.sources.map { it.id }.toSet()).apply()
@@ -95,14 +99,14 @@ class Prefs(context: Context) {
 
     var userSources: List<UserSource>
         get() = cachedUserSources ?: (read<List<UserSource>>("user_sources") ?: emptyList()).also { cachedUserSources = it }
-        set(value) {
+        set(value) = synchronized(selectionLock) {
             cachedUserSources = value
             write("user_sources", value)
         }
 
     var sourceConfigs: Map<String, SourceConfig>
         get() = cachedConfigs ?: (read<Map<String, SourceConfig>>("source_configs") ?: emptyMap()).also { cachedConfigs = it }
-        set(value) {
+        set(value) = synchronized(selectionLock) {
             cachedConfigs = value
             write("source_configs", value)
         }
@@ -222,6 +226,19 @@ class Prefs(context: Context) {
             health.edit().putString(HEALTH_KEY, json.encodeToString(serializer<Map<String, NodeCheck>>(), value)).apply()
         }
 
+    var serviceChecks: Map<String, ServiceCheck>
+        get() = synchronized(serviceHistoryLock) {
+            val stored = health.getString("service_checks", null)?.let {
+                runCatching { json.decodeFromString<Map<String, ServiceCheck>>(it) }.getOrNull()
+            } ?: emptyMap()
+            val fresh = ServiceChecks.prune(stored)
+            if (stored != fresh) health.edit().putString("service_checks", json.encodeToString(fresh)).apply()
+            fresh
+        }
+        set(value) = synchronized(serviceHistoryLock) {
+            health.edit().putString("service_checks", json.encodeToString(ServiceChecks.prune(value))).apply()
+        }
+
     private fun loadHealth(): Map<String, NodeCheck> {
         health.getString(HEALTH_KEY, null)?.let { raw ->
             return runCatching { json.decodeFromString(serializer<Map<String, NodeCheck>>(), raw) }.getOrDefault(emptyMap())
@@ -267,9 +284,69 @@ class Prefs(context: Context) {
         lastNode = null
     }
 
+    fun restoreBackup(archive: BackupArchive, includeSecuritySettings: Boolean = false,
+        reviewedChanges: BackupSecurityChanges? = null): Unit = synchronized(selectionLock) {
+        archive.validated()
+        val old = settings
+        val incoming = archive.decodedSettings()
+        if (includeSecuritySettings) require(reviewedChanges != null && reviewedChanges == archive.securityChanges(old))
+        val restored = incoming.copy(
+            bypassApps = if (includeSecuritySettings) incoming.bypassApps else old.bypassApps,
+            safeMode = if (includeSecuritySettings) incoming.safeMode else old.safeMode,
+            encryptedDns = if (includeSecuritySettings) incoming.encryptedDns else old.encryptedDns,
+            autoUpdates = if (includeSecuritySettings) incoming.autoUpdates else old.autoUpdates,
+            sendHwid = if (includeSecuritySettings) incoming.sendHwid else old.sendHwid,
+            directRuServices = if (includeSecuritySettings) incoming.directRuServices else old.directRuServices,
+            acceptedLegalVersion = old.acceptedLegalVersion,
+            onboardingDone = old.onboardingDone,
+        )
+        val manual = archive.manualNodes.map {
+            app.farvater.core.parser.SubscriptionParser.parse(it, ProxyNode.MANUAL_SOURCE).nodes.single().raw
+        }.joinToString("\n", postfix = "\n")
+        val before = sp.all
+        val editor = sp.edit()
+            .putString("settings", json.encodeToString(restored))
+            .putString("user_sources", json.encodeToString(archive.subscriptions))
+            .putStringSet("enabled_sources", archive.enabledSources)
+            .putStringSet("catalog_seen", BuiltInCatalog.sources.map { it.id }.toSet())
+            .putString("source_configs", json.encodeToString(archive.sourceConfigs))
+            .putString(MANUAL_NODES_KEY, manual)
+            .putString("backup_language", archive.language)
+            .remove("selected_node").remove("last_node").remove("mode_nodes").remove("backup_nodes")
+            .remove("node_profiles").remove("collapsed_groups")
+        if (!editor.commit()) {
+            val rollback = sp.edit()
+            val keys = setOf("settings", "user_sources", "enabled_sources", "catalog_seen", "source_configs",
+                MANUAL_NODES_KEY, "backup_language", "selected_node", "last_node", "mode_nodes", "backup_nodes",
+                "node_profiles", "collapsed_groups")
+            keys.forEach { rollback.remove(it) }
+            before.filterKeys { it in keys }.forEach { (key, value) ->
+                when (value) {
+                    is String -> rollback.putString(key, value)
+                    is Boolean -> rollback.putBoolean(key, value)
+                    is Long -> rollback.putLong(key, value)
+                    is Int -> rollback.putInt(key, value)
+                    is Float -> rollback.putFloat(key, value)
+                    is Set<*> -> rollback.putStringSet(key, value.filterIsInstance<String>().toSet())
+                }
+            }
+            rollback.commit()
+            throw java.io.IOException()
+        }
+        cachedSettings = restored
+        cachedUserSources = archive.subscriptions
+        cachedEnabled = archive.enabledSources
+        cachedConfigs = archive.sourceConfigs
+        cachedLastNode = null
+        cachedModeNodes = emptyMap()
+        cachedProfiles = emptyMap()
+    }
+
     companion object {
+        internal const val MANUAL_NODES_KEY = "manual_nodes"
         internal val selectionLock = Any()
         private val trafficLock = Any()
+        private val serviceHistoryLock = Any()
         private const val MAX_PROFILES = 300
         private const val HEALTH_KEY = "node_health"
         private val OLD_CATALOG = setOf(

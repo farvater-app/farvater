@@ -96,6 +96,11 @@ enum class AppIcon(
         R.drawable.ic_launcher_witch_background, R.drawable.ic_launcher_witch_foreground,
         R.drawable.ic_launcher_witch_monochrome, R.drawable.widget_on_witch,
     ),
+    TREE(
+        "IconTree", R.string.icon_tree,
+        R.drawable.ic_launcher_tree_background, R.drawable.ic_launcher_tree_foreground,
+        R.drawable.ic_launcher_tree_monochrome, R.drawable.widget_on_tree,
+    ),
 }
 
 object AppIcons {

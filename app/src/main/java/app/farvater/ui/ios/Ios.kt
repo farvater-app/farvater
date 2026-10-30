@@ -111,6 +111,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
@@ -185,6 +186,7 @@ val SectionCorner = 24.dp
 @Composable
 @ReadOnlyComposable
 fun sectionCorner(): Dp = when {
+    Ios.colorOs -> 28.dp
     Ios.origin -> 26.dp
     Ios.hyper -> 22.dp
     Ios.harmony -> 20.dp
@@ -214,7 +216,7 @@ fun IosLargeTitle(
 ) {
     val c = Ios.colors
     val material = Ios.material
-    if (Ios.witch && LocalDensity.current.fontScale > 1.3f) {
+    if ((Ios.witch || Ios.winter || Ios.colorOs) && LocalDensity.current.fontScale > 1.3f) {
         Column(modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 28.dp, bottom = 14.dp)) {
             Text(title, style = MaterialTheme.typography.headlineLarge, color = c.label)
             if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = c.secondaryLabel)
@@ -290,18 +292,19 @@ fun IosLargeTitle(
 @Composable
 fun IosCompactBar(title: String, visible: Boolean, modifier: Modifier = Modifier, backdrop: GlassBackdrop? = null) {
     val c = Ios.colors
+    val largeText = (Ios.winter || Ios.colorOs) && LocalDensity.current.fontScale > 1.3f
     val p by animateFloatAsState(if (visible) 1f else 0f, tween(180), label = "bar")
     if (p == 0f) return
     if (Ios.material) {
         Box(
-            modifier.fillMaxWidth().height(64.dp).graphicsLayer { alpha = p }.background(c.bar),
+            modifier.fillMaxWidth().then(if (largeText) Modifier.heightIn(min = 64.dp) else Modifier.height(64.dp)).graphicsLayer { alpha = p }.background(c.bar),
             contentAlignment = Alignment.CenterStart,
         ) {
             Text(
                 title,
                 style = MaterialTheme.typography.titleLarge,
                 color = c.label,
-                maxLines = 1,
+                maxLines = if (largeText) Int.MAX_VALUE else 1,
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
         }
@@ -440,6 +443,52 @@ fun IosRow(
     val subtitleStyle = if (material) MaterialTheme.typography.bodyMedium else IosType.footnote
     val valueStyle = if (material) MaterialTheme.typography.bodyMedium else IosType.body
     val vertical = if (material) 10.dp else 9.dp
+    if ((Ios.winter || Ios.colorOs) && LocalDensity.current.fontScale > 1.3f) {
+        Column(
+            modifier.fillMaxWidth().then(
+                when {
+                    checked != null && onCheckedChange != null -> Modifier.toggleable(value = checked, role = Role.Switch) {
+                        haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
+                        onCheckedChange(it)
+                    }
+                    onClick != null -> Modifier.iosRowPress(onLongClick, onClick)
+                    else -> Modifier
+                },
+            ).heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 10.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (icon != null) {
+                    IosIcon(icon, iconTint)
+                    Spacer(Modifier.width(16.dp))
+                }
+                if (leading != null) {
+                    leading()
+                    Spacer(Modifier.width(12.dp))
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(title, modifier = Modifier.fillMaxWidth(), style = titleStyle, color = titleColor ?: c.label)
+                    if (subtitle != null) {
+                        Text(subtitle, modifier = Modifier.fillMaxWidth(), style = subtitleStyle, color = subtitleColor ?: c.secondaryLabel)
+                    }
+                }
+            }
+            if (value != null || trailing != null || checked != null) {
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (value != null) {
+                        Text(value, style = valueStyle, color = valueColor ?: c.secondaryLabel, modifier = Modifier.weight(1f))
+                    } else {
+                        Spacer(Modifier.weight(1f))
+                    }
+                    trailing?.invoke(this)
+                    if (checked != null) {
+                        Spacer(Modifier.width(8.dp))
+                        IosSwitch(checked, null)
+                    }
+                }
+            }
+        }
+        return
+    }
     Row(
         modifier
             .fillMaxWidth()
@@ -638,6 +687,27 @@ fun IosSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, 
             onSelect(i)
         }
     }
+    if ((Ios.winter || Ios.colorOs) && LocalDensity.current.fontScale > 1.3f) {
+        Column(modifier.fillMaxWidth().selectableGroup(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            options.indices.chunked(2).forEach { indices ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    indices.forEach { i ->
+                        Box(
+                            Modifier.weight(1f).clip(RoundedCornerShape(16.dp))
+                                .background(if (i == selected) c.fill else c.cell)
+                                .selectable(selected = i == selected, role = Role.Tab, onClick = { pick(i) })
+                                .heightIn(min = 48.dp).padding(8.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(options[i], modifier = Modifier.fillMaxWidth(), color = c.label,
+                                style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+                        }
+                    }
+                }
+            }
+        }
+        return
+    }
     if (Ios.material) {
         val nothing = Ios.nothing
         SingleChoiceSegmentedButtonRow(modifier.fillMaxWidth()) {
@@ -754,7 +824,7 @@ fun IosSearchField(value: String, onValueChange: (String) -> Unit, placeholder: 
 }
 
 @Composable
-fun IosTextField(value: String, onValueChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) {
+fun IosTextField(value: String, onValueChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, label: String? = null) {
     val c = Ios.colors
     val material = Ios.material
     val shape = RoundedCornerShape(if (material) 12.dp else 10.dp)
@@ -774,7 +844,7 @@ fun IosTextField(value: String, onValueChange: (String) -> Unit, placeholder: St
             singleLine = true,
             textStyle = textStyle.copy(color = c.label, textDirection = androidx.compose.ui.text.style.TextDirection.Ltr),
             cursorBrush = SolidColor(c.tint),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().then(if (label == null) Modifier else Modifier.semantics { contentDescription = label }),
         )
     }
 }
@@ -792,6 +862,7 @@ fun IosButton(
     color: Color = Ios.colors.tint,
     icon: ImageVector? = null,
     enabled: Boolean = true,
+    maxLines: Int = 1,
 ) {
     val c = Ios.colors
     if (Ios.material) {
@@ -834,9 +905,13 @@ fun IosButton(
                 Spacer(Modifier.width(8.dp))
             }
             if (Ios.nothing) {
-                Text(text.uppercase(), style = NothingLabel.copy(fontSize = 13.sp, letterSpacing = 1.6.sp), color = fg, maxLines = 1)
+                Text(text.uppercase(), style = NothingLabel.copy(fontSize = 13.sp, letterSpacing = 1.6.sp), color = fg, maxLines = maxLines,
+                    modifier = if (maxLines > 1) Modifier.fillMaxWidth() else Modifier,
+                    textAlign = if (maxLines > 1) TextAlign.Center else null)
             } else {
-                Text(text, style = MaterialTheme.typography.labelLarge.copy(fontSize = 15.sp), color = fg, maxLines = 1)
+                Text(text, style = MaterialTheme.typography.labelLarge.copy(fontSize = 15.sp), color = fg, maxLines = maxLines,
+                    modifier = if (maxLines > 1) Modifier.fillMaxWidth() else Modifier,
+                    textAlign = if (maxLines > 1) TextAlign.Center else null)
             }
         }
         return
@@ -869,7 +944,9 @@ fun IosButton(
             Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
         }
-        Text(text, style = IosType.headline, color = fg, maxLines = 1)
+        Text(text, style = IosType.headline, color = fg, maxLines = maxLines,
+                    modifier = if (maxLines > 1) Modifier.fillMaxWidth() else Modifier,
+                    textAlign = if (maxLines > 1) TextAlign.Center else null)
     }
 }
 
@@ -938,6 +1015,7 @@ fun IosPushedPage(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val c = Ios.colors
+    val largeText = (Ios.winter || Ios.colorOs) && LocalDensity.current.fontScale > 1.3f
     val scroll = rememberScrollState()
     EdgeHaptics(scroll)
     if (Ios.material) {
@@ -946,7 +1024,7 @@ fun IosPushedPage(
                 Modifier
                     .fillMaxWidth()
                     .background(if (scroll.value > 4) c.bar else c.background)
-                    .height(64.dp)
+                    .then(if (largeText) Modifier.heightIn(min = 64.dp) else Modifier.height(64.dp))
                     .padding(start = 4.dp, end = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -961,7 +1039,8 @@ fun IosPushedPage(
                     title,
                     style = MaterialTheme.typography.titleLarge,
                     color = c.label,
-                    maxLines = 1,
+                    modifier = if (largeText) Modifier.weight(1f).padding(vertical = 8.dp) else Modifier,
+                    maxLines = if (largeText) Int.MAX_VALUE else 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -1357,7 +1436,8 @@ private fun GlassAlert(
             .padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(title, style = IosType.headline, color = c.label, textAlign = TextAlign.Center)
+        Text(title, style = IosType.headline, color = c.label, textAlign = TextAlign.Center,
+            modifier = if (LocalDensity.current.fontScale > 1.3f) Modifier.fillMaxWidth() else Modifier)
         if (message != null) {
             Spacer(Modifier.height(6.dp))
             Text(message, style = IosType.subheadline, color = c.label, textAlign = TextAlign.Center)

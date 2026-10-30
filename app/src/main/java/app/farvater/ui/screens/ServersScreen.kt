@@ -122,6 +122,18 @@ fun ServersScreen(
     var filter by rememberSaveable { mutableIntStateOf(0) }
     var favoritesOnly by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
+    var serviceFilter by rememberSaveable { mutableStateOf<String?>(null) }
+    var showServiceFilter by remember { mutableStateOf(false) }
+    val serviceTargets = remember(state.settings) { app.farvater.data.ServiceChecks.targets(state.settings) }
+    val selectedService = serviceTargets.firstOrNull { it.key == serviceFilter }
+    val serviceTick by androidx.compose.runtime.produceState(System.currentTimeMillis(), state.settings.serviceChecksEnabled) {
+        while (state.settings.serviceChecksEnabled) {
+            value = System.currentTimeMillis()
+            kotlinx.coroutines.delay(60_000)
+        }
+    }
+    val serviceNow = remember(serviceTick, state.serviceChecks) { System.currentTimeMillis() }
+    val serviceMode = state.netMode?.name ?: "ANY"
     var menuFor by remember { mutableStateOf<ProxyNode?>(null) }
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
@@ -130,7 +142,8 @@ fun ServersScreen(
     EdgeHaptics(list)
     val collapsed by remember { derivedStateOf { list.firstVisibleItemIndex > 0 || list.firstVisibleItemScrollOffset > 70 } }
 
-    val visible = remember(state.nodes, state.results, filter, state.settings.hideDead, query, favoritesOnly, state.settings.favoriteNodeIds) {
+    val visible = remember(state.nodes, state.results, filter, state.settings.hideDead, query, favoritesOnly, state.settings.favoriteNodeIds,
+        selectedService, state.serviceChecks, serviceNow, serviceMode) {
         val needle = query.trim().lowercase()
         state.nodes.filter { node ->
             val r = state.results[node.id]
@@ -143,7 +156,10 @@ fun ServersScreen(
             }
             val passesQuery = needle.isEmpty() || node.name.lowercase().contains(needle) ||
                 node.protocol.title.lowercase().contains(needle) || node.address.contains(needle)
-            passesDead && passesFilter && passesQuery && (!favoritesOnly || node.id in state.settings.favoriteNodeIds)
+            val serviceCheck = selectedService?.let { state.serviceChecks[app.farvater.data.ServiceChecks.key(serviceMode, node.id, it)] }
+            val passesService = selectedService == null || app.farvater.data.ServiceChecks.fresh(serviceCheck, serviceNow) &&
+                serviceCheck?.verdict == app.farvater.data.ServiceVerdict.RESPONDED
+            passesDead && passesFilter && passesQuery && passesService && (!favoritesOnly || node.id in state.settings.favoriteNodeIds)
         }
     }
     val alive = remember(state.nodes, state.results) { state.nodes.count { state.results[it.id]?.alive == true } }
@@ -178,7 +194,7 @@ fun ServersScreen(
                         ) + modeNote + (if (state.hiddenInsecure > 0) stringResource(R.string.hidden_insecure, state.hiddenInsecure) else "") +
                         if (state.settings.dropDuplicates && state.duplicates > 0) stringResource(R.string.hidden_duplicates, state.duplicates) else "",
                 ) {
-                    if (state.progress != null) {
+                    if (state.progress != null || state.serviceChecking) {
                         IosCircleButton(Icons.Rounded.Stop, stringResource(R.string.stop_testing), onCancelTest, tint = c.red)
                     } else {
                         IosCircleButton(Icons.Rounded.Speed, stringResource(R.string.test_all_nodes), onTestAll)
@@ -190,6 +206,16 @@ fun ServersScreen(
                     IosSearchField(query, { query = it }, stringResource(R.string.node_search_hint))
                     Spacer(Modifier.height(10.dp))
                     IosSegmented(Filters, filter, { filter = it })
+                    if (serviceTargets.isNotEmpty()) {
+                        app.farvater.ui.ios.IosRow(
+                            title = stringResource(R.string.services_filter),
+                            value = selectedService?.let { serviceName(it.kind) } ?: stringResource(R.string.filter_all),
+                            chevron = true,
+                            onClick = { showServiceFilter = true },
+                        )
+                        Text(stringResource(if (state.serviceChecking) R.string.services_running else R.string.services_results_hint),
+                            style = IosType.footnote, color = c.secondaryLabel)
+                    }
                     Row(
                         Modifier.fillMaxWidth().height(48.dp)
                             .toggleable(value = favoritesOnly, role = Role.Checkbox, onValueChange = { favoritesOnly = it }),
@@ -257,6 +283,14 @@ fun ServersScreen(
                             Text(stringResource(R.string.favorites_hint), style = IosType.body, color = c.secondaryLabel)
                         }
                     } else EmptyState(state.nodes.isEmpty())
+                    if (query.isNotBlank() || filter != 0 || favoritesOnly || selectedService != null) {
+                        app.farvater.ui.ios.IosButton(stringResource(R.string.filters_reset), onClick = {
+                            query = ""
+                            filter = 0
+                            favoritesOnly = false
+                            serviceFilter = null
+                        }, modifier = Modifier.padding(horizontal = 32.dp).fillMaxWidth(), maxLines = 3)
+                    }
                 }
             } else {
                 groups.forEach { (sourceId, nodes) ->
@@ -297,6 +331,9 @@ fun ServersScreen(
                                     onClick = { onSelect(node) },
                                     onLongClick = { menuFor = node },
                                 )
+                                if (serviceTargets.isNotEmpty()) app.farvater.ui.components.ServiceBadges(
+                                    node.id, serviceMode, serviceTargets, state.serviceChecks, serviceNow,
+                                )
                                 if (i != nodes.lastIndex) IosDivider(start = 68.dp)
                             }
                         }
@@ -305,6 +342,15 @@ fun ServersScreen(
             }
         }
         IosCompactBar(stringResource(R.string.tab_nodes), visible = collapsed, backdrop = backdrop)
+    }
+
+    if (showServiceFilter) app.farvater.ui.ios.IosSheet(stringResource(R.string.services_filter), onClose = { showServiceFilter = false }) {
+        app.farvater.ui.ios.IosChoiceRow(stringResource(R.string.filter_all), selected = selectedService == null,
+            onClick = { serviceFilter = null; showServiceFilter = false })
+        serviceTargets.forEach { target ->
+            app.farvater.ui.ios.IosChoiceRow(serviceName(target.kind), selected = target.key == serviceFilter,
+                onClick = { serviceFilter = target.key; showServiceFilter = false })
+        }
     }
 
     menuFor?.let { node ->

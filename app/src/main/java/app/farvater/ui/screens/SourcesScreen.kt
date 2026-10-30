@@ -86,6 +86,8 @@ fun SourcesScreen(
     val clipboard = LocalClipboardManager.current
     val community = state.sources.filter { it.community }
     val own = state.sources.filterNot { it.community }
+    val language = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language
+    val showCatalogHint = language in setOf("en", "fa") || community.any { it.enabled && !it.loading && it.error != null }
     val list = rememberLazyListState()
     EdgeHaptics(list)
     val collapsed by remember { derivedStateOf { list.firstVisibleItemIndex > 0 || list.firstVisibleItemScrollOffset > 70 } }
@@ -125,6 +127,14 @@ fun SourcesScreen(
                         iconTint = c.blue,
                         onClick = { onPaste(clipboard.getText()?.text.orEmpty()) },
                     )
+                }
+            }
+
+            if (showCatalogHint) item(key = "catalog-help") {
+                IosSection {
+                    IosRow(title = stringResource(R.string.catalog_region_title),
+                        subtitle = stringResource(R.string.catalog_region_hint), titleLines = 4, subtitleLines = Int.MAX_VALUE, subtitleColor = c.label,
+                        icon = Icons.Rounded.Info, iconTint = c.blue, chevron = true, onClick = { showAdd = true })
                 }
             }
 
@@ -254,8 +264,8 @@ private fun CommunityRow(source: SourceUi, onToggle: (String, Boolean) -> Unit, 
     IosRow(
         title = source.title,
         subtitle = "${source.author} · ${source.license}\n" + statusText(source),
-        subtitleColor = if (source.error != null && source.nodeCount == 0 && source.enabled) c.red else null,
-        subtitleLines = 4,
+        subtitleColor = if (source.networkUnavailable) c.label else if (source.error != null && source.nodeCount == 0 && source.enabled) c.red else null,
+        subtitleLines = if (source.networkUnavailable) Int.MAX_VALUE else 4,
         icon = Icons.Rounded.Public,
         iconTint = if (source.enabled) c.tint else c.gray,
         modifier = Modifier.graphicsLayer { this.alpha = alpha },
@@ -306,11 +316,15 @@ private fun statusText(source: SourceUi): String = stringResource(R.string.sourc
     source.loading -> stringResource(R.string.source_refreshing)
     !source.enabled -> stringResource(R.string.source_off)
     !source.inMode -> if (source.mode == SourceMode.BLACK) stringResource(R.string.source_wait_black) else stringResource(R.string.source_wait_white)
-    source.error != null && source.nodeCount > 0 -> stringResource(R.string.source_cached, nodeCountLabel(source.nodeCount), source.error.orEmpty())
-    source.error != null -> source.error.replaceFirstChar { it.uppercase() }
+    source.error != null && source.nodeCount > 0 -> stringResource(R.string.source_cached, nodeCountLabel(source.nodeCount), sourceError(source))
+    source.error != null -> sourceError(source).replaceFirstChar { it.uppercase() }
     source.updatedAt > 0 -> stringResource(R.string.source_updated, nodeCountLabel(source.nodeCount), formatAgo(source.updatedAt))
     else -> formatAgo(0).replaceFirstChar { it.uppercase() }
 } + (source.hidden?.let { stringResource(R.string.source_hidden, it) } ?: "") + (source.usage?.let { "\n" + usageText(it) } ?: "")
+
+@Composable
+private fun sourceError(source: SourceUi): String =
+    if (source.networkUnavailable) stringResource(R.string.source_network_unavailable) else source.error.orEmpty()
 
 @Composable
 private fun usageText(usage: Usage): String {
@@ -324,6 +338,7 @@ private fun usageText(usage: Usage): String {
 private fun statusColor(source: SourceUi): Color? {
     val c = Ios.colors
     return when {
+        source.networkUnavailable -> c.label
         source.error != null && source.nodeCount == 0 -> c.red
         else -> null
     }

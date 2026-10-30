@@ -16,6 +16,10 @@ import app.farvater.vpn.QsTileService
 import app.farvater.vpn.VpnBus
 import app.farvater.vpn.VpnWidget
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 object AppLanguages {
     val supported = listOf("ru", "en", "fa")
@@ -78,6 +82,23 @@ object AppLanguages {
         (context.applicationContext as? app.farvater.App)?.refreshChannels()
         VpnWidget.refresh(context, VpnBus.state.value)
         TileService.requestListeningState(context, ComponentName(context, QsTileService::class.java))
+    }
+
+    private val backupLanguageLock = Mutex()
+
+    suspend fun applyBackupLanguage(context: Context): Unit = backupLanguageLock.withLock {
+        val store = prefs(context)
+        val language = withContext(Dispatchers.IO) { store.getString("backup_language", null) } ?: return@withLock
+        withContext(Dispatchers.Main.immediate) { set(context, language) }
+        withContext(Dispatchers.IO) {
+            synchronized(Prefs.selectionLock) {
+                if (store.getString("backup_language", null) == language) {
+                    if (!store.edit().remove("backup_language").commit()) {
+                        store.edit().putString("backup_language", language).commit()
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -192,6 +192,12 @@ object Ios {
     val oneUi: Boolean
         @Composable @ReadOnlyComposable get() = LocalUiStyle.current == UiStyle.ONEUI
 
+    val colorOs: Boolean
+        @Composable @ReadOnlyComposable get() = LocalUiStyle.current == UiStyle.COLOROS
+
+    val winter: Boolean
+        @Composable @ReadOnlyComposable get() = LocalUiStyle.current == UiStyle.WINTER
+
     val witch: Boolean
         @Composable @ReadOnlyComposable get() = LocalUiStyle.current == UiStyle.WITCH
 
@@ -1046,7 +1052,14 @@ fun FarvaterTheme(
     val material = style != UiStyle.IOS
     val dark = darkTheme || style in setOf(UiStyle.ROSKOMPOZOR, UiStyle.WITCH)
     val targetScheme = remember(dark, style, dynamicColor) {
-        if (style == UiStyle.WITCH) {
+        if (style in setOf(UiStyle.WINTER, UiStyle.COLOROS)) {
+            val colors = if (style == UiStyle.COLOROS) colorOsColors(dark) else winterColors(dark)
+            scheme(colors).copy(onPrimary = if (dark) colors.background else Color.White,
+                primaryContainer = colors.fill, onPrimaryContainer = colors.label,
+                secondaryContainer = colors.fill, onSecondaryContainer = colors.label,
+                tertiaryContainer = colors.cellRaised, onTertiaryContainer = colors.label,
+                onError = if (dark) colors.background else Color.White)
+        } else if (style == UiStyle.WITCH) {
             scheme(WitchColors).copy(
                 onPrimary = WitchColors.background, secondaryContainer = WitchColors.fill,
                 onSecondaryContainer = WitchColors.label, onError = WitchColors.background,
@@ -1081,6 +1094,8 @@ fun FarvaterTheme(
     }
     val targetIos = remember(targetScheme, dark, style) {
         when {
+            style == UiStyle.COLOROS -> colorOsColors(dark)
+            style == UiStyle.WINTER -> winterColors(dark)
             style == UiStyle.WITCH -> WitchColors
             style == UiStyle.SUMIE -> sumieColors(targetScheme, dark)
             style == UiStyle.NOTHING -> nothingColors(targetScheme, dark)
@@ -1100,6 +1115,7 @@ fun FarvaterTheme(
         MaterialTheme(
             colorScheme = colorScheme,
             typography = when {
+                style == UiStyle.COLOROS -> MaterialType.systemFont()
                 style == UiStyle.WITCH -> WitchType
                 style == UiStyle.SUMIE -> SumieType
                 style == UiStyle.NOTHING -> NothingType

@@ -26,7 +26,7 @@ class ParserRegressionTest {
     @Test
     fun xhttpDownloadEncryptionIsCheckedForLinksAndSavedJson() {
         for (security in listOf(null, "none", "tls", "reality")) {
-            val securityField = security?.let { "\"security\":\"$it\"," }.orEmpty()
+            val securityField = security?.let { "\"security\":\"$it\",\"realitySettings\":{\"publicKey\":\"test\"}," }.orEmpty()
             val extra = """{"downloadSettings":{$securityField"address":"download.example.test","port":443,"network":"xhttp","xhttpSettings":{"path":"/"}}}"""
             val link = LinkParser.parse("$validLink&type=xhttp&extra=${URLEncoder.encode(extra, "UTF-8")}")!!
             val raw = """{"outbounds":[{"protocol":"vless","settings":{"vnext":[{"address":"node.example.test","port":443,"users":[{"id":"11111111-2222-3333-4444-555555555555"}]}]},"streamSettings":{"security":"tls","network":"xhttp","xhttpSettings":{"extra":$extra}}}]}"""
@@ -239,11 +239,20 @@ class ParserRegressionTest {
             proxy("proxy-plain").replace("\"security\":\"tls\"", """"security":"tls","tlsSettings":{"AllowInsecure":true}""") to "Без проверки сертификата",
         )
         for ((outbound, issue) in cases) {
-            val node = SubscriptionParser.parse(config("proxy", ",$outbound"), "test").nodes.single()
+            val raw = config("proxy", ",$outbound")
+            val parsed = SubscriptionParser.parse(raw, "test")
+            val node = if (issue == "Устаревшее шифрование") {
+                assertTrue(parsed.nodes.isEmpty())
+                assertEquals(1, parsed.skipped["unsupported_ss_method"])
+                node("saved").copy(raw = raw, params = mapOf("security" to "tls"))
+            } else parsed.nodes.single()
             assertEquals(issue, node.securityIssue)
             assertEquals(issue, Json.decodeFromString<ProxyNode>(Json.encodeToString(node)).securityIssue)
             val fallback = config("main", ",$outbound").replace("\"selector\":[\"main\"]", "\"selector\":[\"main\"],\"fallbackTag\":\"proxy-plain\"")
-            assertEquals(issue, SubscriptionParser.parse(fallback, "test").nodes.single().securityIssue)
+            if (issue == "Устаревшее шифрование") {
+                assertTrue(SubscriptionParser.parse(fallback, "test").nodes.isEmpty())
+                assertEquals(issue, node("saved").copy(raw = fallback, params = mapOf("security" to "tls")).securityIssue)
+            } else assertEquals(issue, SubscriptionParser.parse(fallback, "test").nodes.single().securityIssue)
         }
     }
 

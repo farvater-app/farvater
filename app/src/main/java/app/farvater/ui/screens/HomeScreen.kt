@@ -137,6 +137,8 @@ fun HomeScreen(
         vpn is VpnState.Failed -> ConnectMode.Error
         else -> ConnectMode.Idle
     }
+    val colorOs = Ios.colorOs
+    val winter = Ios.winter
     val witch = Ios.witch
     val sumie = LocalUiStyle.current == UiStyle.SUMIE
     val nothing = Ios.nothing
@@ -180,7 +182,7 @@ fun HomeScreen(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    if (witch && m == ConnectMode.Idle) stringResource(R.string.witch_connect_hint) else if (m == ConnectMode.Connected && stalled) stringResource(R.string.node_stalled) else supporting(m, vpn, state, sumie),
+                    if (winter && m == ConnectMode.Idle) stringResource(R.string.winter_connect_hint) else if (witch && m == ConnectMode.Idle) stringResource(R.string.witch_connect_hint) else if (m == ConnectMode.Connected && stalled) stringResource(R.string.node_stalled) else supporting(m, vpn, state, sumie),
                     style = IosType.subheadline,
                     color = c.secondaryLabel,
                     textAlign = TextAlign.Center,
@@ -207,7 +209,7 @@ fun HomeScreen(
                 .glassSource(backdrop)
                 .verticalScroll(scroll)
                 .drawBehind {
-                    if (!witch && !sumie && !nothing && !hyper && !harmony && !oneUi && !oxygen) drawRect(
+                    if (!colorOs && !winter && !witch && !sumie && !nothing && !hyper && !harmony && !oneUi && !oxygen) drawRect(
                         Brush.radialGradient(
                             listOf(glow, Color.Transparent),
                             center = Offset(size.width / 2, if (origin) 260.dp.toPx() else 190.dp.toPx()),
@@ -263,6 +265,8 @@ fun HomeScreen(
             } else {
                 Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.Center) {
                     when {
+                        colorOs -> app.farvater.ui.components.ColorOsConnect(mode, onToggle)
+                        winter -> app.farvater.ui.components.WinterHero(mode = mode, onClick = onToggle)
                         witch -> WitchFeedback { WitchHero(mode = mode, onClick = onToggle) }
                         sumie -> SumieHero(mode = mode, onClick = onToggle)
                         nothing -> DotConnectButton(mode = mode, onClick = onToggle, size = 204.dp)
@@ -454,10 +458,18 @@ private fun SessionSection(vpn: VpnState.Connected, traffic: Traffic, history: L
         }
     }
     IosSection(header = stringResource(R.string.session_title)) {
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Stat(Icons.Rounded.ArrowDownward, stringResource(R.string.traffic_download), formatSpeed(traffic.downBps), c.green, Modifier.weight(1f))
-            Box(Modifier.width(0.5.dp).height(36.dp).background(c.separator))
-            Stat(Icons.Rounded.ArrowUpward, stringResource(R.string.traffic_upload), formatSpeed(traffic.upBps), c.blue, Modifier.weight(1f).padding(start = 16.dp))
+        if ((Ios.winter || Ios.colorOs) && androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) {
+            Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                Stat(Icons.Rounded.ArrowDownward, stringResource(R.string.traffic_download), formatSpeed(traffic.downBps), c.green, Modifier.fillMaxWidth())
+                Spacer(Modifier.height(12.dp))
+                Stat(Icons.Rounded.ArrowUpward, stringResource(R.string.traffic_upload), formatSpeed(traffic.upBps), c.blue, Modifier.fillMaxWidth())
+            }
+        } else {
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Stat(Icons.Rounded.ArrowDownward, stringResource(R.string.traffic_download), formatSpeed(traffic.downBps), c.green, Modifier.weight(1f))
+                Box(Modifier.width(0.5.dp).height(36.dp).background(c.separator))
+                Stat(Icons.Rounded.ArrowUpward, stringResource(R.string.traffic_upload), formatSpeed(traffic.upBps), c.blue, Modifier.weight(1f).padding(start = 16.dp))
+            }
         }
         if (Ios.nothing) {
             DotBars(history, Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 16.dp, vertical = 8.dp))

@@ -12,6 +12,13 @@ import androidx.core.content.FileProvider
 import androidx.core.content.pm.PackageInfoCompat
 import app.farvater.BuildConfig
 import app.farvater.core.xray.XrayConfigBuilder
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -19,6 +26,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.security.MessageDigest
@@ -40,18 +48,19 @@ data class UpdateInfo(
         Build.SUPPORTED_ABIS.firstNotNullOfOrNull { assets[it] } ?: assets["universal"]
 }
 
-class UpdateRepository(private val context: Context) {
-    private val json = Json { ignoreUnknownKeys = true }
-    private val dir = File(context.cacheDir, "updates").apply { mkdirs() }
-
-    private val baseClient = OkHttpClient.Builder()
+class UpdateRepository(
+    private val context: Context,
+    private val baseClient: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .followSslRedirects(false)
-        .build()
-
+        .build(),
+    suppliedTunnelClient: OkHttpClient? = null,
+) {
+    private val json = Json { ignoreUnknownKeys = true }
+    private val dir = File(context.cacheDir, "updates").apply { mkdirs() }
     private val tunnelClient by lazy {
-        baseClient.newBuilder()
+        suppliedTunnelClient ?: baseClient.newBuilder()
             .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", XrayConfigBuilder.SOCKS_PORT)))
             .build()
     }
@@ -86,42 +95,96 @@ class UpdateRepository(private val context: Context) {
 
     suspend fun download(info: UpdateInfo, viaTunnel: Boolean, onProgress: (Float) -> Unit): Result<File> =
         withContext(Dispatchers.IO) {
-            runCatching {
+            var target: File? = null
+            try {
                 val asset = info.assetForDevice() ?: error(context.localizedString(R.string.error_no_apk))
                 if (!asset.url.startsWith("https://")) error(context.localizedString(R.string.error_apk_https))
-                val target = File(dir, "farvater-${info.versionCode}.apk")
-                dir.listFiles()?.filter { it != target }?.forEach { it.delete() }
-                val client = if (viaTunnel) tunnelClient else baseClient
+                val file = File(dir, "farvater-${info.versionCode}.apk")
+                target = file
+                dir.listFiles()?.filter { it != file }?.forEach { it.delete() }
+                val clients = if (viaTunnel) listOf(tunnelClient, baseClient) else listOf(baseClient)
                 val request = Request.Builder().url(asset.url).header("User-Agent", "Farvater/${BuildConfig.VERSION_NAME}").build()
-                val digest = MessageDigest.getInstance("SHA-256")
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) error("HTTP ${response.code}")
-                    val body = response.body ?: error(context.localizedString(R.string.error_empty_response))
-                    val total = body.contentLength().takeIf { it > 0 } ?: asset.size
-                    var read = 0L
-                    body.byteStream().use { input ->
-                        target.outputStream().use { output ->
-                            val buffer = ByteArray(64 * 1024)
-                            while (true) {
-                                val n = input.read(buffer)
-                                if (n < 0) break
-                                output.write(buffer, 0, n)
-                                digest.update(buffer, 0, n)
-                                read += n
-                                if (total > 0) onProgress((read.toFloat() / total).coerceIn(0f, 1f))
-                            }
+                for ((index, client) in clients.withIndex()) {
+                    currentCoroutineContext().ensureActive()
+                    check(!file.exists() || file.delete()) { context.localizedString(R.string.error_update_file) }
+                    onProgress(0f)
+                    val digest = try {
+                        downloadFrom(client, request, file, asset, onProgress)
+                    } catch (e: DownloadNetworkException) {
+                        currentCoroutineContext().ensureActive()
+                        if (index == clients.lastIndex) {
+                            throw IllegalStateException(context.localizedString(R.string.error_update_download), e)
+                        }
+                        continue
+                    }
+                    val actual = digest.joinToString("") { "%02x".format(java.util.Locale.ROOT, it) }
+                    if (!actual.equals(asset.sha256, ignoreCase = true)) {
+                        error(context.localizedString(R.string.error_checksum))
+                    }
+                    verifyApk(file, info)
+                    currentCoroutineContext().ensureActive()
+                    return@withContext Result.success(file)
+                }
+                error(context.localizedString(R.string.error_update_download))
+            } catch (e: CancellationException) {
+                target?.delete()
+                throw e
+            } catch (e: Exception) {
+                target?.delete()
+                Result.failure(e)
+            }
+        }
+
+    private suspend fun downloadFrom(
+        client: OkHttpClient,
+        request: Request,
+        target: File,
+        asset: UpdateAsset,
+        onProgress: (Float) -> Unit,
+    ): ByteArray = coroutineScope {
+        val call = client.newCall(request)
+        val cancellation = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
+            try {
+                awaitCancellation()
+            } finally {
+                call.cancel()
+            }
+        }
+        try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            networkRead { call.execute() }.use { response ->
+                if (!response.isSuccessful) throw DownloadNetworkException(IOException("HTTP ${response.code}"))
+                val body = response.body ?: throw DownloadNetworkException(IOException("Empty response"))
+                val total = body.contentLength().takeIf { it > 0 } ?: asset.size
+                var read = 0L
+                body.byteStream().use { input ->
+                    target.outputStream().use { output ->
+                        val buffer = ByteArray(64 * 1024)
+                        while (true) {
+                            currentCoroutineContext().ensureActive()
+                            val n = networkRead { input.read(buffer) }
+                            if (n < 0) break
+                            output.write(buffer, 0, n)
+                            digest.update(buffer, 0, n)
+                            read += n
+                            if (total > 0) onProgress((read.toFloat() / total).coerceIn(0f, 1f))
                         }
                     }
                 }
-                val actual = digest.digest().joinToString("") { "%02x".format(java.util.Locale.ROOT, it) }
-                if (!actual.equals(asset.sha256, ignoreCase = true)) {
-                    target.delete()
-                    error(context.localizedString(R.string.error_checksum))
-                }
-                runCatching { verifyApk(target, info) }.onFailure { target.delete() }.getOrThrow()
-                target
             }
+            digest.digest()
+        } finally {
+            cancellation.cancel()
         }
+    }
+
+    private class DownloadNetworkException(cause: IOException) : IOException(cause)
+
+    private inline fun <T> networkRead(block: () -> T): T = try {
+        block()
+    } catch (e: IOException) {
+        throw DownloadNetworkException(e)
+    }
 
     @Suppress("DEPRECATION")
     private fun verifyApk(apk: File, info: UpdateInfo) {

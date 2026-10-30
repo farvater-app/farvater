@@ -13,7 +13,7 @@ import java.security.MessageDigest
 object LinkParser {
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
-    fun parse(line: String, sourceId: String = ProxyNode.MANUAL_SOURCE): ProxyNode? {
+    fun parse(line: String, sourceId: String = ProxyNode.MANUAL_SOURCE, onRejected: (String) -> Unit = {}): ProxyNode? {
         val raw = line.trim()
         if (raw.isEmpty() || raw.startsWith("#")) return null
         val scheme = raw.substringBefore("://", "").lowercase()
@@ -26,7 +26,13 @@ object LinkParser {
                 "ss" -> parseShadowsocks(raw, sourceId)
                 else -> null
             }
-        }.getOrNull()
+        }.getOrNull()?.let { node ->
+            val reason = NodeSupport.reason(node)
+            if (reason == null) node else {
+                onRejected(reason)
+                null
+            }
+        }
     }
 
     private fun parseUriStyle(raw: String, protocol: Protocol, sourceId: String): ProxyNode? {
@@ -78,6 +84,7 @@ object LinkParser {
                 "headerType" to s("type"), "host" to s("host"), "path" to s("path"),
                 "sni" to s("sni"), "alpn" to s("alpn"), "fp" to s("fp"),
                 "aid" to s("aid"), "scy" to s("scy"),
+                "pbk" to s("pbk"), "sid" to s("sid"),
             ).forEach { (k, v) -> if (v.isNotBlank() && v != "none") put(k, v) }
         }
         return ProxyNode(

@@ -28,11 +28,61 @@ object XrayJsonParser {
     )
     private val RESERVED_TAGS = setOf("direct", "block", "dns-out")
 
-    fun parse(text: String, sourceId: String): List<ProxyNode>? {
+    fun parse(text: String, sourceId: String, onRejected: (String) -> Unit = {}): List<ProxyNode>? {
         if (!text.startsWith("[") && !text.startsWith("{")) return null
+        if (!JsonDepth.supported(text)) {
+            onRejected("unsupported_nesting")
+            return emptyList()
+        }
         val root = runCatching { Json.parseToJsonElement(text) }.getOrNull() ?: return null
         val configs = (root as? JsonArray)?.filterIsInstance<JsonObject>() ?: listOfNotNull(root as? JsonObject)
-        return configs.mapNotNull { node(it, sourceId) }
+        return configs.mapNotNull { config ->
+            val reason = unsupportedReason(config)
+            if (reason == null) node(config, sourceId) else {
+                onRejected(reason)
+                null
+            }
+        }
+    }
+
+    internal fun linkDownloadSupportIssue(protocol: Protocol, params: Map<String, String>): String? {
+        if (params["type"]?.lowercase() !in setOf("xhttp", "splithttp")) return null
+        if (params["extra"]?.let { !JsonDepth.supported(it) } == true) return "unsupported_nesting"
+        val extra = params["extra"]?.let { runCatching { Json.parseToJsonElement(it) }.getOrNull() } as? JsonObject ?: return null
+        return streamSupportIssue(extra.obj("downloadSettings"), protocol)
+    }
+
+    private fun streamSupportIssue(stream: JsonObject?, protocol: Protocol): String? {
+        if (stream == null) return null
+        val params = buildMap {
+            stream.str("security")?.let { put("security", it) }
+            (stream.obj("realitySettings")?.str("password") ?: stream.obj("realitySettings")?.str("publicKey"))?.let { put("pbk", it) }
+            stream.obj("hysteriaSettings")?.str("obfs")?.let { put("obfs", it) }
+        }
+        NodeSupport.streamReason(protocol, params)?.let { return it }
+        val network = stream.str("method") ?: stream.str("network")
+        if (network?.lowercase() in setOf("xhttp", "splithttp")) {
+            val xhttp = stream.obj("xhttpSettings") ?: stream.obj("splithttpSettings")
+            val extra = if (xhttp?.value("extra") != null) xhttp.obj("extra") else xhttp
+            return streamSupportIssue(extra?.obj("downloadSettings"), protocol)
+        }
+        return null
+    }
+
+    private fun unsupportedReason(config: JsonObject): String? {
+        for (output in config.array("outbounds").filterIsInstance<JsonObject>()) {
+            if (output.str("tag") in RESERVED_TAGS) continue
+            val protocol = PROTOCOLS[output.str("protocol")?.lowercase()] ?: continue
+            streamSupportIssue(output.obj("streamSettings"), protocol)?.let { return it }
+            if (protocol == Protocol.SHADOWSOCKS) {
+                val settings = output.obj("settings") ?: JsonObject(emptyMap())
+                val servers = proxyServers(settings, protocol)
+                for (server in servers) {
+                    NodeSupport.reason(protocol, mapOf("method" to server.str("method").orEmpty()))?.let { return it }
+                }
+            }
+        }
+        return null
     }
 
     private fun node(config: JsonObject, sourceId: String): ProxyNode? {
@@ -43,7 +93,7 @@ object XrayJsonParser {
             ?: return null
         val protocol = PROTOCOLS.getValue(main.str("protocol")?.lowercase()!!)
         val settings = main.obj("settings") ?: JsonObject(emptyMap())
-        val server = (settings.array("vnext").firstOrNull() ?: settings.array("servers").firstOrNull()) as? JsonObject ?: settings
+        val server = proxyServers(settings, protocol).firstOrNull() ?: settings
         val user = server.array("users").firstOrNull() as? JsonObject ?: server
         val stream = main.obj("streamSettings")
         val tls = stream?.obj("tlsSettings")
@@ -186,8 +236,7 @@ object XrayJsonParser {
             val protocol = PROTOCOLS[output.str("protocol")?.lowercase()]
             if (protocol != null) {
                 val settings = output.obj("settings") ?: JsonObject(emptyMap())
-                val servers = (settings.array("vnext") + settings.array("servers")).filterIsInstance<JsonObject>()
-                    .ifEmpty { listOf(settings) }
+                val servers = proxyServers(settings, protocol)
                 val stream = output.obj("streamSettings")
                 val tls = stream?.obj("tlsSettings")
                 for (server in servers) {
@@ -252,6 +301,11 @@ object XrayJsonParser {
     }
 
     private val RAW_OBJECTS = setOf("settings", "extra", "proxysettings")
+
+    private fun proxyServers(settings: JsonObject, protocol: Protocol): List<JsonObject> {
+        if (protocol == Protocol.SHADOWSOCKS && settings.str("address") != null) return listOf(settings)
+        return (settings.array("vnext") + settings.array("servers")).filterIsInstance<JsonObject>().ifEmpty { listOf(settings) }
+    }
 
     private fun JsonObject.array(key: String): List<JsonElement> = (value(key) as? JsonArray).orEmpty()
     private fun JsonObject.str(key: String): String? = scalar(key)?.contentOrNull?.takeIf { it.isNotBlank() }

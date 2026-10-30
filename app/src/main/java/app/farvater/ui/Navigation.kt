@@ -61,6 +61,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -75,6 +76,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -123,6 +125,8 @@ internal fun FarvaterFrame(
     content: @Composable (PaddingValues) -> Unit,
 ) {
     when {
+        Ios.colorOs -> ScenicFrame(tab, onTab, snackbar, floating = true, content = content)
+        Ios.winter -> ScenicFrame(tab, onTab, snackbar, floating = false, content = content)
         Ios.witch -> WitchFrame(tab, onTab, snackbar, content)
         Ios.nothing -> NothingFrame(tab, onTab, snackbar, content)
         Ios.origin -> OriginFrame(tab, onTab, snackbar, content)
@@ -132,6 +136,48 @@ internal fun FarvaterFrame(
         Ios.oxygen -> OxygenFrame(tab, onTab, snackbar, content)
         Ios.material -> MaterialFrame(tab, onTab, snackbar, content)
         else -> GlassFrame(tab, onTab, snackbar, content)
+    }
+}
+
+@Composable
+private fun ScenicFrame(tab: Tab, onTab: (Tab) -> Unit, snackbar: SnackbarHostState, floating: Boolean,
+    content: @Composable (PaddingValues) -> Unit) {
+    val c = Ios.colors
+    val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val large = LocalDensity.current.fontScale > 1.3f
+    val barHeight = if (large) (32 + 64 * LocalDensity.current.fontScale).dp else 66.dp
+    val gap = if (floating) 12.dp else 0.dp
+    val bottomInset = navInset + barHeight + gap
+    Surface(color = c.background, contentColor = c.label, modifier = Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize()) {
+            CompositionLocalProvider(LocalBottomInset provides bottomInset) { content(WindowInsets.statusBars.asPaddingValues()) }
+            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset + 12.dp))
+            Column(Modifier.align(Alignment.BottomCenter).padding(horizontal = if (floating) 16.dp else 0.dp)
+                .padding(bottom = navInset + gap).fillMaxWidth().height(barHeight)
+                .clip(RoundedCornerShape(if (floating) 28.dp else 20.dp)).background(c.bar)) {
+                Tab.entries.chunked(if (large) 2 else 4).forEach { row ->
+                    Row(Modifier.fillMaxWidth().weight(1f)) {
+                        row.forEach { item ->
+                            val active = item == tab
+                            val tint = if (active) c.tint else c.secondaryLabel
+                            Box(Modifier.weight(1f).fillMaxHeight().clickable(role = Role.Tab) { onTab(item) }
+                                .semantics { selected = active }, contentAlignment = Alignment.Center) {
+                                if (large) {
+                                    Text(item.title, color = tint, fontSize = 11.sp, lineHeight = 16.sp, maxLines = 2,
+                                        textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp))
+                                } else {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(if (active) item.icon else item.iconIdle, null, tint = tint, modifier = Modifier.size(24.dp))
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(item.title, color = tint, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -698,7 +744,8 @@ private fun GlassFrame(
 ) {
     val c = Ios.colors
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val bottomInset: Dp = navInset + BarHeight + BarGap * 2
+    val barHeight = if (LocalDensity.current.fontScale > 1.3f) (32 + 64 * LocalDensity.current.fontScale).dp else BarHeight
+    val bottomInset: Dp = navInset + barHeight + BarGap * 2
     val backdrop = rememberGlassBackdrop()
     Surface(color = c.background, contentColor = c.label, modifier = Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize()) {
@@ -711,7 +758,7 @@ private fun GlassFrame(
                 Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .height(navInset + BarHeight + BarGap)
+                    .height(navInset + barHeight + BarGap)
                     .background(Brush.verticalGradient(listOf(Color.Transparent, c.background.copy(alpha = 0.72f)))),
             )
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset)) { data ->
@@ -781,6 +828,30 @@ private fun MaterialFrame(
 private fun TabBar(current: Tab, onTab: (Tab) -> Unit, backdrop: GlassBackdrop, modifier: Modifier) {
     val c = Ios.colors
     val haptics = LocalHapticFeedback.current
+    if (LocalDensity.current.fontScale > 1.3f) {
+        val height = (32 + 64 * LocalDensity.current.fontScale).dp
+        Column(modifier.fillMaxWidth().height(height)
+            .liquidGlass(backdrop, RoundedCornerShape(28.dp), GlassStyles.Bar).padding(4.dp)) {
+            Tab.entries.chunked(2).forEach { tabs ->
+                Row(Modifier.fillMaxWidth().weight(1f)) {
+                    tabs.forEach { item ->
+                        val selected = item == current
+                        Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(24.dp))
+                            .background(if (selected) c.tint.copy(alpha = 0.12f) else Color.Transparent)
+                            .clickable(role = Role.Tab) {
+                                if (!selected) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                                onTab(item)
+                            }.semantics { this.selected = selected }, contentAlignment = Alignment.Center) {
+                            Text(item.title, modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                                color = if (selected) c.tint else c.label, style = IosType.caption2,
+                                lineHeight = 16.sp, maxLines = 2, textAlign = TextAlign.Center)
+                        }
+                    }
+                }
+            }
+        }
+        return
+    }
     Box(modifier.fillMaxWidth().height(BarHeight).liquidGlass(backdrop, CircleShape, GlassStyles.Bar)) {
         BoxWithConstraints(Modifier.fillMaxSize().padding(4.dp)) {
             val item = maxWidth / Tab.entries.size

@@ -17,7 +17,9 @@ data class ParsedSubscription(
 object SubscriptionParser {
     fun parse(body: String, sourceId: String, headers: Map<String, String> = emptyMap()): ParsedSubscription {
         var text = body.trim().removePrefix("\uFEFF")
-        val json = XrayJsonParser.parse(text, sourceId)
+        val skipped = HashMap<String, Int>()
+        fun rejected(reason: String) { skipped[reason] = (skipped[reason] ?: 0) + 1 }
+        val json = XrayJsonParser.parse(text, sourceId, ::rejected)
         if (json == null && !text.contains("://")) {
             Base64Util.decodeToString(text)?.takeIf { it.contains("://") }?.let { text = it }
         }
@@ -25,7 +27,6 @@ object SubscriptionParser {
         val meta = headers.mapKeys { it.key.lowercase() }.toMutableMap()
         val nodes = LinkedHashMap<String, ProxyNode>()
         val notices = mutableListOf<String>()
-        val skipped = HashMap<String, Int>()
         val announceLines = mutableListOf<String>()
 
         fun add(node: ProxyNode) {
@@ -35,7 +36,7 @@ object SubscriptionParser {
         json?.forEach(::add)
         if (json == null) text.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.forEach { line ->
             if (line.startsWith("{")) {
-                XrayJsonParser.parse(line, sourceId)?.forEach(::add)
+                XrayJsonParser.parse(line, sourceId, ::rejected)?.forEach(::add)
                 return@forEach
             }
             if (line.startsWith("#")) {
@@ -48,10 +49,14 @@ object SubscriptionParser {
                 }
                 return@forEach
             }
-            val node = LinkParser.parse(line, sourceId)
+            var unsupported = false
+            val node = LinkParser.parse(line, sourceId) { reason ->
+                unsupported = true
+                rejected(reason)
+            }
             if (node == null) {
                 val scheme = line.substringBefore("://", "").lowercase()
-                if (scheme.isNotEmpty() && scheme.length <= 16) skipped[scheme] = (skipped[scheme] ?: 0) + 1
+                if (!unsupported && scheme.isNotEmpty() && scheme.length <= 16) rejected(scheme)
                 return@forEach
             }
             add(node)

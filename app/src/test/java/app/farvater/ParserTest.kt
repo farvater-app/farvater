@@ -121,7 +121,10 @@ class ParserTest {
         assertEquals("Без шифрования", LinkParser.parse("vless://id@1.2.3.4:443?security=none#x")!!.securityIssue)
         assertEquals("Без проверки сертификата", LinkParser.parse("trojan://p@1.2.3.4:443?allowInsecure=1#x")!!.securityIssue)
         val weak = Base64.getEncoder().encodeToString("rc4-md5:pw".toByteArray())
-        assertEquals("Устаревшее шифрование", LinkParser.parse("ss://$weak@1.2.3.4:8388#x")!!.securityIssue)
+        assertNull(LinkParser.parse("ss://$weak@node.example.test:8388#x"))
+        assertEquals("Устаревшее шифрование", LinkParser.parse(vless)!!.copy(
+            protocol = Protocol.SHADOWSOCKS, params = mapOf("method" to "rc4-md5"), raw = "ss://saved",
+        ).securityIssue)
         assertNull(LinkParser.parse(vless)!!.securityIssue)
         assertNull(LinkParser.parse("hysteria2://p@hy.example.com:443/?insecure=1&pinSHA256=AB:CD#x")!!.securityIssue)
     }

@@ -31,9 +31,11 @@ data class SourceSnapshot(
     val skipped: Map<String, Int> = emptyMap(),
     val intervalHours: Int? = null,
     val usage: Usage? = null,
+    val networkUnavailable: Boolean = false,
 )
 
 class SubscriptionRepository(context: Context) {
+    private val preferences = context.getSharedPreferences("farvater", Context.MODE_PRIVATE)
     private val application = context.applicationContext as android.app.Application
     private val dir = File(context.filesDir, "subs").apply { mkdirs() }
     private val manualFile = File(dir, "${ProxyNode.MANUAL_SOURCE}.txt")
@@ -61,6 +63,7 @@ class SubscriptionRepository(context: Context) {
         withContext(Dispatchers.IO) {
             val client = if (viaTunnel) tunnelClient else baseClient
             var lastError: String? = null
+            var receivedContent = false
             for (url in urls) for (asJson in if (json) listOf(true, false) else listOf(false)) {
                 try {
                     val base = SafeHttp.parse(url) ?: throw IOException(application.localizedString(R.string.error_subscription_address))
@@ -74,12 +77,15 @@ class SubscriptionRepository(context: Context) {
                             lastError = "HTTP ${response.code}"
                             return@use
                         }
+                        receivedContent = true
                         val body = response.body?.let(::readLimited).orEmpty()
                         val headers = response.headers.toMultimap().mapValues { it.value.firstOrNull().orEmpty() }
                         val parsed = SubscriptionParser.parse(body, sourceId, headers)
                         if (parsed.nodes.isEmpty() && parsed.notices.isEmpty()) {
                             lastError = if (body.trimStart().startsWith("<")) {
                                 application.localizedString(R.string.error_subscription_html)
+                            } else if (parsed.skipped.isNotEmpty()) {
+                                application.localizedString(R.string.import_rejected, application.importReasons(parsed.skipped))
                             } else {
                                 application.localizedString(R.string.error_subscription_empty)
                             }
@@ -104,8 +110,9 @@ class SubscriptionRepository(context: Context) {
                 }
             }
             val cached = loadCached(sourceId)
-            cached?.copy(error = lastError)
-                ?: SourceSnapshot(sourceId, null, null, emptyList(), emptyList(), 0, error = lastError)
+            val unavailable = urls.isNotEmpty() && !receivedContent
+            cached?.copy(error = lastError, networkUnavailable = unavailable)
+                ?: SourceSnapshot(sourceId, null, null, emptyList(), emptyList(), 0, error = lastError, networkUnavailable = unavailable)
         }
 
     private fun readLimited(body: ResponseBody): String {
@@ -116,6 +123,10 @@ class SubscriptionRepository(context: Context) {
     }
 
     fun loadCached(sourceId: String): SourceSnapshot? {
+        if (sourceId == ProxyNode.MANUAL_SOURCE && preferences.contains(Prefs.MANUAL_NODES_KEY)) {
+            val parsed = SubscriptionParser.parse(preferences.getString(Prefs.MANUAL_NODES_KEY, "").orEmpty(), sourceId)
+            return SourceSnapshot(sourceId, null, null, parsed.notices, parsed.nodes, 0, skipped = parsed.skipped)
+        }
         val file = File(dir, "$sourceId.txt")
         if (!file.exists()) return null
         val headers = File(dir, "$sourceId.headers").takeIf { it.exists() }?.readLines().orEmpty()
@@ -138,14 +149,29 @@ class SubscriptionRepository(context: Context) {
     fun appendManual(nodes: List<ProxyNode>): Int {
         val existing = loadManual().nodes.map { it.id }.toSet()
         val fresh = nodes.filter { it.id !in existing }
-        if (fresh.isNotEmpty()) manualFile.appendText(fresh.joinToString("\n", postfix = "\n") { it.raw })
+        if (fresh.isNotEmpty()) {
+            val previous = preferences.getString(Prefs.MANUAL_NODES_KEY, null)
+            val addition = fresh.joinToString("\n", postfix = "\n") { it.raw }
+            if (previous == null) manualFile.appendText(addition)
+            else writeRestoredManual(previous + addition)
+        }
         return fresh.size
     }
 
     @Synchronized
     fun removeManual(nodeId: String) {
         val keep = loadManual().nodes.filter { it.id != nodeId }
-        manualFile.writeText(keep.joinToString("\n", postfix = "\n") { it.raw })
+        val raw = keep.joinToString("\n", postfix = "\n") { it.raw }
+        if (!preferences.contains(Prefs.MANUAL_NODES_KEY)) manualFile.writeText(raw)
+        else writeRestoredManual(raw)
+    }
+
+    private fun writeRestoredManual(raw: String): Unit = synchronized(Prefs.selectionLock) {
+        val previous = preferences.getString(Prefs.MANUAL_NODES_KEY, "")
+        if (!preferences.edit().putString(Prefs.MANUAL_NODES_KEY, raw).commit()) {
+            preferences.edit().putString(Prefs.MANUAL_NODES_KEY, previous).commit()
+            throw IOException()
+        }
     }
 
     fun deleteCache(sourceId: String) {

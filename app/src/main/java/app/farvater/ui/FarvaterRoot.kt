@@ -145,6 +145,13 @@ fun FarvaterRoot(vm: MainViewModel) {
                     duplicates = state.duplicates,
                     trafficHistory = state.trafficHistory,
                     onRefreshTraffic = vm::refreshTrafficHistory,
+                    backupBusy = state.backupBusy,
+                    backupPreview = state.backupPreview,
+                    backupSecurityChanges = state.backupSecurityChanges,
+                    onExportBackup = vm::writeBackup,
+                    onImportBackup = vm::readBackup,
+                    onRestoreBackup = vm::restoreBackup,
+                    onDismissBackup = vm::dismissBackup,
                 )
             }
         }

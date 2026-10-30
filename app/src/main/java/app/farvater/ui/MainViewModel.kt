@@ -3,6 +3,8 @@ package app.farvater.ui
 import app.farvater.data.userMessage
 import app.farvater.R
 import app.farvater.data.localizedString
+import app.farvater.data.importReason
+import app.farvater.data.importReasons
 import android.app.Application
 import android.content.Intent
 import android.net.VpnService
@@ -80,6 +82,7 @@ data class SourceUi(
     val inMode: Boolean = true,
     val usage: Usage? = null,
     val announce: String? = null,
+    val networkUnavailable: Boolean = false,
 )
 
 data class TestProgress(val done: Int, val total: Int, val alive: Int)
@@ -116,6 +119,11 @@ data class UiState(
     val checking: Set<String> = emptySet(),
     val collapsedGroups: Set<String> = emptySet(),
     val trafficHistory: List<app.farvater.data.DayTraffic> = emptyList(),
+    val backupBusy: Boolean = false,
+    val backupPreview: Pair<Int, Int>? = null,
+    val backupSecurityChanges: app.farvater.data.BackupSecurityChanges = app.farvater.data.BackupSecurityChanges(),
+    val serviceChecks: Map<String, app.farvater.data.ServiceCheck> = emptyMap(),
+    val serviceChecking: Boolean = false,
 ) {
     val selectedNode: ProxyNode?
         get() = nodes.firstOrNull { it.id == selectedId } ?: savedNode?.takeIf { it.id == selectedId }
@@ -124,6 +132,7 @@ data class UiState(
 }
 
 sealed interface UiEvent {
+    data object ApplyBackupLanguage : UiEvent
     data class RequestVpnPermission(val intent: Intent) : UiEvent
     data class StartActivity(val intent: Intent) : UiEvent
 }
@@ -164,6 +173,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             refreshing = false,
             message = null,
             pendingImport = null,
+            backupBusy = false,
+            backupPreview = null,
+            serviceChecking = false,
             updateStage = UpdateStage.Idle,
             showUpdate = false,
         ) ?: UiState(
@@ -184,6 +196,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val events = _events.asSharedFlow()
 
     private var pendingNode: ProxyNode? = null
+    private var updateCheckJob: Job? = null
+    private var updateDownloadJob: Job? = null
     private var testJob: Job? = null
     @Volatile private var testing = false
 
@@ -203,6 +217,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val history = prefs.nodeHealth
                 val fresh = NodeHealth.prune(history)
                 if (fresh.size != history.size) prefs.nodeHealth = fresh
+                val services = prefs.serviceChecks
+                if (prefs.settings.serviceChecksEnabled) _state.update { it.copy(serviceChecks = services) }
             }
         }
         viewModelScope.launch(Dispatchers.Default) {
@@ -263,8 +279,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun checkUpdates(manual: Boolean) {
+        if (updateCheckJob?.isActive == true || updateDownloadJob?.isActive == true) return
         if (_state.value.updateStage is UpdateStage.Checking || _state.value.updateStage is UpdateStage.Downloading) return
-        viewModelScope.launch {
+        updateCheckJob = viewModelScope.launch {
             if (manual) _state.update { it.copy(updateStage = UpdateStage.Checking) }
             val result = updates.check(viaTunnel = VpnBus.state.value is VpnState.Connected)
             result.onSuccess { prefs.lastUpdateCheck = System.currentTimeMillis() }
@@ -301,17 +318,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun installUpdate() {
         val info = _state.value.update ?: return
-        if (_state.value.updateStage is UpdateStage.Downloading) return
+        if (updateDownloadJob?.isActive == true || _state.value.updateStage is UpdateStage.Downloading) return
         if (!updates.canInstall()) {
             toast(messageText(R.string.update_permission))
             _events.tryEmit(UiEvent.StartActivity(updates.installPermissionIntent()))
             return
         }
-        viewModelScope.launch {
+        updateCheckJob?.cancel()
+        updateDownloadJob = viewModelScope.launch {
             _state.update { it.copy(updateStage = UpdateStage.Downloading(0f)) }
             var last = 0f
             val file = updates.download(info, viaTunnel = VpnBus.state.value is VpnState.Connected) { p ->
-                if (p - last >= 0.01f || p >= 1f) {
+                if (p < last || p - last >= 0.01f || p >= 1f) {
                     last = p
                     _state.update { it.copy(updateStage = UpdateStage.Downloading(p)) }
                 }
@@ -526,7 +544,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             val parsed = SubscriptionParser.parse(trimmed, ProxyNode.MANUAL_SOURCE)
             if (parsed.nodes.isEmpty()) {
-                toast(messageText(R.string.import_no_links))
+                toast(if (parsed.skipped.isEmpty()) messageText(R.string.import_no_links)
+                    else messageText(R.string.import_rejected, getApplication<Application>().importReasons(parsed.skipped)))
                 return@launch
             }
             val added = synchronized(repo) {
@@ -536,6 +555,107 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             rebuild()
             toast(if (added > 0) messageText(R.string.nodes_added, added) else messageText(R.string.nodes_exist))
+        }
+    }
+
+    private var backupArchive: app.farvater.data.BackupArchive? = null
+
+    fun writeBackup(uri: android.net.Uri) {
+        if (_state.value.backupBusy) return
+        _state.update { it.copy(backupBusy = true) }
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val application = getApplication<Application>()
+                    val encoded = synchronized(repo) {
+                        synchronized(selectionLock) {
+                            app.farvater.data.BackupArchive.create(prefs, repo.loadManual().nodes,
+                                app.farvater.data.AppLanguages.selected(application)).encode().toByteArray(Charsets.UTF_8)
+                        }
+                    }
+                    require(encoded.size <= app.farvater.data.BackupArchive.MAX_BYTES)
+                    application.contentResolver.openOutputStream(uri, "wt")?.use { it.write(encoded) } ?: throw java.io.IOException()
+                }
+                toast(messageText(R.string.backup_exported))
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                toast(messageText(R.string.backup_write_failed))
+            } finally {
+                _state.update { it.copy(backupBusy = false) }
+            }
+        }
+    }
+
+    fun readBackup(uri: android.net.Uri) {
+        if (_state.value.backupBusy) return
+        dismissBackup()
+        _state.update { it.copy(backupBusy = true) }
+        viewModelScope.launch {
+            try {
+                val archive = withContext(Dispatchers.IO) {
+                    getApplication<Application>().contentResolver.openInputStream(uri)?.use {
+                        app.farvater.data.BackupArchive.read(it)
+                    } ?: throw java.io.IOException()
+                }
+                backupArchive = archive
+                _state.update { it.copy(backupPreview = archive.subscriptions.size to archive.manualNodes.size,
+                    backupSecurityChanges = archive.securityChanges(prefs.settings)) }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                toast(messageText(R.string.backup_read_failed))
+            } finally {
+                _state.update { it.copy(backupBusy = false) }
+            }
+        }
+    }
+
+    fun dismissBackup() {
+        backupArchive = null
+        _state.update { it.copy(backupPreview = null, backupSecurityChanges = app.farvater.data.BackupSecurityChanges()) }
+    }
+
+    fun restoreBackup(includeSecuritySettings: Boolean = false) {
+        val archive = backupArchive ?: return
+        val current = _state.value
+        if (current.backupBusy) return
+        if (VpnBus.state.value is VpnState.Connected || VpnBus.state.value is VpnState.Connecting ||
+            current.progress != null || current.gals || current.preflight != null || current.detecting ||
+            current.checking.isNotEmpty() || loading.value.isNotEmpty() || current.refreshing || current.serviceChecking) {
+            toast(messageText(R.string.backup_wait_idle))
+            return
+        }
+        _state.update { it.copy(backupBusy = true) }
+        viewModelScope.launch {
+            try {
+                withContext(NonCancellable) {
+                    withContext(Dispatchers.IO) {
+                        synchronized(repo) {
+                            synchronized(selectionLock) {
+                                check(VpnBus.state.value !is VpnState.Connected && VpnBus.state.value !is VpnState.Connecting)
+                                prefs.restoreBackup(archive, includeSecuritySettings, current.backupSecurityChanges)
+                                snapshots.value = mapOf(ProxyNode.MANUAL_SOURCE to repo.loadManual())
+                                results.value = emptyMap()
+                            }
+                        }
+                    }
+                    dismissBackup()
+                    pendingNode = null
+                    _state.update { it.copy(settings = prefs.settings, selectedId = null, savedNode = null,
+                        results = emptyMap(), collapsedGroups = emptySet()) }
+                    rebuild()
+                    app.farvater.data.UpdateWorker.schedule(getApplication())
+                    _events.tryEmit(UiEvent.ApplyBackupLanguage)
+                    toast(messageText(R.string.backup_restored))
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                toast(messageText(R.string.backup_restore_failed))
+            } finally {
+                _state.update { it.copy(backupBusy = false) }
+            }
         }
     }
 
@@ -564,6 +684,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun testAll(onFinished: (() -> Unit)? = null) {
         if (testJob?.isActive == true) return
+        cancelServiceChecks()
+        val serviceGeneration = this.serviceGeneration
+        val allowServiceChecks = !_state.value.gals && pathJob?.isActive != true
         val nodes = _state.value.nodes
         if (nodes.isEmpty()) {
             toast(messageText(R.string.nodes_list_empty))
@@ -631,6 +754,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             rebuildNow()
             _state.update { it.copy(progress = null) }
             onFinished?.invoke()
+            if (allowServiceChecks) checkServices(nodes.filter { node -> finished.any { it.nodeId == node.id && it.alive && it.method == TestMethod.REAL } }
+                .sortedBy { results.value[it.id]?.delayMs ?: Long.MAX_VALUE }, serviceGeneration)
         }
     }
 
@@ -643,6 +768,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun testNode(node: ProxyNode) {
         if (node.id in _state.value.checking) return
+        val serviceGeneration = this.serviceGeneration
         _state.update { it.copy(checking = it.checking + node.id) }
         viewModelScope.launch {
             try {
@@ -652,6 +778,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 recordHealth(listOf(r), sameAccount(listOf(node)))
                 val name = splitFlag(node.name).second
                 toast(if (r.alive) messageText(R.string.node_test_alive, name, r.delayMs) else messageText(R.string.dead_node_title, name))
+                if (r.alive && r.method == TestMethod.REAL) checkServices(listOf(node), serviceGeneration)
             } finally {
                 _state.update { it.copy(checking = it.checking - node.id) }
             }
@@ -659,15 +786,79 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun cancelTest() {
+        cancelServiceChecks()
         testJob?.cancel()
         pathJob?.cancel()
         _state.update { it.copy(progress = null, pathfinding = null, gals = false, sensing = false, galsNet = null, refining = false) }
     }
 
     private var pathJob: Job? = null
+    private var serviceJob: Job? = null
+    private var serviceForeground = false
+    private var serviceGeneration = 0L
+
+    fun setServiceForeground(foreground: Boolean) {
+        serviceForeground = foreground
+        if (!foreground) cancelServiceChecks()
+    }
+
+    fun cancelServiceChecks() {
+        serviceGeneration++
+        serviceJob?.cancel()
+        _state.update { it.copy(serviceChecking = false) }
+    }
+
+    private fun checkServices(nodes: List<ProxyNode>, generation: Long) {
+        val targets = app.farvater.data.ServiceChecks.targets(prefs.settings)
+        if (generation != serviceGeneration || !serviceForeground || targets.isEmpty() || serviceJob?.isActive == true || pathJob?.isActive == true ||
+            _state.value.progress != null) return
+        val mode = modeKey()
+        val history = prefs.serviceChecks
+        val candidates = nodes.filter { node -> targets.any { target ->
+            app.farvater.data.ServiceChecks.due(history[app.farvater.data.ServiceChecks.key(mode, node.id, target)])
+        } }.take(app.farvater.data.ServiceChecks.MAX_NODES)
+        if (candidates.isEmpty()) return
+        serviceJob = viewModelScope.launch {
+            val me = coroutineContext.job
+            _state.update { it.copy(serviceChecking = true) }
+            try {
+                kotlinx.coroutines.withTimeoutOrNull(90_000) {
+                    for (node in candidates) {
+                        if (!serviceForeground || mode != modeKey() || !prefs.settings.serviceChecksEnabled) break
+                        val due = serviceLock.withLock {
+                            val current = prefs.serviceChecks
+                            val wanted = targets.filter { app.farvater.data.ServiceChecks.due(current[app.farvater.data.ServiceChecks.key(mode, node.id, it)]) }
+                            val attempted = wanted.associate { target ->
+                                app.farvater.data.ServiceChecks.key(mode, node.id, target) to app.farvater.data.ServiceCheck(
+                                    app.farvater.data.ServiceVerdict.UNKNOWN, app.farvater.data.ServiceReason.NETWORK, System.currentTimeMillis())
+                            }
+                            prefs.serviceChecks = current + attempted
+                            wanted
+                        }
+                        if (due.isEmpty()) continue
+                        rebuildNow()
+                        app.farvater.net.orDefault(Unit) {
+                            kotlinx.coroutines.withTimeoutOrNull(25_000) {
+                                app.farvater.engine.ServiceProbe.check(node, prefs.profileFor(node.id), due) { target, checked ->
+                                    serviceLock.withLock {
+                                        prefs.serviceChecks = prefs.serviceChecks +
+                                            (app.farvater.data.ServiceChecks.key(mode, node.id, target) to checked)
+                                    }
+                                    rebuildNow()
+                                }
+                            }
+                        }
+                    }
+                }
+            } finally {
+                if (serviceJob === me) _state.update { it.copy(serviceChecking = false) }
+            }
+        }
+    }
 
     fun findWorking() {
         if (pathJob?.isActive == true || testJob?.isActive == true) return
+        cancelServiceChecks()
         pathJob = viewModelScope.launch {
             val me = coroutineContext.job
             _state.update { it.copy(gals = true, sensing = true) }
@@ -1011,6 +1202,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val old = prefs.settings
         val new = transform(old)
         prefs.settings = new
+        if (old.serviceChecksEnabled != new.serviceChecksEnabled || old.checkedServices != new.checkedServices ||
+            old.serviceCustomUrl != new.serviceCustomUrl || old.serviceExpectedCode != new.serviceExpectedCode) cancelServiceChecks()
         if (old.groupDead != new.groupDead) _state.update { it.copy(dead = deadFor(prefs.nodeHealth, modeKey())) }
         rebuild()
         val vpn = VpnBus.state.value
@@ -1075,7 +1268,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             snap ?: return null
             val parts = buildList {
                 snap.nodes.count { hideInsecure(it) }.takeIf { it > 0 }?.let { add(app.farvater.data.AppLanguages.wrap(getApplication<Application>()).resources.getQuantityString(R.plurals.unsafe_nodes_count, it, it)) }
-                snap.skipped.forEach { (scheme, n) -> add("$n $scheme") }
+                snap.skipped.forEach { (reason, n) -> add("$n ${getApplication<Application>().importReason(reason)}") }
             }
             return parts.takeIf { it.isNotEmpty() }?.joinToString(", ")
         }
@@ -1092,6 +1285,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 intervalHours = configs[s.id]?.intervalHours,
                 ownIntervalHours = snap?.intervalHours,
                 announce = message(snap),
+                networkUnavailable = snap?.networkUnavailable == true,
             )
         }
         val own = prefs.userSources.map { u ->
@@ -1106,6 +1300,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 ownIntervalHours = snap?.intervalHours,
                 usage = snap?.usage,
                 announce = message(snap),
+                networkUnavailable = snap?.networkUnavailable == true,
             )
         }
         val sources = (community + own).map { it.copy(inMode = it.mode.fits(mode)) }
@@ -1131,6 +1326,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 detectedMode = detected,
                 selectedId = selected?.id,
                 savedNode = selected,
+                serviceChecks = if (settings.serviceChecksEnabled) prefs.serviceChecks else emptyMap(),
             )
         }
     }
@@ -1179,6 +1375,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         private const val SCOUT_MS = 300L
 
         private val selectionLock = app.farvater.data.Prefs.selectionLock
+        private val serviceLock = Mutex()
         private val rebuildVersion = MutableStateFlow(0L)
         private val cachedSnapshots = MutableStateFlow<Map<String, SourceSnapshot>>(emptyMap())
         private val cachedResults = MutableStateFlow<Map<String, TestResult>>(emptyMap())

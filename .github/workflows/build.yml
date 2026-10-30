@@ -50,7 +50,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.14.3"
+          gradle-version: "9.8.2"
 
       - name: Тесты и debug-сборка
         run: gradle :app:testDebugUnitTest :app:assembleDebug
@@ -115,7 +115,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.14.3"
+          gradle-version: "9.8.2"
 
       - name: Release без подписи
         run: gradle :app:assembleRelease

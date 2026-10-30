@@ -14,12 +14,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
@@ -515,7 +518,200 @@ class ScreenshotTest {
         )
     }
 
-    @OptIn(ExperimentalRoborazziApi::class)
+    @Test fun winterAppearanceChoicesLight() = shot("D_winter_appearance_choices_light", dark = false, style = UiStyle.WINTER, act = { rule.mainClock.autoAdvance = true; rule.onNodeWithText("ColorOS").performScrollTo(); rule.onRoot().performTouchInput { swipeUp(startY = height * 0.8f, endY = height * 0.55f) } }) { Settings(page = "Appearance") }
+    @Test fun winterAppearanceChoicesDark() = shot("D_winter_appearance_choices_dark", dark = true, style = UiStyle.WINTER, act = { rule.mainClock.autoAdvance = true; rule.onNodeWithText("ColorOS").performScrollTo(); rule.onRoot().performTouchInput { swipeUp(startY = height * 0.8f, endY = height * 0.55f) } }) { Settings(page = "Appearance") }
+    @Test fun colorOsAppearanceChoicesLight() = shot("E_coloros_appearance_choices_light", dark = false, style = UiStyle.COLOROS, act = { rule.mainClock.autoAdvance = true; rule.onNodeWithText("ColorOS").performScrollTo(); rule.onRoot().performTouchInput { swipeUp(startY = height * 0.8f, endY = height * 0.55f) } }) { Settings(page = "Appearance") }
+    @Test fun colorOsAppearanceChoicesDark() = shot("E_coloros_appearance_choices_dark", dark = true, style = UiStyle.COLOROS, act = { rule.mainClock.autoAdvance = true; rule.onNodeWithText("ColorOS").performScrollTo(); rule.onRoot().performTouchInput { swipeUp(startY = height * 0.8f, endY = height * 0.55f) } }) { Settings(page = "Appearance") }
+    @Test fun catalogFailureIOSLight() = shot("G_catalog_ios_light", dark = false, style = UiStyle.IOS) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureIOSDark() = shot("G_catalog_ios_dark", dark = true, style = UiStyle.IOS) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureMATERIALLight() = shot("G_catalog_material_light", dark = false, style = UiStyle.MATERIAL) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureMATERIALDark() = shot("G_catalog_material_dark", dark = true, style = UiStyle.MATERIAL) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureROSKOMPOZORDark() = shot("G_catalog_roskompozor_dark", dark = true, style = UiStyle.ROSKOMPOZOR) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureSUMIELight() = shot("G_catalog_sumie_light", dark = false, style = UiStyle.SUMIE) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureSUMIEDark() = shot("G_catalog_sumie_dark", dark = true, style = UiStyle.SUMIE) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureNOTHINGLight() = shot("G_catalog_nothing_light", dark = false, style = UiStyle.NOTHING) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureNOTHINGDark() = shot("G_catalog_nothing_dark", dark = true, style = UiStyle.NOTHING) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureORIGINLight() = shot("G_catalog_origin_light", dark = false, style = UiStyle.ORIGIN) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureORIGINDark() = shot("G_catalog_origin_dark", dark = true, style = UiStyle.ORIGIN) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureHYPERLight() = shot("G_catalog_hyper_light", dark = false, style = UiStyle.HYPER) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureHYPERDark() = shot("G_catalog_hyper_dark", dark = true, style = UiStyle.HYPER) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureHARMONYLight() = shot("G_catalog_harmony_light", dark = false, style = UiStyle.HARMONY) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureHARMONYDark() = shot("G_catalog_harmony_dark", dark = true, style = UiStyle.HARMONY) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureONEUILight() = shot("G_catalog_oneui_light", dark = false, style = UiStyle.ONEUI) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureONEUIDark() = shot("G_catalog_oneui_dark", dark = true, style = UiStyle.ONEUI) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureOXYGENLight() = shot("G_catalog_oxygen_light", dark = false, style = UiStyle.OXYGEN) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureOXYGENDark() = shot("G_catalog_oxygen_dark", dark = true, style = UiStyle.OXYGEN) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureWITCHDark() = shot("G_catalog_witch_dark", dark = true, style = UiStyle.WITCH) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureWINTERLight() = shot("G_catalog_winter_light", dark = false, style = UiStyle.WINTER) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureWINTERDark() = shot("G_catalog_winter_dark", dark = true, style = UiStyle.WINTER) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureCOLOROSLight() = shot("G_catalog_coloros_light", dark = false, style = UiStyle.COLOROS) { Sources(catalogFailureState()) }
+    @Test fun catalogFailureCOLOROSDark() = shot("G_catalog_coloros_dark", dark = true, style = UiStyle.COLOROS) { Sources(catalogFailureState()) }
+    @Test fun catalogEnglish() = shot("G_catalog_en", dark = false, language = "en") { Sources() }
+    @Test fun catalogPersianLarge() = shot("G_catalog_fa_large", dark = true, language = "fa", fontScale = 2f) { Sources() }
+
+    @Test fun resetFiltersLight() = shot("H_reset_light", dark = false,
+        act = { rule.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("No matching node") }) { Servers() }
+    @Test fun resetFiltersDark() = shot("H_reset_dark", dark = true,
+        act = { rule.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("No matching node") }) { Servers() }
+    @Test fun resetFiltersColorOs() = shot("H_reset_coloros", dark = true, style = UiStyle.COLOROS,
+        act = { rule.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("No matching node") }) { Servers() }
+    @Test fun resetFiltersPersianLarge() = shot("H_reset_fa_large", dark = true, language = "fa", fontScale = 2f,
+        act = { rule.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("No matching node") }) { Servers() }
+
+    @Test fun winterNodesPersianLarge() = shot("D_winter_nodes_fa_large", dark = true, style = UiStyle.WINTER, language = "fa", fontScale = 2f) { Servers() }
+    @Test fun winterTestingLarge() = shot("D_winter_testing_large", dark = false, style = UiStyle.WINTER, fontScale = 2f) { Settings(page = "Testing") }
+    @Test fun colorOsNodesPersianLarge() = shot("E_coloros_nodes_fa_large", dark = true, style = UiStyle.COLOROS, language = "fa", fontScale = 2f) { Servers() }
+    @Test fun colorOsTestingLarge() = shot("E_coloros_testing_large", dark = false, style = UiStyle.COLOROS, fontScale = 2f) { Settings(page = "Testing") }
+    @Test fun colorOsIdleLight() = shot("E_coloros_idle_light", dark = false, style = UiStyle.COLOROS) { Home(VpnState.Idle) }
+    @Test fun colorOsConnectedLight() = shot("E_coloros_connected_light", dark = false, style = UiStyle.COLOROS) { Home(Fake.connected) }
+    @Test fun colorOsSearchingLight() = shot("E_coloros_searching_light", dark = false, style = UiStyle.COLOROS) { Home(VpnState.Idle, Fake.state.copy(progress = TestProgress(3, 10, 2))) }
+    @Test fun colorOsErrorLight() = shot("E_coloros_error_light", dark = false, style = UiStyle.COLOROS) { Home(VpnState.Failed("Узел не ответил", Fake.state.nodes.first())) }
+    @Test fun colorOsNodesLight() = shot("E_coloros_nodes_light", dark = false, style = UiStyle.COLOROS) { Servers() }
+    @Test fun colorOsSourcesLight() = shot("E_coloros_sources_light", dark = false, style = UiStyle.COLOROS) { Sources() }
+    @Test fun colorOsSettingsLight() = shot("E_coloros_settings_light", dark = false, style = UiStyle.COLOROS) { Settings() }
+    @Test fun colorOsAppearanceLight() = shot("E_coloros_appearance_light", dark = false, style = UiStyle.COLOROS) { Settings(page = "Appearance") }
+    @Test fun colorOsConnectionLight() = shot("E_coloros_connection_light", dark = false, style = UiStyle.COLOROS) { Settings(page = "Connection") }
+    @Test fun colorOsSecurityLight() = shot("E_coloros_security_light", dark = false, style = UiStyle.COLOROS) { Settings(page = "Security") }
+    @Test fun colorOsSubscriptionsLight() = shot("E_coloros_subscriptions_light", dark = false, style = UiStyle.COLOROS) { Settings(page = "Subscriptions") }
+    @Test fun colorOsTestingLight() = shot("E_coloros_testing_light", dark = false, style = UiStyle.COLOROS) { Settings(page = "Testing") }
+    @Test fun colorOsBackgroundLight() = shot("E_coloros_background_light", dark = false, style = UiStyle.COLOROS) { Settings(page = "Background") }
+    @Test fun colorOsUpdatesLight() = shot("E_coloros_updates_light", dark = false, style = UiStyle.COLOROS) { Settings(page = "Updates") }
+    @Test fun colorOsDocumentsLight() = shot("E_coloros_documents_light", dark = false, style = UiStyle.COLOROS) { Settings(page = "Documents") }
+    @Test fun colorOsAboutLight() = shot("E_coloros_about_light", dark = false, style = UiStyle.COLOROS) { Settings(page = "About") }
+    @Test fun colorOsLanguageLight() = shot("E_coloros_language_light", dark = false, style = UiStyle.COLOROS) { Settings(page = "Language") }
+    @Test fun colorOsTrafficLight() = shot("E_coloros_traffic_light", dark = false, style = UiStyle.COLOROS) { Settings(page = "Traffic") }
+    @Test fun colorOsShareAppLight() = shot("E_coloros_shareapp_light", dark = false, style = UiStyle.COLOROS) { Settings(page = "ShareApp") }
+    @Test fun colorOsBackupLight() = shot("E_coloros_backup_light", dark = false, style = UiStyle.COLOROS) { Settings(page = "Backup") }
+    @Test fun colorOsIdleDark() = shot("E_coloros_idle_dark", dark = true, style = UiStyle.COLOROS) { Home(VpnState.Idle) }
+    @Test fun colorOsConnectedDark() = shot("E_coloros_connected_dark", dark = true, style = UiStyle.COLOROS) { Home(Fake.connected) }
+    @Test fun colorOsSearchingDark() = shot("E_coloros_searching_dark", dark = true, style = UiStyle.COLOROS) { Home(VpnState.Idle, Fake.state.copy(progress = TestProgress(3, 10, 2))) }
+    @Test fun colorOsErrorDark() = shot("E_coloros_error_dark", dark = true, style = UiStyle.COLOROS) { Home(VpnState.Failed("Узел не ответил", Fake.state.nodes.first())) }
+    @Test fun colorOsNodesDark() = shot("E_coloros_nodes_dark", dark = true, style = UiStyle.COLOROS) { Servers() }
+    @Test fun colorOsSourcesDark() = shot("E_coloros_sources_dark", dark = true, style = UiStyle.COLOROS) { Sources() }
+    @Test fun colorOsSettingsDark() = shot("E_coloros_settings_dark", dark = true, style = UiStyle.COLOROS) { Settings() }
+    @Test fun colorOsAppearanceDark() = shot("E_coloros_appearance_dark", dark = true, style = UiStyle.COLOROS) { Settings(page = "Appearance") }
+    @Test fun colorOsConnectionDark() = shot("E_coloros_connection_dark", dark = true, style = UiStyle.COLOROS) { Settings(page = "Connection") }
+    @Test fun colorOsSecurityDark() = shot("E_coloros_security_dark", dark = true, style = UiStyle.COLOROS) { Settings(page = "Security") }
+    @Test fun colorOsSubscriptionsDark() = shot("E_coloros_subscriptions_dark", dark = true, style = UiStyle.COLOROS) { Settings(page = "Subscriptions") }
+    @Test fun colorOsTestingDark() = shot("E_coloros_testing_dark", dark = true, style = UiStyle.COLOROS) { Settings(page = "Testing") }
+    @Test fun colorOsBackgroundDark() = shot("E_coloros_background_dark", dark = true, style = UiStyle.COLOROS) { Settings(page = "Background") }
+    @Test fun colorOsUpdatesDark() = shot("E_coloros_updates_dark", dark = true, style = UiStyle.COLOROS) { Settings(page = "Updates") }
+    @Test fun colorOsDocumentsDark() = shot("E_coloros_documents_dark", dark = true, style = UiStyle.COLOROS) { Settings(page = "Documents") }
+    @Test fun colorOsAboutDark() = shot("E_coloros_about_dark", dark = true, style = UiStyle.COLOROS) { Settings(page = "About") }
+    @Test fun colorOsLanguageDark() = shot("E_coloros_language_dark", dark = true, style = UiStyle.COLOROS) { Settings(page = "Language") }
+    @Test fun colorOsTrafficDark() = shot("E_coloros_traffic_dark", dark = true, style = UiStyle.COLOROS) { Settings(page = "Traffic") }
+    @Test fun colorOsShareAppDark() = shot("E_coloros_shareapp_dark", dark = true, style = UiStyle.COLOROS) { Settings(page = "ShareApp") }
+    @Test fun colorOsBackupDark() = shot("E_coloros_backup_dark", dark = true, style = UiStyle.COLOROS) { Settings(page = "Backup") }
+    @Test fun colorOsPersianLarge() = shot("E_coloros_home_fa_large", dark = true, style = UiStyle.COLOROS, language = "fa", fontScale = 2f) { Home(Fake.connected) }
+
+    @Test fun winterIdleLight() = shot("D_winter_idle_light", dark = false, style = UiStyle.WINTER) { Home(VpnState.Idle) }
+    @Test fun winterConnectedLight() = shot("D_winter_connected_light", dark = false, style = UiStyle.WINTER) { Home(Fake.connected) }
+    @Test fun winterSearchingLight() = shot("D_winter_searching_light", dark = false, style = UiStyle.WINTER) { Home(VpnState.Idle, Fake.state.copy(progress = TestProgress(3, 10, 2))) }
+    @Test fun winterErrorLight() = shot("D_winter_error_light", dark = false, style = UiStyle.WINTER) { Home(VpnState.Failed("Узел не ответил", Fake.state.nodes.first())) }
+    @Test fun winterNodesLight() = shot("D_winter_nodes_light", dark = false, style = UiStyle.WINTER) { Servers() }
+    @Test fun winterSourcesLight() = shot("D_winter_sources_light", dark = false, style = UiStyle.WINTER) { Sources() }
+    @Test fun winterSettingsLight() = shot("D_winter_settings_light", dark = false, style = UiStyle.WINTER) { Settings() }
+    @Test fun winterAppearanceLight() = shot("D_winter_appearance_light", dark = false, style = UiStyle.WINTER) { Settings(page = "Appearance") }
+    @Test fun winterConnectionLight() = shot("D_winter_connection_light", dark = false, style = UiStyle.WINTER) { Settings(page = "Connection") }
+    @Test fun winterSecurityLight() = shot("D_winter_security_light", dark = false, style = UiStyle.WINTER) { Settings(page = "Security") }
+    @Test fun winterSubscriptionsLight() = shot("D_winter_subscriptions_light", dark = false, style = UiStyle.WINTER) { Settings(page = "Subscriptions") }
+    @Test fun winterTestingLight() = shot("D_winter_testing_light", dark = false, style = UiStyle.WINTER) { Settings(page = "Testing") }
+    @Test fun winterBackgroundLight() = shot("D_winter_background_light", dark = false, style = UiStyle.WINTER) { Settings(page = "Background") }
+    @Test fun winterUpdatesLight() = shot("D_winter_updates_light", dark = false, style = UiStyle.WINTER) { Settings(page = "Updates") }
+    @Test fun winterDocumentsLight() = shot("D_winter_documents_light", dark = false, style = UiStyle.WINTER) { Settings(page = "Documents") }
+    @Test fun winterAboutLight() = shot("D_winter_about_light", dark = false, style = UiStyle.WINTER) { Settings(page = "About") }
+    @Test fun winterLanguageLight() = shot("D_winter_language_light", dark = false, style = UiStyle.WINTER) { Settings(page = "Language") }
+    @Test fun winterTrafficLight() = shot("D_winter_traffic_light", dark = false, style = UiStyle.WINTER) { Settings(page = "Traffic") }
+    @Test fun winterShareAppLight() = shot("D_winter_shareapp_light", dark = false, style = UiStyle.WINTER) { Settings(page = "ShareApp") }
+    @Test fun winterBackupLight() = shot("D_winter_backup_light", dark = false, style = UiStyle.WINTER) { Settings(page = "Backup") }
+    @Test fun winterIdleDark() = shot("D_winter_idle_dark", dark = true, style = UiStyle.WINTER) { Home(VpnState.Idle) }
+    @Test fun winterConnectedDark() = shot("D_winter_connected_dark", dark = true, style = UiStyle.WINTER) { Home(Fake.connected) }
+    @Test fun winterSearchingDark() = shot("D_winter_searching_dark", dark = true, style = UiStyle.WINTER) { Home(VpnState.Idle, Fake.state.copy(progress = TestProgress(3, 10, 2))) }
+    @Test fun winterErrorDark() = shot("D_winter_error_dark", dark = true, style = UiStyle.WINTER) { Home(VpnState.Failed("Узел не ответил", Fake.state.nodes.first())) }
+    @Test fun winterNodesDark() = shot("D_winter_nodes_dark", dark = true, style = UiStyle.WINTER) { Servers() }
+    @Test fun winterSourcesDark() = shot("D_winter_sources_dark", dark = true, style = UiStyle.WINTER) { Sources() }
+    @Test fun winterSettingsDark() = shot("D_winter_settings_dark", dark = true, style = UiStyle.WINTER) { Settings() }
+    @Test fun winterAppearanceDark() = shot("D_winter_appearance_dark", dark = true, style = UiStyle.WINTER) { Settings(page = "Appearance") }
+    @Test fun winterConnectionDark() = shot("D_winter_connection_dark", dark = true, style = UiStyle.WINTER) { Settings(page = "Connection") }
+    @Test fun winterSecurityDark() = shot("D_winter_security_dark", dark = true, style = UiStyle.WINTER) { Settings(page = "Security") }
+    @Test fun winterSubscriptionsDark() = shot("D_winter_subscriptions_dark", dark = true, style = UiStyle.WINTER) { Settings(page = "Subscriptions") }
+    @Test fun winterTestingDark() = shot("D_winter_testing_dark", dark = true, style = UiStyle.WINTER) { Settings(page = "Testing") }
+    @Test fun winterBackgroundDark() = shot("D_winter_background_dark", dark = true, style = UiStyle.WINTER) { Settings(page = "Background") }
+    @Test fun winterUpdatesDark() = shot("D_winter_updates_dark", dark = true, style = UiStyle.WINTER) { Settings(page = "Updates") }
+    @Test fun winterDocumentsDark() = shot("D_winter_documents_dark", dark = true, style = UiStyle.WINTER) { Settings(page = "Documents") }
+    @Test fun winterAboutDark() = shot("D_winter_about_dark", dark = true, style = UiStyle.WINTER) { Settings(page = "About") }
+    @Test fun winterLanguageDark() = shot("D_winter_language_dark", dark = true, style = UiStyle.WINTER) { Settings(page = "Language") }
+    @Test fun winterTrafficDark() = shot("D_winter_traffic_dark", dark = true, style = UiStyle.WINTER) { Settings(page = "Traffic") }
+    @Test fun winterShareAppDark() = shot("D_winter_shareapp_dark", dark = true, style = UiStyle.WINTER) { Settings(page = "ShareApp") }
+    @Test fun winterBackupDark() = shot("D_winter_backup_dark", dark = true, style = UiStyle.WINTER) { Settings(page = "Backup") }
+    @Test fun winterPersianLarge() = shot("D_winter_home_fa_large", dark = true, style = UiStyle.WINTER, language = "fa", fontScale = 2f) { Home(Fake.connected) }
+    @Test fun winterTreeIcon() = shot("D_winter_tree_icon", dark = true, style = UiStyle.WINTER) { app.farvater.ui.components.AppIconImage(app.farvater.data.AppIcon.TREE, 160.dp) }
+
+    @Test fun servicesCustomLight() = shot("C3_services_custom_light", dark = false, screen = true,
+        act = { rule.onNodeWithText("Добавить или изменить адрес").performClick(); rule.mainClock.autoAdvance = true }) {
+        app.farvater.ui.screens.ServiceSettings(serviceSettings().copy(serviceCustomUrl = "https://service.example.test/status")) {}
+    }
+    @Test fun servicesCustomPersianLarge() = shot("C3_services_custom_fa_large", dark = true, screen = true, language = "fa", fontScale = 2f,
+        act = { rule.onNodeWithText("افزودن یا ویرایش نشانی").performClick(); rule.mainClock.autoAdvance = true }) {
+        app.farvater.ui.screens.ServiceSettings(serviceSettings().copy(serviceCustomUrl = "https://service.example.test/status")) {}
+    }
+
+    @Test fun servicesSettingsLight() = shot("C3_services_settings_light", dark = false) { Settings(serviceSettings(), page = "Testing") }
+    @Test fun servicesSettingsDark() = shot("C3_services_settings_dark", dark = true) { Settings(serviceSettings(), page = "Testing") }
+    @Test fun servicesSettingsPersian() = shot("C3_services_settings_fa_large", dark = true, language = "fa", fontScale = 1.3f) { Settings(serviceSettings(), page = "Testing") }
+    @Test fun servicesNodesLight() = shot("C4_services_nodes_light", dark = false) { Servers(serviceState()) }
+    @Test fun servicesNodesDark() = shot("C4_services_nodes_dark", dark = true) { Servers(serviceState()) }
+
+    private fun serviceSettings() = Fake.state.settings.copy(serviceChecksEnabled = true,
+        checkedServices = app.farvater.data.ServiceKind.entries.filter { it != app.farvater.data.ServiceKind.CUSTOM }.toSet())
+
+    private fun serviceState(): UiState {
+        val targets = app.farvater.data.ServiceChecks.targets(serviceSettings())
+        val checks = Fake.nodes.flatMapIndexed { index, node -> targets.map { target ->
+            app.farvater.data.ServiceChecks.key(Fake.state.netMode?.name ?: "ANY", node.id, target) to
+                app.farvater.data.ServiceCheck(app.farvater.data.ServiceVerdict.entries[index % 3],
+                    app.farvater.data.ServiceReason.PAGE, System.currentTimeMillis())
+        } }.toMap()
+        return Fake.state.copy(settings = serviceSettings(), serviceChecks = checks)
+    }
+
+    @Test fun backupLight() = shot("C1_backup_light", dark = false) { Backup() }
+    @Test fun backupDark() = shot("C1_backup_dark", dark = true) { Backup() }
+    @Test fun backupPreviewDoubleFont() = shot("C2_backup_preview_double", dark = true, screen = true, fontScale = 2f) { Backup(3 to 12) }
+    @Test fun backupPreviewDoubleFontEnd() = shot("C2_backup_preview_double_end", dark = true, screen = true, fontScale = 2f,
+        act = { rule.mainClock.autoAdvance = true; repeat(4) { rule.onNodeWithText("Читать дальше").performClick() } }) { Backup(3 to 12) }
+    @Test fun backupPreviewDoubleFontLight() = shot("C2_backup_preview_double_light", dark = false, screen = true, fontScale = 2f) { Backup(3 to 12) }
+    @Test fun backupPreviewPersianDouble() = shot("C2_backup_preview_fa_double", dark = true, screen = true, language = "fa", fontScale = 2f) { Backup(3 to 12) }
+    @Test fun backupPreviewEnglishDouble() = shot("C2_backup_preview_en_double", dark = false, screen = true, language = "en", fontScale = 2f,
+        act = { rule.onNodeWithText("Read more").assertExists() }) { Backup(3 to 12) }
+    @Test fun iosTabsDoubleFont() = shot("I_ios_tabs_double", dark = true, fontScale = 2f) { Settings() }
+    @Test fun backupPreviewPersianLarge() = shot("C2_backup_preview_fa_large", dark = true, screen = true, language = "fa", fontScale = 1.3f) { Backup(3 to 12) }
+
+    @Test fun backupSecurityLight() = shot("C5_backup_security_light", dark = false, screen = true) { Backup(3 to 12, backupSecurityChanges()) }
+    @Test fun backupSecurityDoubleEnd() = shot("C5_backup_security_double_end", dark = true, screen = true, fontScale = 2f,
+        act = { rule.mainClock.autoAdvance = true; rule.onNodeWithText("Перенести настройки безопасности").performScrollTo() }) { Backup(3 to 12, backupSecurityChanges()) }
+    @Test fun backupSecurityPersianDoubleEnd() = shot("C5_backup_security_fa_double_end", dark = true, screen = true, fontScale = 2f, language = "fa",
+        act = { rule.mainClock.autoAdvance = true; rule.onNodeWithText("انتقال تنظیمات امنیتی").performScrollTo() }) { Backup(3 to 12, backupSecurityChanges()) }
+    @Test fun backupSecurityEnglishDoubleEnd() = shot("C5_backup_security_en_double_end", dark = false, screen = true, fontScale = 2f, language = "en",
+        act = { rule.mainClock.autoAdvance = true; rule.onNodeWithText("Transfer security settings").performScrollTo() }) { Backup(3 to 12, backupSecurityChanges()) }
+
+    private fun backupSecurityChanges() = app.farvater.data.BackupSecurityChanges(
+        addedBypassApps = setOf("org.example.browser", "org.example.chat"), safeMode = false,
+        encryptedDns = false, autoUpdates = false, sendHwid = true, directRuServices = true)
+
+    @Composable
+    private fun Backup(preview: Pair<Int, Int>? = null, securityChanges: app.farvater.data.BackupSecurityChanges = app.farvater.data.BackupSecurityChanges()) = FarvaterFrame(tab = Tab.Settings, onTab = {}) { p ->
+        androidx.compose.foundation.layout.Box(Modifier.padding(p)) {
+            app.farvater.ui.ios.IosPushedPage(
+                title = androidx.compose.ui.res.stringResource(app.farvater.R.string.backup_title),
+                backTitle = androidx.compose.ui.res.stringResource(app.farvater.R.string.settings_title), onBack = {},
+            ) {
+                app.farvater.ui.screens.BackupPage(false, preview, {}, {}, {}, {}, securityChanges)
+            }
+        }
+    }
+
+    @OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)
     private fun shot(
         name: String,
         dark: Boolean,
@@ -531,9 +727,11 @@ class ScreenshotTest {
         act: (() -> Unit)? = null,
         content: @Composable () -> Unit,
     ) {
+        org.robolectric.RuntimeEnvironment.setFontScale(fontScale)
         rule.mainClock.autoAdvance = false
         rule.setContent {
             val original = androidx.compose.ui.platform.LocalContext.current
+            val registryOwner = requireNotNull(androidx.activity.compose.LocalActivityResultRegistryOwner.current)
             val originalConfiguration = androidx.compose.ui.platform.LocalConfiguration.current
             val configuration = androidx.compose.runtime.remember(originalConfiguration, language) {
                 android.content.res.Configuration(originalConfiguration).apply {
@@ -545,6 +743,7 @@ class ScreenshotTest {
             }
             CompositionLocalProvider(
                 app.farvater.ui.components.LocalWitchDate provides witchDate,
+                androidx.activity.compose.LocalActivityResultRegistryOwner provides registryOwner,
                 androidx.compose.ui.platform.LocalContext provides context,
                 androidx.compose.ui.platform.LocalConfiguration provides configuration,
                 androidx.compose.ui.platform.LocalLayoutDirection provides if (configuration.layoutDirection == 1) androidx.compose.ui.unit.LayoutDirection.Rtl else androidx.compose.ui.unit.LayoutDirection.Ltr,
@@ -623,6 +822,10 @@ class ScreenshotTest {
             )
         }
     }
+
+    private fun catalogFailureState() = Fake.state.copy(sources = Fake.state.sources.filter { it.community }.take(1).map {
+        it.copy(nodeCount = 0, error = "Unavailable", networkUnavailable = true, loading = false, enabled = true)
+    })
 
     @Composable
     private fun Sources(state: UiState = Fake.state) = FarvaterFrame(tab = Tab.Sources, onTab = {}) { p ->

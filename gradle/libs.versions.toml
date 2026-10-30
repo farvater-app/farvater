@@ -1,6 +1,6 @@
 [versions]
-agp = "8.11.1"
-kotlin = "2.2.0"
+agp = "9.5.0"
+kotlin = "2.4.21"
 coreKtx = "1.16.0"
 work = "2.10.1"
 profileinstaller = "1.4.1"
@@ -12,7 +12,7 @@ serialization = "1.9.0"
 okhttp = "4.12.0"
 junit = "4.13.2"
 robolectric = "4.17"
-roborazzi = "1.76.0"
+roborazzi = "1.77.0"
 androidxTestJunit = "1.2.1"
 
 [libraries]
@@ -43,7 +43,6 @@ compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-mani
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }

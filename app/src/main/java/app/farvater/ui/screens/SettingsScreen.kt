@@ -41,6 +41,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.AccountBalance
@@ -148,10 +149,10 @@ import kotlinx.coroutines.withContext
 
 private val TestUrls: List<Pair<String, String>>
     @Composable get() = listOf(
-    "https://www.gstatic.com/generate_204" to stringResource(R.string.probe_google_default),
-    "https://cp.cloudflare.com/generate_204" to "Cloudflare",
-    "https://www.apple.com/library/test/success.html" to "Apple",
-    "https://detectportal.firefox.com/success.txt" to "Firefox",
+    app.farvater.data.ProbeUrls.GOOGLE to stringResource(R.string.probe_google_default),
+    app.farvater.data.ProbeUrls.CLOUDFLARE to "Cloudflare",
+    app.farvater.data.ProbeUrls.APPLE to "Apple",
+    app.farvater.data.ProbeUrls.FIREFOX to "Firefox",
 )
 
 private val ConcurrencyOptions: List<Pair<Int, String>>
@@ -170,6 +171,7 @@ private enum class SettingsPage(val title: Int) {
     Language(R.string.settings_language),
     Traffic(R.string.traffic_title),
     ShareApp(R.string.share_app),
+    Backup(R.string.backup_title),
 }
 
 @Composable
@@ -188,6 +190,13 @@ fun SettingsScreen(
     trafficHistory: List<app.farvater.data.DayTraffic> = emptyList(),
     trafficToday: java.time.LocalDate = java.time.LocalDate.now(),
     onRefreshTraffic: () -> Unit = {},
+    backupBusy: Boolean = false,
+    backupPreview: Pair<Int, Int>? = null,
+    onExportBackup: (android.net.Uri) -> Unit = {},
+    onImportBackup: (android.net.Uri) -> Unit = {},
+    onRestoreBackup: (Boolean) -> Unit = {},
+    backupSecurityChanges: app.farvater.data.BackupSecurityChanges = app.farvater.data.BackupSecurityChanges(),
+    onDismissBackup: () -> Unit = {},
 ) {
     var localPage by rememberSaveable { mutableStateOf<String?>(null) }
     val page = (if (onPageName != null) pageName else localPage)?.let { name -> SettingsPage.entries.firstOrNull { it.name == name } }
@@ -242,6 +251,7 @@ fun SettingsScreen(
                     SettingsPage.Language -> LanguagePage()
                     SettingsPage.Traffic -> TrafficPage(trafficHistory, trafficToday)
                     SettingsPage.ShareApp -> ShareAppPage()
+                    SettingsPage.Backup -> BackupPage(backupBusy, backupPreview, onExportBackup, onImportBackup, onRestoreBackup, onDismissBackup, backupSecurityChanges)
                 }
                 Spacer(Modifier.height(24.dp + LocalBottomInset.current))
             }
@@ -319,6 +329,8 @@ private fun SettingsRoot(
                         UiStyle.ONEUI -> stringResource(R.string.brand_one_ui)
                         UiStyle.OXYGEN -> stringResource(R.string.brand_oxygen)
                         UiStyle.WITCH -> stringResource(R.string.style_witch)
+                        UiStyle.WINTER -> stringResource(R.string.style_winter)
+                        UiStyle.COLOROS -> stringResource(R.string.style_coloros)
                     },
                     chevron = true,
                     onClick = { onOpen(SettingsPage.Appearance) },
@@ -426,6 +438,14 @@ private fun SettingsRoot(
                     iconTint = c.blue,
                     chevron = true,
                     onClick = { onOpen(SettingsPage.ShareApp) },
+                )
+                IosDivider(start = divider)
+                IosRow(
+                    title = stringResource(R.string.backup_title),
+                    icon = Icons.Rounded.Save,
+                    iconTint = c.indigo,
+                    chevron = true,
+                    onClick = { onOpen(SettingsPage.Backup) },
                 )
             }
 
@@ -609,6 +629,28 @@ private fun AppearancePage(
             selected = settings.uiStyle == UiStyle.WITCH,
             leading = { StyleMark { WitchStyleMark() } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.WITCH) } },
+        )
+    }
+
+    IosSection {
+        IosChoiceRow(
+            title = stringResource(R.string.style_winter),
+            subtitle = stringResource(R.string.style_winter_description),
+            selected = settings.uiStyle == UiStyle.WINTER,
+            leading = { StyleMark {
+                androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.ic_launcher_tree_foreground), null)
+            } },
+            onClick = { onChange { it.copy(uiStyle = UiStyle.WINTER) } },
+        )
+    }
+
+    IosSection {
+        IosChoiceRow(
+            title = stringResource(R.string.style_coloros),
+            subtitle = stringResource(R.string.style_coloros_description),
+            selected = settings.uiStyle == UiStyle.COLOROS,
+            leading = { StyleMark { IosIcon(Icons.Rounded.Palette, Ios.colors.blue) } },
+            onClick = { onChange { it.copy(uiStyle = UiStyle.COLOROS) } },
         )
     }
 
@@ -815,6 +857,7 @@ private fun SubscriptionsPage(
 @Composable
 private fun TestingPage(settings: AppSettings, onChange: ((AppSettings) -> AppSettings) -> Unit, duplicates: Int) {
     val c = Ios.colors
+    ServiceSettings(settings, onChange)
     IosSection(
         footer = stringResource(R.string.dead_group_hint),
     ) {
