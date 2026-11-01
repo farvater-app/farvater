@@ -497,4 +497,8 @@
     <string name="backup_security_ru_direct">Russian services bypass VPN</string>
     <string name="error_update_download">Could not download the update: the server did not respond or rejected the request. Try another node or retry without VPN.</string>
     <string name="error_update_file">Could not prepare the update file. Check available storage and try again.</string>
+    <string name="style_exclusive">Exclusive</string>
+    <string name="services_no_results">No check results</string>
+    <string name="services_no_results_hint">There are no recent results for this service. Tap “Test all nodes” and wait for the page checks to finish.</string>
+    <string name="vpn_interface_failed">"Android could not create the VPN. Disconnect any other VPN and try connecting again."</string>
 </resources>

@@ -287,7 +287,13 @@ class FarvaterVpnService : VpnService() {
         bypass.forEach { pkg -> runCatching { builder.addDisallowedApplication(pkg) } }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false)
 
-        val fd = builder.establish() ?: return abort(localizedString(R.string.vpn_permission_missing))
+        val fd = try {
+            builder.establish()
+        } catch (_: SecurityException) {
+            return abort(localizedString(R.string.vpn_permission_missing))
+        } catch (_: IllegalStateException) {
+            return abort(localizedString(R.string.vpn_interface_failed))
+        } ?: return abort(localizedString(R.string.vpn_permission_missing))
         tun = fd
         runCatching { previous?.close() }
         TunBridge.start(this, fd.fd, settings.mtu).onFailure {

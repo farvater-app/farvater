@@ -1,6 +1,9 @@
 package app.farvater.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -66,6 +69,9 @@ fun WitchHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modif
     }
     val halloween = isHalloweenNight(date)
     val still = rememberReduceMotion()
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val focused by interaction.collectIsFocusedAsState()
     val haptics = LocalHapticFeedback.current
     val clock = remember { mutableFloatStateOf(0f) }
     val flightStart = remember { mutableFloatStateOf(Float.NaN) }
@@ -99,7 +105,7 @@ fun WitchHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modif
             val unit = maxWidth / 360f
             Canvas(Modifier.fillMaxSize()) {
                 scale(size.width / 360f, pivot = Offset.Zero) {
-                    witchScene(mode, clock.floatValue, flightStart.floatValue, halloween)
+                    witchScene(mode, clock.floatValue, flightStart.floatValue, halloween, pressed, focused)
                 }
             }
             Box(
@@ -118,14 +124,14 @@ fun WitchHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modif
             )
             Box(
                 Modifier.absoluteOffset(unit * 122, unit * 132).size(unit * 116, unit * 91)
-                    .clickable(role = Role.Button, onClick = onClick)
+                    .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick)
                     .semantics { contentDescription = description },
             )
         }
     }
 }
 
-private fun DrawScope.witchScene(mode: ConnectMode, time: Float, flightStart: Float, halloween: Boolean) {
+private fun DrawScope.witchScene(mode: ConnectMode, time: Float, flightStart: Float, halloween: Boolean, pressed: Boolean, focused: Boolean) {
     val busy = mode == ConnectMode.Searching || mode == ConnectMode.Connecting
     val active = busy || mode == ConnectMode.Connected
     val potion = when (mode) {
@@ -180,20 +186,22 @@ private fun DrawScope.witchScene(mode: ConnectMode, time: Float, flightStart: Fl
     }
     drawLine(Color(0xFF6A4554), Offset(150f, 222f), Offset(211f, 215f), 5f, StrokeCap.Round)
     drawLine(Color(0xFF6A4554), Offset(153f, 215f), Offset(207f, 223f), 5f, StrokeCap.Round)
-    drawOval(WitchLilac.copy(alpha = 0.55f), Offset(116f, 154f), Size(25f, 24f), style = Stroke(3f))
-    drawOval(WitchLilac.copy(alpha = 0.55f), Offset(219f, 154f), Size(25f, 24f), style = Stroke(3f))
-    val pot = Path().apply {
-        moveTo(130f, 147f); cubicTo(115f, 183f, 132f, 211f, 180f, 211f)
-        cubicTo(228f, 211f, 245f, 183f, 230f, 147f); close()
+    scale(if (pressed) 0.96f else 1f, pivot = Offset(180f, 180f)) {
+        drawOval(WitchLilac.copy(alpha = 0.55f), Offset(116f, 154f), Size(25f, 24f), style = Stroke(3f))
+        drawOval(WitchLilac.copy(alpha = 0.55f), Offset(219f, 154f), Size(25f, 24f), style = Stroke(3f))
+        val pot = Path().apply {
+            moveTo(130f, 147f); cubicTo(115f, 183f, 132f, 211f, 180f, 211f)
+            cubicTo(228f, 211f, 245f, 183f, 230f, 147f); close()
+        }
+        drawPath(pot, Color(0xFF221632))
+        drawPath(pot, if (focused) WitchMoon else Color(0xFF65517D), style = Stroke(if (focused) 3f else 2f))
+        drawOval(Color(0xFF65517D), Offset(127f, 136f), Size(106f, 24f))
+        drawOval(potion, Offset(132f, 140f), Size(96f, 16f))
+        drawArc(Color(0xFFF1E9FF), 135f, 270f, false, Offset(169f, 176f), Size(22f, 22f), style = Stroke(2.5f, cap = StrokeCap.Round))
+        drawLine(Color(0xFFF1E9FF), Offset(180f, 174f), Offset(180f, 185f), 2.5f, StrokeCap.Round)
+        drawLine(Color(0xFF65517D), Offset(145f, 206f), Offset(142f, 215f), 4f, StrokeCap.Round)
+        drawLine(Color(0xFF65517D), Offset(214f, 206f), Offset(217f, 215f), 4f, StrokeCap.Round)
     }
-    drawPath(pot, Color(0xFF221632))
-    drawPath(pot, Color(0xFF65517D), style = Stroke(2f))
-    drawOval(Color(0xFF65517D), Offset(127f, 136f), Size(106f, 24f))
-    drawOval(potion, Offset(132f, 140f), Size(96f, 16f))
-    drawArc(Color(0xFFF1E9FF), 135f, 270f, false, Offset(169f, 176f), Size(22f, 22f), style = Stroke(2.5f, cap = StrokeCap.Round))
-    drawLine(Color(0xFFF1E9FF), Offset(180f, 174f), Offset(180f, 185f), 2.5f, StrokeCap.Round)
-    drawLine(Color(0xFF65517D), Offset(145f, 206f), Offset(142f, 215f), 4f, StrokeCap.Round)
-    drawLine(Color(0xFF65517D), Offset(214f, 206f), Offset(217f, 215f), 4f, StrokeCap.Round)
     if (active) repeat(7) { i ->
         val progress = (time * 0.38f + i * 0.17f) % 1f
         val x = 151f + i * 9f + sin(time + i) * 3f

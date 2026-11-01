@@ -22,6 +22,33 @@ class ServiceUiTest {
     @get:Rule val rule = createComposeRule()
 
     @Test
+    fun untestedServiceFilterExplainsHowToGetResults() {
+        val node = LinkParser.parse("vless://test@untested.example.test:443?security=tls#Untested")!!
+        val target = ServiceChecks.builtIn.first { it.kind == ServiceKind.YOUTUBE }
+        val state = mutableStateOf(UiState(nodes = listOf(node), settings = AppSettings(serviceChecksEnabled = true,
+            checkedServices = setOf(ServiceKind.YOUTUBE))))
+        var started = 0
+        rule.setContent { FarvaterTheme(dynamicColor = false) { ServersScreen(state.value, {}, { started++ }, {}, {}, {}) } }
+        rule.onNodeWithText("Подходит для…").performClick()
+        rule.onNodeWithText("YouTube").performClick()
+        rule.onNodeWithText("Нет результатов проверки").assertExists()
+        rule.onNodeWithText("Ничего не нашлось").assertDoesNotExist()
+        rule.onNodeWithText("Проверить все узлы").performScrollTo().performClick()
+        assertEquals(1, started)
+        rule.runOnIdle {
+            state.value = state.value.copy(serviceChecks = mapOf(ServiceChecks.key("ANY", node.id, target) to
+                ServiceCheck(ServiceVerdict.RESPONDED, ServiceReason.PAGE, System.currentTimeMillis() - ServiceChecks.TTL_MS)))
+        }
+        rule.onNodeWithText("Нет результатов проверки").assertExists()
+        rule.runOnIdle {
+            state.value = state.value.copy(serviceChecks = mapOf(ServiceChecks.key("ANY", node.id, target) to
+                ServiceCheck(ServiceVerdict.RESPONDED, ServiceReason.PAGE, System.currentTimeMillis())))
+        }
+        rule.onNodeWithText("Нет результатов проверки").assertDoesNotExist()
+        rule.onNodeWithText("Untested").assertExists()
+    }
+
+    @Test
     fun servicesAreOptInAndCustomUrlRejectsLocalAddresses() {
         val settings = mutableStateOf(AppSettings())
         rule.setContent { FarvaterTheme(dynamicColor = false) { ServiceSettings(settings.value) { settings.value = it(settings.value) } } }

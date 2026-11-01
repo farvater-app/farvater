@@ -4,10 +4,14 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -48,10 +52,17 @@ fun WinterHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modi
         ConnectMode.Error -> R.string.action_retry_connect
     })
     val dark = Ios.colors.dark
-    Box(modifier.size(240.dp, 290.dp).clickable(role = Role.Button, onClick = onClick)
+    val focusColor = Ios.colors.tint
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val focused by interaction.collectIsFocusedAsState()
+    Box(modifier.size(240.dp, 290.dp).graphicsLayer {
+        scaleX = if (pressed) 0.98f else 1f
+        scaleY = scaleX
+    }.clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick)
         .semantics { contentDescription = description }) {
         Canvas(Modifier.matchParentSize().graphicsLayer()) {
-            scale(size.width / 240f, size.height / 300f, pivot = Offset.Zero) { winterTree(dark) }
+            scale(size.width / 240f, size.height / 300f, pivot = Offset.Zero) { winterTree(dark, if (focused) focusColor else null) }
         }
         Canvas(Modifier.matchParentSize().graphicsLayer()) {
             scale(size.width / 240f, size.height / 300f, pivot = Offset.Zero) {
@@ -61,7 +72,7 @@ fun WinterHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modi
     }
 }
 
-private fun DrawScope.winterTree(dark: Boolean) {
+private fun DrawScope.winterTree(dark: Boolean, focusColor: Color?) {
     drawOval(Color(0xFF244E68).copy(alpha = if (dark) 0.3f else 0.12f), Offset(56f, 278f), Size(128f, 12f))
     drawRoundRect(Brush.horizontalGradient(listOf(Color(0xFF5D4434), Color(0xFF977359))), Offset(113f, 248f), Size(15f, 36f), androidx.compose.ui.geometry.CornerRadius(3f))
     for (tier in 5 downTo 0) {
@@ -79,6 +90,7 @@ private fun DrawScope.winterTree(dark: Boolean) {
             close()
         }
         drawPath(branch, Brush.horizontalGradient(listOf(Color(0xFF194F47), Color(0xFF357B67), Color(0xFF173F3D)), startX = 120f - width, endX = 120f + width))
+        if (focusColor != null) drawPath(branch, focusColor, style = Stroke(2f))
         val snow = Path().apply {
             moveTo(120f - width * 0.82f, top + 66f)
             cubicTo(120f - width * 0.34f, top + 75f, 120f + width * 0.38f, top + 76f, 120f + width * 0.82f, top + 66f)

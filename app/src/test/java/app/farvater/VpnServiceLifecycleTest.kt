@@ -42,12 +42,13 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.concurrent.thread
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], application = Application::class, shadows = [VpnServiceLifecycleTest.Core::class, VpnServiceLifecycleTest.Bridge::class, VpnServiceLifecycleTest.Probe::class, VpnServiceLifecycleTest.Selection::class, VpnServiceLifecycleTest.TilePlatform::class],
+@Config(sdk = [35], application = Application::class, shadows = [VpnServiceLifecycleTest.Core::class, VpnServiceLifecycleTest.Bridge::class, VpnServiceLifecycleTest.Probe::class, VpnServiceLifecycleTest.Selection::class, VpnServiceLifecycleTest.TilePlatform::class, VpnServiceLifecycleTest.InterfaceBuilder::class],
     instrumentedPackages = ["app.farvater.engine.XrayEngine", "app.farvater.engine.TunBridge", "app.farvater.engine.NodeTester", "app.farvater.data.Prefs"] , qualifiers = "ru")
 class VpnServiceLifecycleTest {
     private lateinit var service: FarvaterVpnService
     private lateinit var queue: QueueDispatcher
     private lateinit var scope: CoroutineScope
+    private val uncaught = mutableListOf<Throwable>()
 
     @Before
     fun prepare() {
@@ -56,11 +57,15 @@ class VpnServiceLifecycleTest {
         App.prefs.selectNode(LinkParser.parse("vless://test@node.example.test:443?security=tls")!!)
         service = Robolectric.buildService(FarvaterVpnService::class.java).create().get()
         queue = QueueDispatcher()
-        scope = CoroutineScope(SupervisorJob() + queue)
+        scope = CoroutineScope(SupervisorJob() + queue + kotlinx.coroutines.CoroutineExceptionHandler { _, error -> uncaught.add(error) })
         val field = FarvaterVpnService::class.java.getDeclaredField("scope").apply { isAccessible = true }
         (field.get(service) as CoroutineScope).cancel()
         field.set(service, scope)
         FarvaterVpnService::class.java.getDeclaredField("lifecycleDispatcher").apply { isAccessible = true }.set(service, queue)
+        uncaught.clear()
+        Core.succeeds = false
+        InterfaceBuilder.failure = null
+        InterfaceBuilder.beforeEstablish = null
         Core.starts = 0
         Core.stops = 0
         Core.onStart = null
@@ -75,6 +80,48 @@ class VpnServiceLifecycleTest {
         Selection.beforeEligibility = null
         service.onDestroy()
         queue.drain()
+        assertTrue("Unhandled coroutine failure: $uncaught", uncaught.isEmpty())
+    }
+
+    @Test fun missingVpnPermissionStopsCleanly() = failedInterface(null)
+
+    @Test fun revokedVpnPermissionStopsCleanly() = failedInterface(SecurityException("permission revoked"))
+
+    @Test fun unavailableVpnInterfaceStopsCleanly() = failedInterface(IllegalStateException("Cannot create interface"))
+
+    private fun failedInterface(error: RuntimeException?) {
+        Core.succeeds = true
+        InterfaceBuilder.failure = error
+        App.prefs.vpnWasOn = true
+        command(FarvaterVpnService.ACTION_START, 1)
+        queue.drain()
+        assertTrue("Unhandled coroutine failure: $uncaught", uncaught.isEmpty())
+        val failed = VpnBus.state.value as VpnState.Failed
+        assertTrue(failed.message.isNotBlank())
+        assertEquals(App.prefs.lastNode, failed.node)
+        assertFalse(App.prefs.vpnWasOn)
+        assertNull(VpnBus.request.value)
+        assertTrue(Core.stops >= 2)
+        assertTrue(org.robolectric.Shadows.shadowOf(service).isStoppedBySelf)
+        val notifications = ApplicationProvider.getApplicationContext<Application>()
+            .getSystemService(android.app.NotificationManager::class.java)
+        assertTrue(notifications.activeNotifications.isEmpty())
+        val tile = Robolectric.buildService(app.farvater.vpn.QsTileService::class.java).create().get()
+        val render = tile.javaClass.getDeclaredMethod("render", VpnState::class.java).apply { isAccessible = true }
+        render.invoke(tile, failed)
+        assertEquals(android.service.quicksettings.Tile.STATE_INACTIVE, tile.qsTile.state)
+    }
+
+    @Test fun stopDuringFailedEstablishDoesNotReviveFailure() {
+        Core.succeeds = true
+        InterfaceBuilder.failure = IllegalStateException("Cannot create interface")
+        InterfaceBuilder.beforeEstablish = { command(FarvaterVpnService.ACTION_STOP, 2) }
+        command(FarvaterVpnService.ACTION_START, 1)
+        queue.drain()
+        assertTrue(uncaught.isEmpty())
+        assertEquals(VpnState.Idle, VpnBus.state.value)
+        assertNull(VpnBus.request.value)
+        assertFalse(App.prefs.vpnWasOn)
     }
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -508,6 +555,27 @@ class VpnServiceLifecycleTest {
         fun runLast() { synchronized(tasks) { tasks.pollLast() }?.run() }
     }
 
+    @Implements(android.net.VpnService.Builder::class)
+    class InterfaceBuilder {
+        @org.robolectric.annotation.RealObject lateinit var real: android.net.VpnService.Builder
+        @Implementation
+        fun addAddress(address: String, prefix: Int): android.net.VpnService.Builder = real
+        @Implementation
+        fun addRoute(address: String, prefix: Int): android.net.VpnService.Builder = real
+        @Implementation
+        fun addDnsServer(address: String): android.net.VpnService.Builder = real
+        @Implementation
+        fun establish(): android.os.ParcelFileDescriptor? {
+            beforeEstablish?.invoke()
+            failure?.let { throw it }
+            return null
+        }
+        companion object {
+            var failure: RuntimeException? = null
+            var beforeEstablish: (() -> Unit)? = null
+        }
+    }
+
     @Implements(android.service.quicksettings.TileService::class)
     class TilePlatform : org.robolectric.shadows.ShadowTileService() {
         @Implementation(minSdk = 34)
@@ -536,7 +604,7 @@ class VpnServiceLifecycleTest {
         fun start(config: String): Result<Unit> {
             starts++
             onStart?.invoke()
-            return Result.failure(IllegalStateException("test core must not start"))
+            return if (succeeds) Result.success(Unit) else Result.failure(IllegalStateException("test core must not start"))
         }
 
         @Implementation
@@ -546,6 +614,7 @@ class VpnServiceLifecycleTest {
         }
 
         companion object {
+            var succeeds = false
             var starts = 0
             var stops = 0
             var onStart: (() -> Unit)? = null

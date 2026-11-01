@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.provider.Settings
 import android.view.View
+import androidx.compose.foundation.background
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.drawWithContent
@@ -20,6 +21,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.graphics.toArgb
 import androidx.test.core.app.ApplicationProvider
 import app.farvater.data.UiStyle
 import app.farvater.ui.components.ConnectMode
@@ -46,6 +49,44 @@ import org.robolectric.annotation.GraphicsMode
 class WinterStyleTest {
     @get:Rule val rule = createComposeRule()
     private val app = ApplicationProvider.getApplicationContext<Application>()
+
+    @Test fun pressingTreeLeavesSceneCornersTransparentInBothThemes() {
+        val dark = mutableStateOf(false)
+        val mode = mutableStateOf(ConnectMode.Idle)
+        lateinit var view: View
+        rule.mainClock.autoAdvance = false
+        rule.setContent {
+            view = LocalView.current
+            FarvaterTheme(style = UiStyle.WINTER, darkTheme = dark.value) {
+                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.background(Color.Magenta)) {
+                    WinterHero(mode.value, {})
+                }
+            }
+        }
+        for (night in listOf(false, true)) {
+            for (state in ConnectMode.entries) {
+                rule.runOnIdle { dark.value = night; mode.value = state }
+                rule.mainClock.advanceTimeBy(1500)
+                val button = rule.onNode(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+                button.performTouchInput { down(center) }
+                rule.mainClock.advanceTimeBy(1000)
+                val bounds = button.fetchSemanticsNode().boundsInRoot
+                lateinit var pixels: Bitmap
+                rule.runOnIdle {
+                    pixels = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+                    view.draw(Canvas(pixels))
+                }
+                for ((x, y) in listOf(bounds.left.toInt() + 10 to bounds.top.toInt() + 10,
+                    bounds.right.toInt() - 11 to bounds.top.toInt() + 10,
+                    bounds.left.toInt() + 10 to bounds.bottom.toInt() - 11)) {
+                    assertEquals("$night $state corner $x/$y", Color.Magenta.toArgb(), pixels.getPixel(x, y))
+                }
+                pixels.recycle()
+                button.performTouchInput { cancel() }
+                rule.mainClock.advanceTimeBy(300)
+            }
+        }
+    }
 
     @After fun restoreAnimations() {
         Settings.Global.putFloat(app.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)

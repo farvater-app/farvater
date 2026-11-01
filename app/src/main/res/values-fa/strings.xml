@@ -497,4 +497,8 @@
     <string name="backup_security_ru_direct">سرویس‌های روسی خارج از VPN</string>
     <string name="error_update_download">دانلود به‌روزرسانی انجام نشد: سرور پاسخ نمی‌دهد یا درخواست را رد کرده است. گره دیگری را امتحان کنید یا بدون VPN دوباره تلاش کنید.</string>
     <string name="error_update_file">آماده‌سازی فایل به‌روزرسانی انجام نشد. فضای ذخیره‌سازی آزاد را بررسی کنید و دوباره تلاش کنید.</string>
+    <string name="style_exclusive">اختصاصی</string>
+    <string name="services_no_results">نتیجه‌ای برای بررسی وجود ندارد</string>
+    <string name="services_no_results_hint">برای این سرویس نتیجهٔ تازه‌ای وجود ندارد. روی «آزمایش همهٔ گره‌ها» بزنید و منتظر پایان بررسی صفحه‌ها بمانید.</string>
+    <string name="vpn_interface_failed">"اندروید نتوانست VPN را ایجاد کند. VPN دیگر را قطع کنید و دوباره وصل شوید."</string>
 </resources>

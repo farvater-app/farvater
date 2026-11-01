@@ -734,6 +734,38 @@ class ScreenshotTest {
     }
 
     @OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)
+    @Test fun heldConnectIOSLight() = heldConnect(UiStyle.IOS, false)
+    @Test fun heldConnectIOSDark() = heldConnect(UiStyle.IOS, true)
+    @Test fun heldConnectMATERIALLight() = heldConnect(UiStyle.MATERIAL, false)
+    @Test fun heldConnectMATERIALDark() = heldConnect(UiStyle.MATERIAL, true)
+    @Test fun heldConnectROSKOMPOZORLight() = heldConnect(UiStyle.ROSKOMPOZOR, false)
+    @Test fun heldConnectROSKOMPOZORDark() = heldConnect(UiStyle.ROSKOMPOZOR, true)
+    @Test fun heldConnectSUMIELight() = heldConnect(UiStyle.SUMIE, false)
+    @Test fun heldConnectSUMIEDark() = heldConnect(UiStyle.SUMIE, true)
+    @Test fun heldConnectNOTHINGLight() = heldConnect(UiStyle.NOTHING, false)
+    @Test fun heldConnectNOTHINGDark() = heldConnect(UiStyle.NOTHING, true)
+    @Test fun heldConnectORIGINLight() = heldConnect(UiStyle.ORIGIN, false)
+    @Test fun heldConnectORIGINDark() = heldConnect(UiStyle.ORIGIN, true)
+    @Test fun heldConnectHYPERLight() = heldConnect(UiStyle.HYPER, false)
+    @Test fun heldConnectHYPERDark() = heldConnect(UiStyle.HYPER, true)
+    @Test fun heldConnectHARMONYLight() = heldConnect(UiStyle.HARMONY, false)
+    @Test fun heldConnectHARMONYDark() = heldConnect(UiStyle.HARMONY, true)
+    @Test fun heldConnectONEUILight() = heldConnect(UiStyle.ONEUI, false)
+    @Test fun heldConnectONEUIDark() = heldConnect(UiStyle.ONEUI, true)
+    @Test fun heldConnectOXYGENLight() = heldConnect(UiStyle.OXYGEN, false)
+    @Test fun heldConnectOXYGENDark() = heldConnect(UiStyle.OXYGEN, true)
+    @Test fun heldConnectWITCHLight() = heldConnect(UiStyle.WITCH, false)
+    @Test fun heldConnectWITCHDark() = heldConnect(UiStyle.WITCH, true)
+    @Test fun heldConnectWINTERLight() = heldConnect(UiStyle.WINTER, false)
+    @Test fun heldConnectWINTERDark() = heldConnect(UiStyle.WINTER, true)
+    @Test fun heldConnectCOLOROSLight() = heldConnect(UiStyle.COLOROS, false)
+    @Test fun heldConnectCOLOROSDark() = heldConnect(UiStyle.COLOROS, true)
+
+    private fun heldConnect(style: UiStyle, dark: Boolean) = shot(
+        "K_held_${style.name.lowercase()}_${if (dark) "dark" else "light"}", dark = dark, style = style,
+        act = { rule.onNodeWithContentDescription("Подключиться").performTouchInput { down(center) } },
+    ) { Home(VpnState.Idle) }
+
     private fun shot(
         name: String,
         dark: Boolean,

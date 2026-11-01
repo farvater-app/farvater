@@ -456,6 +456,7 @@ fun IosRow(
     onClick: (() -> Unit)? = null,
     checked: Boolean? = null,
     onCheckedChange: ((Boolean) -> Unit)? = null,
+    badge: String? = null,
     trailing: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val c = Ios.colors
@@ -490,6 +491,7 @@ fun IosRow(
                 }
                 Column(Modifier.weight(1f)) {
                     Text(title, modifier = Modifier.fillMaxWidth(), style = titleStyle, color = titleColor ?: c.label)
+                    if (badge != null) RowBadge(badge)
                     if (subtitle != null) {
                         Text(subtitle, modifier = Modifier.fillMaxWidth(), style = subtitleStyle, color = subtitleColor ?: c.secondaryLabel)
                     }
@@ -539,6 +541,7 @@ fun IosRow(
         }
         Column(Modifier.weight(1f)) {
             Text(title, style = titleStyle, color = titleColor ?: c.label, maxLines = titleLines, overflow = TextOverflow.Ellipsis)
+            if (badge != null) RowBadge(badge)
             if (subtitle != null) {
                 Text(
                     subtitle,
@@ -574,6 +577,13 @@ fun IosRow(
 }
 
 @Composable
+private fun RowBadge(text: String) {
+    val c = Ios.colors
+    Text(text, style = IosType.caption2, color = c.label,
+        modifier = Modifier.padding(vertical = 4.dp).background(c.fill, RoundedCornerShape(8.dp)).padding(horizontal = 7.dp, vertical = 3.dp))
+}
+
+@Composable
 fun IosChoiceRow(
     title: String,
     selected: Boolean,
@@ -581,6 +591,7 @@ fun IosChoiceRow(
     subtitle: String? = null,
     icon: ImageVector? = null,
     iconTint: Color = Ios.colors.tint,
+    badge: String? = null,
     leading: (@Composable () -> Unit)? = null,
 ) {
     val c = Ios.colors
@@ -593,6 +604,7 @@ fun IosChoiceRow(
     if (Ios.material && icon == null && leading == null) {
         IosRow(
             title = title,
+            badge = badge,
             modifier = choice,
             subtitle = subtitle,
             subtitleLines = Int.MAX_VALUE,
@@ -602,6 +614,7 @@ fun IosChoiceRow(
     } else {
         IosRow(
             title = title,
+            badge = badge,
             modifier = choice,
             subtitle = subtitle,
             subtitleLines = Int.MAX_VALUE,

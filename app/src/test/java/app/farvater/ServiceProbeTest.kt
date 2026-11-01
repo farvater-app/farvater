@@ -16,10 +16,61 @@ import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
+import okio.buffer
 import org.junit.Assert.*
 import org.junit.Test
 
 class ServiceProbeTest {
+    @Test
+    fun everyBuiltInServiceRecognizesItsPageIncludingLateGeminiTitle() = runBlocking {
+        for (target in ServiceChecks.builtIn) {
+            val heading = when (target.kind) {
+                ServiceKind.GEMINI -> "\u200eGoogle Gemini"
+                ServiceKind.CHATGPT -> "ChatGPT"
+                ServiceKind.CLAUDE -> "Claude / Login"
+                ServiceKind.YOUTUBE -> "YouTube"
+                else -> error("Not built in")
+            }
+            val prefix = if (target.kind == ServiceKind.GEMINI) " ".repeat(780_000) else ""
+            assertEquals(target.kind.name, ServiceVerdict.RESPONDED,
+                ServiceProbe.request(client(200, "$prefix<title>\n$heading\n</title>"), target).verdict)
+        }
+    }
+
+    @Test
+    fun youtubeDoesNotWaitForTheRestOfThePageAfterItsTitle() = runBlocking {
+        val target = ServiceChecks.builtIn.first { it.kind == ServiceKind.YOUTUBE }
+        val header = "<title>YouTube</title>"
+        val buffer = okio.Buffer().writeUtf8(header + " ".repeat(200_000))
+        var consumed = 0L
+        val source = object : okio.ForwardingSource(buffer) {
+            override fun read(sink: okio.Buffer, byteCount: Long): Long {
+                if (consumed >= header.length) throw java.net.SocketTimeoutException("Slow page tail")
+                return super.read(sink, minOf(byteCount, header.length - consumed)).also { if (it > 0) consumed += it }
+            }
+        }
+        val body = object : okhttp3.ResponseBody() {
+            private val buffered = source.buffer()
+            override fun contentType() = "text/html".toMediaType()
+            override fun contentLength() = -1L
+            override fun source() = buffered
+        }
+        val http = OkHttpClient.Builder().addInterceptor { chain ->
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("test").body(body).build()
+        }.build()
+        assertEquals(ServiceVerdict.RESPONDED, ServiceProbe.request(http, target).verdict)
+        assertEquals(header.length.toLong(), consumed)
+    }
+
+    @Test
+    fun titleSearchRemainsBoundedAndDoesNotAcceptBlockPages() = runBlocking {
+        val target = ServiceChecks.builtIn.first { it.kind == ServiceKind.YOUTUBE }
+        assertEquals(ServiceVerdict.UNKNOWN, ServiceProbe.request(client(200,
+            " ".repeat(1024 * 1024) + "<title>YouTube</title>"), target).verdict)
+        assertEquals(ServiceVerdict.UNKNOWN, ServiceProbe.request(client(200,
+            "<title>Before you continue to YouTube</title>"), target).verdict)
+    }
+
     @Test
     fun disabledByDefaultAndInvalidCustomAddressesNeverBecomeTargets() {
         assertTrue(ServiceChecks.targets(AppSettings()).isEmpty())

@@ -286,6 +286,18 @@ fun ServersScreen(
                             Text(stringResource(R.string.favorites_empty), style = IosType.headline, color = c.label)
                             Text(stringResource(R.string.favorites_hint), style = IosType.body, color = c.secondaryLabel)
                         }
+                    } else if (selectedService != null && state.nodes.isNotEmpty() && state.nodes.none { node ->
+                        app.farvater.data.ServiceChecks.fresh(state.serviceChecks[
+                            app.farvater.data.ServiceChecks.key(serviceMode, node.id, selectedService)], serviceNow)
+                    }) {
+                        Column(Modifier.padding(32.dp)) {
+                            Text(stringResource(R.string.services_no_results), style = IosType.headline, color = c.label)
+                            Text(stringResource(R.string.services_no_results_hint), style = IosType.body, color = c.secondaryLabel)
+                            if (!state.serviceChecking && state.progress == null) {
+                                Spacer(Modifier.height(12.dp))
+                                IosButton(stringResource(R.string.test_all_nodes), onClick = onTestAll, maxLines = 3)
+                            }
+                        }
                     } else EmptyState(state.nodes.isEmpty())
                     if (query.isNotBlank() || filter != 0 || favoritesOnly || selectedService != null) {
                         app.farvater.ui.ios.IosButton(stringResource(R.string.filters_reset), onClick = {

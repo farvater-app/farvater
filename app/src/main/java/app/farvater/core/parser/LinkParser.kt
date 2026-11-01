@@ -68,8 +68,12 @@ object LinkParser {
     }
 
     private fun parseVmess(raw: String, sourceId: String): ProxyNode? {
-        val payload = Base64Util.decodeToString(raw.substringAfter("://").substringBefore('#')) ?: return null
-        val obj = json.parseToJsonElement(payload).jsonObject
+        val (beforeFragment, fragment) = splitOnce(raw.substringAfter("://"), '#')
+        val (encoded, query) = splitOnce(beforeFragment, '?')
+        val options = parseQuery(query)
+        val payload = Base64Util.decodeToString(encoded) ?: return null
+        val obj = if (payload.trimStart().startsWith('{')) json.parseToJsonElement(payload).jsonObject
+            else shadowrocketVmess(payload, options) ?: return null
         fun s(key: String) = (obj[key] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
 
         val host = s("add")
@@ -90,7 +94,8 @@ object LinkParser {
         return ProxyNode(
             id = nodeId(JsonObject(obj - "ps").toString()),
             protocol = Protocol.VMESS,
-            name = s("ps").ifBlank { "$host:$port" },
+            name = s("ps").ifBlank { pctDecode(fragment).trim() }
+                .ifBlank { options["remarks"].orEmpty().trim() }.ifBlank { "$host:$port" },
             address = host,
             port = port,
             secret = id,
@@ -98,6 +103,31 @@ object LinkParser {
             raw = raw,
             sourceId = sourceId,
         )
+    }
+
+    private fun shadowrocketVmess(payload: String, options: Map<String, String>): JsonObject? {
+        val at = payload.lastIndexOf('@')
+        if (at <= 0) return null
+        val credentials = payload.substring(0, at)
+        if (':' !in credentials) return null
+        val (host, port) = parseHostPort(payload.substring(at + 1)) ?: return null
+        val transport = when (options["obfs"].orEmpty().lowercase()) {
+            "", "none", "tcp" -> "tcp"
+            "websocket", "ws" -> "ws"
+            else -> return null
+        }
+        val tls = when (options["tls"].orEmpty().lowercase()) {
+            "1", "true", "tls" -> "tls"
+            "", "0", "false", "none" -> ""
+            else -> return null
+        }
+        return JsonObject(mapOf(
+            "add" to host, "port" to port.toString(), "id" to credentials.substringAfter(':'),
+            "scy" to credentials.substringBefore(':'), "net" to transport, "tls" to tls,
+            "host" to (options["obfsParam"] ?: options["obfsparam"]).orEmpty(),
+            "path" to options["path"].orEmpty(), "sni" to options["peer"].orEmpty(),
+            "aid" to options["alterId"].orEmpty(),
+        ).mapValues { JsonPrimitive(it.value) })
     }
 
     private fun parseShadowsocks(raw: String, sourceId: String): ProxyNode? {

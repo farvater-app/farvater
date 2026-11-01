@@ -76,7 +76,6 @@ jobs:
           retention-days: 14
 
   release-check:
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
       NDK_VERSION: 27.2.12479018
@@ -118,17 +117,10 @@ jobs:
           gradle-version: "9.8.2"
 
       - name: Release без подписи
-        run: gradle :app:assembleRelease
+        run: gradle --max-workers=2 :app:assembleRelease
 
-      - name: Ядро и мост пережили R8
+      - name: Конструкторы и рефлексия пережили R8
         run: |
           apk=$(ls app/build/outputs/apk/release/*universal*.apk)
-          ls -la app/build/outputs/apk/release/
-          listing="$(unzip -l "$apk")"
-          for lib in libgojni.so libhev-socks5-tunnel.so; do
-            grep -q "lib/arm64-v8a/$lib" <<<"$listing" || { echo "::error::В release нет $lib"; exit 1; }
-          done
-          dex="$(unzip -p "$apk" 'classes*.dex' | strings)"
-          for cls in libv2ray/Libv2ray hev/sockstun/TProxyService; do
-            grep -q "L$cls;" <<<"$dex" || { echo "::error::R8 удалил или переименовал $cls"; exit 1; }
-          done
+          build_tools=$(find "$ANDROID_SDK_ROOT/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+          python3 scripts/check-release-apk.py "$apk" "$build_tools"

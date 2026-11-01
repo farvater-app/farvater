@@ -133,9 +133,17 @@ object ServiceProbe {
         val type = response.body?.contentType()
         if (type?.type != "text" || type.subtype != "html") return result(ServiceVerdict.UNKNOWN, ServiceReason.UNEXPECTED)
         val source = response.body?.source() ?: return result(ServiceVerdict.UNKNOWN, ServiceReason.UNEXPECTED)
-        source.request(128 * 1024L)
-        val html = source.buffer.readUtf8(minOf(source.buffer.size, 128 * 1024L))
-        val heading = title.find(html)?.groupValues?.get(1).orEmpty()
+        val prefix = okio.Buffer()
+        var heading = ""
+        while (prefix.size < 1024 * 1024L) {
+            if (source.read(prefix, minOf(8192, 1024 * 1024L - prefix.size)) <= 0) break
+            val html = prefix.snapshot().utf8()
+            val match = title.find(html)
+            if (match != null) {
+                heading = match.groupValues[1].filterNot { it in "\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069" }
+                break
+            }
+        }
         return if (titles[target.kind]?.let { it.any { expected -> heading.trim().equals(expected, true) } } == true) {
             result(ServiceVerdict.RESPONDED, ServiceReason.PAGE)
         } else result(ServiceVerdict.UNKNOWN, ServiceReason.UNEXPECTED)

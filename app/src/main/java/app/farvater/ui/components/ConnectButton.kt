@@ -21,8 +21,10 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -33,7 +35,6 @@ import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Radar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -138,6 +139,7 @@ fun ConnectButton(
 
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
+    val focused by interaction.collectIsFocusedAsState()
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.93f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
@@ -277,7 +279,8 @@ fun ConnectButton(
             modifier = Modifier
                 .size(size * 0.6f)
                 .clip(CircleShape)
-                .clickable(interactionSource = interaction, indication = ripple(), role = Role.Button, onClick = onClick)
+                .then(if (focused) Modifier.border(2.dp, c.tint, CircleShape) else Modifier)
+                .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick)
                 .semantics { contentDescription = description },
             contentAlignment = Alignment.Center,
         ) {

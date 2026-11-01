@@ -562,6 +562,7 @@ private fun AppearancePage(
         IosChoiceRow(
             title = stringResource(R.string.style_rkp),
             subtitle = stringResource(R.string.style_rkp_hint),
+            badge = stringResource(R.string.style_exclusive),
             selected = settings.uiStyle == UiStyle.ROSKOMPOZOR,
             leading = { StyleMark { IosIcon(ImageVector.vectorResource(R.drawable.ic_rkp), RkpBlue) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.ROSKOMPOZOR) } },
@@ -570,6 +571,7 @@ private fun AppearancePage(
         IosChoiceRow(
             title = stringResource(R.string.style_sumie),
             subtitle = stringResource(R.string.style_sumie_hint),
+            badge = stringResource(R.string.style_exclusive),
             selected = settings.uiStyle == UiStyle.SUMIE,
             leading = { StyleMark { IosIcon(Icons.Rounded.Brush, SumieSeal) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.SUMIE) } },
@@ -627,6 +629,7 @@ private fun AppearancePage(
         IosChoiceRow(
             title = stringResource(R.string.style_witch) + if (!settings.witchSeen) " · " + stringResource(R.string.new_badge) else "",
             subtitle = stringResource(R.string.style_witch_description),
+            badge = stringResource(R.string.style_exclusive),
             selected = settings.uiStyle == UiStyle.WITCH,
             leading = { StyleMark { WitchStyleMark() } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.WITCH) } },
@@ -637,6 +640,7 @@ private fun AppearancePage(
         IosChoiceRow(
             title = stringResource(R.string.style_winter),
             subtitle = stringResource(R.string.style_winter_description),
+            badge = stringResource(R.string.style_exclusive),
             selected = settings.uiStyle == UiStyle.WINTER,
             leading = { StyleMark {
                 androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.ic_launcher_tree_foreground), null)

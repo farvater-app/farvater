@@ -497,4 +497,8 @@
     <string name="backup_security_ru_direct">Российские сервисы мимо VPN</string>
     <string name="error_update_download">Не удалось скачать обновление: сервер не отвечает или отклонил запрос. Попробуйте другой узел или повторите без VPN.</string>
     <string name="error_update_file">Не удалось подготовить файл обновления. Проверьте свободное место и повторите попытку.</string>
+    <string name="style_exclusive">Эксклюзив</string>
+    <string name="services_no_results">Нет результатов проверки</string>
+    <string name="services_no_results_hint">Для этого сервиса нет свежих результатов. Нажмите «Проверить все узлы» и дождитесь проверки страниц.</string>
+    <string name="vpn_interface_failed">"Android не создал VPN. Отключите другой VPN и повторите подключение."</string>
 </resources>
