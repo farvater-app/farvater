@@ -17,12 +17,17 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import app.farvater.data.UiStyle
 import app.farvater.ui.components.ConnectMode
 import app.farvater.ui.components.ColorOsConnect
 import app.farvater.ui.ios.IosLargeTitle
+import app.farvater.ui.ios.IosSegmented
+import app.farvater.ui.ios.IosSwitch
+import app.farvater.ui.ios.IosRow
 import app.farvater.ui.theme.FarvaterTheme
 import app.farvater.ui.theme.colorOsColors
 import org.junit.After
@@ -71,6 +76,50 @@ class ColorOsStyleTest {
                 }
             }
         }
+    }
+
+    @Test fun filterTargetsRemainAtLeast48Dp() {
+        var density = 1f
+        rule.setContent {
+            density = androidx.compose.ui.platform.LocalDensity.current.density
+            FarvaterTheme(style = UiStyle.COLOROS) {
+                IosSegmented(listOf("Все", "Живые", "Reality", "XHTTP"), 0, {})
+            }
+        }
+        listOf("Все", "Живые", "Reality", "XHTTP").forEach { title ->
+            val bounds = rule.onNodeWithText(title).fetchSemanticsNode().boundsInRoot
+            assertTrue(bounds.width >= 48 * density && bounds.height >= 48 * density)
+        }
+    }
+
+    @Test fun eachSwitchActionHasOneHapticFeedback() {
+        val standalone = mutableStateOf(false)
+        val row = mutableStateOf(false)
+        var feedback = 0
+        var changes = 0
+        val haptics = object : androidx.compose.ui.hapticfeedback.HapticFeedback {
+            override fun performHapticFeedback(hapticFeedbackType: androidx.compose.ui.hapticfeedback.HapticFeedbackType) {
+                feedback++
+            }
+        }
+        rule.setContent {
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalHapticFeedback provides haptics) {
+                FarvaterTheme(style = UiStyle.COLOROS) {
+                    androidx.compose.foundation.layout.Column {
+                        IosSwitch(standalone.value, { standalone.value = it; changes++ }, androidx.compose.ui.Modifier.testTag("standalone"))
+                        IosRow("Строка", checked = row.value, onCheckedChange = { row.value = it; changes++ })
+                    }
+                }
+            }
+        }
+        rule.onNodeWithTag("standalone").performClick()
+        assertTrue(standalone.value)
+        assertEquals(1, changes)
+        assertEquals(1, feedback)
+        rule.onNodeWithText("Строка").performClick()
+        assertTrue(row.value)
+        assertEquals(2, changes)
+        assertEquals(2, feedback)
     }
 
     @Test fun sceneExposesAllConnectionActions() {

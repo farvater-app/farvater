@@ -1,18 +1,15 @@
 package app.farvater.ui.components
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -22,31 +19,26 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.repeatOnLifecycle
 import app.farvater.R
+import app.farvater.ui.theme.Ios
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
 @Composable
 fun WinterHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val still = rememberReduceMotion()
-    val owner = LocalLifecycleOwner.current
-    val clock = remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(still, owner) {
-        clock.floatValue = 0f
-        if (still) return@LaunchedEffect
-        owner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            val start = withFrameMillis { it }
-            while (true) withFrameMillis { clock.floatValue = (it - start) / 1000f }
-        }
+    val still = rememberWinterStill()
+    val clock = rememberWinterClock(still || (mode != ConnectMode.Searching && mode != ConnectMode.Connecting))
+    val illumination = remember { Animatable(if (mode == ConnectMode.Connected) 1f else 0f) }
+    LaunchedEffect(mode, still) {
+        val target = if (mode == ConnectMode.Connected) 1f else 0f
+        if (still) illumination.snapTo(target) else illumination.animateTo(target, tween(if (target > 0f) 1200 else 500))
     }
     val description = stringResource(when (mode) {
         ConnectMode.Idle -> R.string.action_connect
@@ -55,82 +47,111 @@ fun WinterHero(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modi
         ConnectMode.Connected -> R.string.action_disconnect
         ConnectMode.Error -> R.string.action_retry_connect
     })
-    Canvas(modifier.padding(horizontal = 16.dp).fillMaxWidth().aspectRatio(360f / 248f)
-        .clip(RoundedCornerShape(28.dp)).clickable(role = Role.Button, onClick = onClick)
+    val dark = Ios.colors.dark
+    Box(modifier.size(240.dp, 290.dp).clickable(role = Role.Button, onClick = onClick)
         .semantics { contentDescription = description }) {
-        scale(size.width / 360f, pivot = Offset.Zero) { winterScene(mode, clock.floatValue) }
+        Canvas(Modifier.matchParentSize().graphicsLayer()) {
+            scale(size.width / 240f, size.height / 300f, pivot = Offset.Zero) { winterTree(dark) }
+        }
+        Canvas(Modifier.matchParentSize().graphicsLayer()) {
+            scale(size.width / 240f, size.height / 300f, pivot = Offset.Zero) {
+                winterLights(mode, illumination.value, clock.value, still)
+            }
+        }
     }
 }
 
-private fun DrawScope.winterScene(mode: ConnectMode, time: Float) {
-    val active = mode == ConnectMode.Connected
-    val busy = mode == ConnectMode.Connecting || mode == ConnectMode.Searching
-    val snow = Color(0xFFEAF3FC)
-    val glow = when (mode) {
-        ConnectMode.Error -> Color(0xFFFFB4B8)
-        ConnectMode.Connected -> Color(0xFFFFDE91)
-        ConnectMode.Connecting, ConnectMode.Searching -> Color(0xFFB4DEFF)
-        else -> Color(0xFF829CAF)
-    }
-    drawRect(Brush.verticalGradient(listOf(Color(0xFF101B37), Color(0xFF25445B)), endY = 248f), size = Size(360f, 248f))
-    drawCircle(Brush.radialGradient(listOf(Color(0x335DBCD1), Color.Transparent), Offset(180f, 95f), 170f), 170f, Offset(180f, 95f))
-    drawCircle(Color(0xFFFFEDC5), 18f, Offset(292f, 43f))
-    drawCircle(Color(0xFF172640), 17f, Offset(299f, 37f))
-    repeat(18) { i ->
-        val x = 17f + (i * 67 % 326)
-        val y = 16f + (i * 31 % 94)
-        drawCircle(Color(0xFFDAE8FC).copy(alpha = 0.55f + 0.2f * sin(i + time * 0.4f)), 0.8f, Offset(x, y))
-    }
-    repeat(8) { i ->
-        val x = i * 54f - 10f
-        val y = 145f + (i % 3) * 8f
-        val tree = Path().apply { moveTo(x, y - 54); lineTo(x - 24, y + 28); lineTo(x + 24, y + 28); close() }
-        drawPath(tree, Color(0xFF152D3F))
-    }
-    val drift = Path().apply { moveTo(0f, 189f); cubicTo(95f, 161f, 234f, 205f, 360f, 175f); lineTo(360f, 248f); lineTo(0f, 248f); close() }
-    drawPath(drift, Color(0xFFC5D9E8))
-    val foreground = Path().apply { moveTo(0f, 227f); cubicTo(128f, 198f, 220f, 219f, 360f, 207f); lineTo(360f, 248f); lineTo(0f, 248f); close() }
-    drawPath(foreground, snow)
-    drawRoundRect(Color(0xFF314453), Offset(42f, 159f), Size(48f, 36f), androidx.compose.ui.geometry.CornerRadius(3f))
-    val roof = Path().apply { moveTo(33f, 163f); lineTo(65f, 136f); lineTo(100f, 163f); close() }
-    drawPath(roof, snow)
-    drawRect(Color(0xFFFFDA96), Offset(54f, 169f), Size(10f, 13f))
-    drawRect(Color(0xFFFFDA96), Offset(72f, 169f), Size(10f, 13f))
-    drawRect(Color(0xFF6D5246), Offset(175f, 186f), Size(13f, 31f))
-    for (tier in 3 downTo 0) {
-        val top = 57f + tier * 29f
-        val width = 25f + tier * 13f
+private fun DrawScope.winterTree(dark: Boolean) {
+    drawOval(Color(0xFF244E68).copy(alpha = if (dark) 0.3f else 0.12f), Offset(56f, 278f), Size(128f, 12f))
+    drawRoundRect(Brush.horizontalGradient(listOf(Color(0xFF5D4434), Color(0xFF977359))), Offset(113f, 248f), Size(15f, 36f), androidx.compose.ui.geometry.CornerRadius(3f))
+    for (tier in 5 downTo 0) {
+        val top = 38f + tier * 32f
+        val width = 28f + tier * 14f
         val branch = Path().apply {
-            moveTo(182f, top); quadraticTo(175f - width * 0.2f, top + 22f, 182f - width, top + 58f)
-            quadraticTo(182f, top + 69f, 182f + width, top + 58f); quadraticTo(185f + width * 0.2f, top + 22f, 182f, top); close()
+            moveTo(120f, top)
+            cubicTo(120f - width * 0.22f, top + 23f, 120f - width * 0.72f, top + 47f, 120f - width, top + 60f)
+            lineTo(120f - width * 0.72f, top + 57f)
+            lineTo(120f - width * 0.82f, top + 67f)
+            quadraticTo(120f, top + 80f, 120f + width * 0.82f, top + 67f)
+            lineTo(120f + width * 0.72f, top + 57f)
+            lineTo(120f + width, top + 60f)
+            cubicTo(120f + width * 0.72f, top + 47f, 120f + width * 0.22f, top + 23f, 120f, top)
+            close()
         }
-        drawPath(branch, if (tier % 2 == 0) Color(0xFF2D6A61) else Color(0xFF245C55))
-        val cap = Path().apply { moveTo(182f - width, top + 58f); quadraticTo(182f, top + 70f, 182f + width, top + 58f) }
-        drawPath(cap, snow.copy(alpha = 0.85f), style = Stroke(3f, cap = StrokeCap.Round))
-        for (lamp in 0..4) {
-            val x = 182f - width * 0.72f + lamp * width * 0.36f
-            val y = top + 45f + 7f * sin(lamp * PI.toFloat() / 4f)
-            val power = if (busy) 0.55f + 0.4f * sin(time * 3f + lamp + tier) else if (active) 1f else 0.6f
-            drawCircle(glow.copy(alpha = power * 0.17f), 6f, Offset(x, y))
-            drawCircle(glow.copy(alpha = power.coerceIn(0f, 1f)), 2f, Offset(x, y))
+        drawPath(branch, Brush.horizontalGradient(listOf(Color(0xFF194F47), Color(0xFF357B67), Color(0xFF173F3D)), startX = 120f - width, endX = 120f + width))
+        val snow = Path().apply {
+            moveTo(120f - width * 0.82f, top + 66f)
+            cubicTo(120f - width * 0.34f, top + 75f, 120f + width * 0.38f, top + 76f, 120f + width * 0.82f, top + 66f)
+        }
+        drawPath(snow, Color(0xFFE6F5F5), style = Stroke(3.5f, cap = StrokeCap.Round))
+        val wire = Path().apply {
+            moveTo(120f - width * 0.75f, top + 52f)
+            quadraticTo(120f, top + 76f, 120f + width * 0.75f, top + 52f)
+        }
+        drawPath(wire, Color(0xFF9DB69A).copy(alpha = 0.65f), style = Stroke(1.1f))
+        for (bauble in 0..2) {
+            val x = 120f + (bauble - 1) * width * 0.55f
+            val y = top + 44f + if (bauble == 1) 14f else 0f
+            val color = if ((tier + bauble) % 2 == 0) Color(0xFFA95751) else Color(0xFFC5AF76)
+            drawLine(Color(0xFFCAD7C7), Offset(x, y - 7f), Offset(x, y), 0.7f)
+            drawCircle(color, 3.6f, Offset(x, y + 2f))
+            drawCircle(Color.White.copy(alpha = 0.5f), 1f, Offset(x - 1f, y + 0.8f))
         }
     }
-    val star = Path().apply {
-        repeat(10) { i ->
-            val angle = -PI / 2 + i * PI / 5
-            val radius = if (i % 2 == 0) 10f else 4.5f
-            val x = 182f + cos(angle).toFloat() * radius
-            val y = 54f + sin(angle).toFloat() * radius
-            if (i == 0) moveTo(x, y) else lineTo(x, y)
+    drawPath(winterStar(Offset(120f, 33f), 14f), Color(0xFF9C9E7D))
+}
+
+private fun DrawScope.winterLights(mode: ConnectMode, progress: Float, time: Float, still: Boolean) {
+    val busy = mode == ConnectMode.Searching || mode == ConnectMode.Connecting
+    val palette = listOf(Color(0xFFFFD98C), Color(0xFFFF9D88), Color(0xFFA8E5CE))
+    for (tier in 5 downTo 0) {
+        val width = 28f + tier * 14f
+        for (lamp in 0..6) {
+            val index = (5 - tier) * 7 + lamp
+            val power = winterLampPower(mode, progress, time, index, still)
+            val x = 120f - width * 0.75f + lamp * width * 0.25f
+            val y = 38f + tier * 32f + 52f + 12f * sin(lamp * PI.toFloat() / 6f)
+            val point = Offset(x, y)
+            val color = palette[(tier + lamp) % palette.size]
+            if (power > 0f) {
+                drawCircle(Brush.radialGradient(listOf(color.copy(alpha = 0.42f * power), Color.Transparent), point, 10f), 10f, point)
+            }
+            drawCircle(Color(0xFF52796A), 2.2f, point)
+            drawCircle(color.copy(alpha = power), 2.2f, point)
+            if (power > 0.7f) drawCircle(Color(0xFFFFF6DD), 0.8f, point)
         }
-        close()
     }
-    drawCircle(glow.copy(alpha = if (active) 0.16f else 0.07f), 24f, Offset(182f, 54f))
-    drawPath(star, glow)
-    repeat(42) { i ->
-        val speed = 5f + i % 6
-        val x = ((i * 83 % 360) + sin(time * 0.3f + i) * 5f + 360f) % 360f
-        val y = ((i * 47 % 248) + time * speed) % 248f
-        drawCircle(snow.copy(alpha = 0.45f + (i % 3) * 0.18f), 0.8f + (i % 3) * 0.4f, Offset(x, y))
+    val starPower = when {
+        busy -> if (still) 0.45f else 0.5f + 0.3f * sin(time * 2f)
+        else -> ((progress - 0.82f) / 0.18f).coerceIn(0f, 1f)
     }
+    val center = Offset(120f, 33f)
+    val starColor = if (mode == ConnectMode.Error) Color(0xFFD96C65) else Color(0xFFFFDF92)
+    if (starPower > 0f) {
+        val flare = if (progress in 0.83f..0.99f && !still) 1.3f else 1f
+        drawCircle(Brush.radialGradient(listOf(starColor.copy(alpha = starPower * 0.5f), Color.Transparent), center, 32f * flare), 32f * flare, center)
+        drawPath(winterStar(center, 14f), starColor.copy(alpha = starPower))
+    }
+    if (mode == ConnectMode.Error) drawPath(winterStar(center, 17f), starColor, style = Stroke(1.5f))
+}
+
+internal fun winterLampPower(mode: ConnectMode, progress: Float, time: Float, index: Int, still: Boolean): Float {
+    if (mode == ConnectMode.Searching || mode == ConnectMode.Connecting) {
+        if (still) return if (index % 7 == 0) 0.7f else 0.15f
+        val cursor = (time * 13f) % 42f
+        val distance = (cursor - index + 42f) % 42f
+        return (1f - distance / 7f).coerceIn(0.12f, 1f)
+    }
+    return (progress * 43f - index).coerceIn(0f, 1f)
+}
+
+internal fun winterStar(center: Offset, radius: Float): Path = Path().apply {
+    repeat(10) { i ->
+        val angle = -PI / 2 + i * PI / 5
+        val r = if (i % 2 == 0) radius else radius * 0.43f
+        val x = center.x + cos(angle).toFloat() * r
+        val y = center.y + sin(angle).toFloat() * r
+        if (i == 0) moveTo(x, y) else lineTo(x, y)
+    }
+    close()
 }

@@ -562,6 +562,23 @@ class ScreenshotTest {
     @Test fun winterTestingLarge() = shot("D_winter_testing_large", dark = false, style = UiStyle.WINTER, fontScale = 2f) { Settings(page = "Testing") }
     @Test fun colorOsNodesPersianLarge() = shot("E_coloros_nodes_fa_large", dark = true, style = UiStyle.COLOROS, language = "fa", fontScale = 2f) { Servers() }
     @Test fun colorOsTestingLarge() = shot("E_coloros_testing_large", dark = false, style = UiStyle.COLOROS, fontScale = 2f) { Settings(page = "Testing") }
+    @Test fun designWinterFaHomeLight() = shot("J_winter_fa_home_light", dark = false, style = UiStyle.WINTER, language = "fa") { Home(VpnState.Idle) }
+    @Test fun designWinterFaNodesLight() = shot("J_winter_fa_nodes_light", dark = false, style = UiStyle.WINTER, language = "fa") { Servers() }
+    @Test fun designWinterFaSourcesLight() = shot("J_winter_fa_sources_light", dark = false, style = UiStyle.WINTER, language = "fa") { Sources() }
+    @Test fun designWinterFaSettingsLight() = shot("J_winter_fa_settings_light", dark = false, style = UiStyle.WINTER, language = "fa") { Settings() }
+    @Test fun designWinterFaHomeDark() = shot("J_winter_fa_home_dark", dark = true, style = UiStyle.WINTER, language = "fa") { Home(VpnState.Idle) }
+    @Test fun designWinterFaNodesDark() = shot("J_winter_fa_nodes_dark", dark = true, style = UiStyle.WINTER, language = "fa") { Servers() }
+    @Test fun designWinterFaSourcesDark() = shot("J_winter_fa_sources_dark", dark = true, style = UiStyle.WINTER, language = "fa") { Sources() }
+    @Test fun designWinterFaSettingsDark() = shot("J_winter_fa_settings_dark", dark = true, style = UiStyle.WINTER, language = "fa") { Settings() }
+    @Test fun designColorOsFaHomeLight() = shot("J_coloros_fa_home_light", dark = false, style = UiStyle.COLOROS, language = "fa") { Home(VpnState.Idle) }
+    @Test fun designColorOsFaNodesLight() = shot("J_coloros_fa_nodes_light", dark = false, style = UiStyle.COLOROS, language = "fa") { Servers() }
+    @Test fun designColorOsFaSourcesLight() = shot("J_coloros_fa_sources_light", dark = false, style = UiStyle.COLOROS, language = "fa") { Sources() }
+    @Test fun designColorOsFaSettingsLight() = shot("J_coloros_fa_settings_light", dark = false, style = UiStyle.COLOROS, language = "fa") { Settings() }
+    @Test fun designColorOsFaHomeDark() = shot("J_coloros_fa_home_dark", dark = true, style = UiStyle.COLOROS, language = "fa") { Home(VpnState.Idle) }
+    @Test fun designColorOsFaNodesDark() = shot("J_coloros_fa_nodes_dark", dark = true, style = UiStyle.COLOROS, language = "fa") { Servers() }
+    @Test fun designColorOsFaSourcesDark() = shot("J_coloros_fa_sources_dark", dark = true, style = UiStyle.COLOROS, language = "fa") { Sources() }
+    @Test fun designColorOsFaSettingsDark() = shot("J_coloros_fa_settings_dark", dark = true, style = UiStyle.COLOROS, language = "fa") { Settings() }
+
     @Test fun colorOsIdleLight() = shot("E_coloros_idle_light", dark = false, style = UiStyle.COLOROS) { Home(VpnState.Idle) }
     @Test fun colorOsConnectedLight() = shot("E_coloros_connected_light", dark = false, style = UiStyle.COLOROS) { Home(Fake.connected) }
     @Test fun colorOsSearchingLight() = shot("E_coloros_searching_light", dark = false, style = UiStyle.COLOROS) { Home(VpnState.Idle, Fake.state.copy(progress = TestProgress(3, 10, 2))) }
@@ -603,6 +620,11 @@ class ScreenshotTest {
     @Test fun colorOsShareAppDark() = shot("E_coloros_shareapp_dark", dark = true, style = UiStyle.COLOROS) { Settings(page = "ShareApp") }
     @Test fun colorOsBackupDark() = shot("E_coloros_backup_dark", dark = true, style = UiStyle.COLOROS) { Settings(page = "Backup") }
     @Test fun colorOsPersianLarge() = shot("E_coloros_home_fa_large", dark = true, style = UiStyle.COLOROS, language = "fa", fontScale = 2f) { Home(Fake.connected) }
+
+    @Test fun designWinterConnectingLight() = shot("J_winter_connecting_light", dark = false, style = UiStyle.WINTER) { Home(VpnState.Connecting(Fake.state.nodes.first())) }
+    @Test fun designWinterConnectingDark() = shot("J_winter_connecting_dark", dark = true, style = UiStyle.WINTER) { Home(VpnState.Connecting(Fake.state.nodes.first())) }
+    @Test fun designColorosConnectingLight() = shot("J_coloros_connecting_light", dark = false, style = UiStyle.COLOROS) { Home(VpnState.Connecting(Fake.state.nodes.first())) }
+    @Test fun designColorosConnectingDark() = shot("J_coloros_connecting_dark", dark = true, style = UiStyle.COLOROS) { Home(VpnState.Connecting(Fake.state.nodes.first())) }
 
     @Test fun winterIdleLight() = shot("D_winter_idle_light", dark = false, style = UiStyle.WINTER) { Home(VpnState.Idle) }
     @Test fun winterConnectedLight() = shot("D_winter_connected_light", dark = false, style = UiStyle.WINTER) { Home(Fake.connected) }

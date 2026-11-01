@@ -186,7 +186,7 @@ val SectionCorner = 24.dp
 @Composable
 @ReadOnlyComposable
 fun sectionCorner(): Dp = when {
-    Ios.colorOs -> 28.dp
+    Ios.colorOs -> 22.dp
     Ios.origin -> 26.dp
     Ios.hyper -> 22.dp
     Ios.harmony -> 20.dp
@@ -216,6 +216,23 @@ fun IosLargeTitle(
 ) {
     val c = Ios.colors
     val material = Ios.material
+    if (Ios.colorOs) {
+        Column(modifier.fillMaxWidth().padding(start = 24.dp, end = 20.dp, top = 28.dp, bottom = 16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp),
+                    color = c.label, modifier = Modifier.weight(1f))
+                if (LocalDensity.current.fontScale <= 1.3f) trailing()
+            }
+            if (subtitle != null) {
+                Spacer(Modifier.height(8.dp))
+                Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = c.secondaryLabel)
+            }
+            if (LocalDensity.current.fontScale > 1.3f) {
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End, content = trailing)
+            }
+        }
+        return
+    }
     if ((Ios.witch || Ios.winter || Ios.colorOs) && LocalDensity.current.fontScale > 1.3f) {
         Column(modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 28.dp, bottom = 14.dp)) {
             Text(title, style = MaterialTheme.typography.headlineLarge, color = c.label)
@@ -353,7 +370,7 @@ fun IosSection(
             header != null && material -> Text(
                 header,
                 style = MaterialTheme.typography.titleSmall,
-                color = if (Ios.hyper || Ios.harmony || Ios.oneUi || Ios.oxygen) c.secondaryLabel else c.tint,
+                color = if (Ios.colorOs || Ios.hyper || Ios.harmony || Ios.oneUi || Ios.oxygen) c.secondaryLabel else c.tint,
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
             )
             header != null -> Text(
@@ -387,7 +404,9 @@ fun IosSection(
 @Composable
 fun IosDivider(start: Dp = 16.dp) {
     val c = Ios.colors
-    if (Ios.material) {
+    if (Ios.colorOs) {
+        HorizontalDivider(Modifier.padding(start = start + 4.dp, end = 20.dp), thickness = 0.5.dp, color = c.separator)
+    } else if (Ios.material) {
         Box(Modifier.fillMaxWidth().height(2.dp).background(c.background))
     } else {
         HorizontalDivider(Modifier.padding(start = start), thickness = 0.5.dp, color = c.separator)
@@ -397,7 +416,11 @@ fun IosDivider(start: Dp = 16.dp) {
 @Composable
 fun IosIcon(icon: ImageVector, tint: Color, size: Dp = 29.dp) {
     val c = Ios.colors
-    if (Ios.material) {
+    if (Ios.colorOs) {
+        Box(Modifier.size(size + 3.dp).background(tint, CircleShape), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, tint = if (c.dark) c.background else Color.White, modifier = Modifier.size(size * 0.66f))
+        }
+    } else if (Ios.material) {
         Box(
             Modifier.size(size + 7.dp).clip(CircleShape).background(tint.copy(alpha = if (c.dark) 0.2f else 0.13f)),
             contentAlignment = Alignment.Center,
@@ -438,11 +461,11 @@ fun IosRow(
     val c = Ios.colors
     val material = Ios.material
     val haptics = LocalHapticFeedback.current
-    val showChevron = chevron && !material
+    val showChevron = chevron && (!material || Ios.colorOs)
     val titleStyle = if (material) MaterialTheme.typography.bodyLarge else IosType.body
     val subtitleStyle = if (material) MaterialTheme.typography.bodyMedium else IosType.footnote
     val valueStyle = if (material) MaterialTheme.typography.bodyMedium else IosType.body
-    val vertical = if (material) 10.dp else 9.dp
+    val vertical = if (Ios.colorOs) 13.dp else if (material) 10.dp else 9.dp
     if ((Ios.winter || Ios.colorOs) && LocalDensity.current.fontScale > 1.3f) {
         Column(
             modifier.fillMaxWidth().then(
@@ -600,6 +623,15 @@ fun IosChoiceRow(
 fun IosSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier: Modifier = Modifier) {
     val c = Ios.colors
     val haptics = LocalHapticFeedback.current
+    if (Ios.colorOs) {
+        ColorOsSwitch(checked, onCheckedChange?.let { change ->
+            {
+                haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
+                change(it)
+            }
+        }, modifier)
+        return
+    }
     if (Ios.material) {
         Switch(
             checked = checked,
@@ -686,6 +718,19 @@ fun IosSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, 
             haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
             onSelect(i)
         }
+    }
+    if (Ios.colorOs && LocalDensity.current.fontScale <= 1.3f) {
+        Row(modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(c.fill).padding(4.dp).selectableGroup()) {
+            options.forEachIndexed { i, text ->
+                Box(Modifier.weight(1f).heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp))
+                    .background(if (i == selected) c.cell else Color.Transparent)
+                    .selectable(selected = i == selected, role = Role.Tab, onClick = { pick(i) }), contentAlignment = Alignment.Center) {
+                    Text(text, color = if (i == selected) c.tint else c.secondaryLabel,
+                        style = MaterialTheme.typography.labelLarge, maxLines = 1, modifier = Modifier.padding(horizontal = 2.dp))
+                }
+            }
+        }
+        return
     }
     if ((Ios.winter || Ios.colorOs) && LocalDensity.current.fontScale > 1.3f) {
         Column(modifier.fillMaxWidth().selectableGroup(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -786,10 +831,10 @@ fun IosSearchField(value: String, onValueChange: (String) -> Unit, placeholder: 
     Row(
         modifier
             .fillMaxWidth()
-            .height(if (material) 56.dp else 44.dp)
+            .height(if (Ios.colorOs) 48.dp else if (material) 56.dp else 44.dp)
             .clip(CircleShape)
             .background(
-                if (material) MaterialTheme.colorScheme.surfaceContainerHigh else c.fill.copy(alpha = if (c.dark) 0.7f else 1f),
+                if (Ios.colorOs) c.cell else if (material) MaterialTheme.colorScheme.surfaceContainerHigh else c.fill.copy(alpha = if (c.dark) 0.7f else 1f),
             )
             .padding(horizontal = if (material) 16.dp else 14.dp),
         verticalAlignment = Alignment.CenterVertically,

@@ -119,6 +119,7 @@ fun ServersScreen(
     onToggleFavorite: (String) -> Unit = {},
 ) {
     val c = Ios.colors
+    val winter = Ios.winter
     var filter by rememberSaveable { mutableIntStateOf(0) }
     var favoritesOnly by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
@@ -200,6 +201,9 @@ fun ServersScreen(
                         IosCircleButton(Icons.Rounded.Speed, stringResource(R.string.test_all_nodes), onTestAll)
                     }
                 }
+            }
+            if (winter) item(key = "winter-decoration") {
+                app.farvater.ui.components.WinterHeaderDecoration(app.farvater.ui.components.WinterDecoration.Nodes)
             }
             item(key = "search") {
                 Column(Modifier.padding(horizontal = 16.dp)) {

@@ -150,10 +150,13 @@ private fun ScenicFrame(tab: Tab, onTab: (Tab) -> Unit, snackbar: SnackbarHostSt
     val bottomInset = navInset + barHeight + gap
     Surface(color = c.background, contentColor = c.label, modifier = Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize()) {
+            if (!floating) app.farvater.ui.components.WinterBackdrop(Modifier.matchParentSize())
             CompositionLocalProvider(LocalBottomInset provides bottomInset) { content(WindowInsets.statusBars.asPaddingValues()) }
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset + 12.dp))
             Column(Modifier.align(Alignment.BottomCenter).padding(horizontal = if (floating) 16.dp else 0.dp)
                 .padding(bottom = navInset + gap).fillMaxWidth().height(barHeight)
+                .then(if (floating) Modifier.shadow(10.dp, RoundedCornerShape(28.dp), ambientColor = Color.Black.copy(alpha = 0.12f), spotColor = Color.Black.copy(alpha = 0.12f))
+                    .border(0.75.dp, c.barBorder, RoundedCornerShape(28.dp)) else Modifier)
                 .clip(RoundedCornerShape(if (floating) 28.dp else 20.dp)).background(c.bar)) {
                 Tab.entries.chunked(if (large) 2 else 4).forEach { row ->
                     Row(Modifier.fillMaxWidth().weight(1f)) {
@@ -167,7 +170,13 @@ private fun ScenicFrame(tab: Tab, onTab: (Tab) -> Unit, snackbar: SnackbarHostSt
                                         textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp))
                                 } else {
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Icon(if (active) item.icon else item.iconIdle, null, tint = tint, modifier = Modifier.size(24.dp))
+                                        if (floating) {
+                                            Box(Modifier.size(48.dp, 30.dp).background(if (active) c.highlight else Color.Transparent, CircleShape), contentAlignment = Alignment.Center) {
+                                                Icon(if (active) item.icon else item.iconIdle, null, tint = tint, modifier = Modifier.size(23.dp))
+                                            }
+                                        } else {
+                                            Icon(if (active) item.icon else item.iconIdle, null, tint = tint, modifier = Modifier.size(24.dp))
+                                        }
                                         Spacer(Modifier.height(4.dp))
                                         Text(item.title, color = tint, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1)
                                     }

@@ -300,6 +300,7 @@ private fun SettingsRoot(
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().glassSource(backdrop).verticalScroll(scroll)) {
             IosLargeTitle(stringResource(R.string.settings_title))
+            app.farvater.ui.components.WinterHeaderDecoration(app.farvater.ui.components.WinterDecoration.Settings)
 
             IosSection {
                 IosRow(

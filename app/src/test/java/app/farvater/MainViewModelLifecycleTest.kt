@@ -184,6 +184,22 @@ class MainViewModelLifecycleTest {
         assertTrue(App.prefs.backupNodes.nodes.isEmpty())
     }
 
+    @Config(sdk = [28, 34])
+    @Test fun missingSubscriptionNodeRemainsAvailableToTile() {
+        org.robolectric.shadows.ShadowVpnService.setPrepareResult(null)
+        val node = LinkParser.parse("vless://test@saved.example.test:443?security=tls")!!
+        App.prefs.selectNode(node)
+        val reconcile = MainViewModel::class.java.getDeclaredMethod("reconcileSelection", List::class.java)
+            .apply { isAccessible = true }
+        assertEquals(node, reconcile.invoke(vm, emptyList<ProxyNode>()))
+        assertEquals(node, App.prefs.lastNode)
+        val tile = org.robolectric.Robolectric.buildService(app.farvater.vpn.QsTileService::class.java).create().get()
+        tile.onClick()
+        val shadow = shadowOf(ApplicationProvider.getApplicationContext<Application>())
+        assertEquals(app.farvater.vpn.FarvaterVpnService.ACTION_START, shadow.nextStartedService?.action)
+        assertNull(shadow.nextStartedActivity)
+    }
+
     @Test
     fun serviceSelectionCannotBeOverwrittenByAnOlderReconciliation() {
         val old = LinkParser.parse("vless://test@old.example.test:443?security=tls")!!

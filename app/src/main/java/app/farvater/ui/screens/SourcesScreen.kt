@@ -80,6 +80,8 @@ fun SourcesScreen(
     onSourceInterval: (String, Int?) -> Unit = { _, _ -> },
 ) {
     val c = Ios.colors
+    val winter = Ios.winter
+    val readableSources = winter || Ios.colorOs
     var showAdd by remember { mutableStateOf(false) }
     var removing by remember { mutableStateOf<SourceUi?>(null) }
     var menuFor by remember { mutableStateOf<SourceUi?>(null) }
@@ -110,6 +112,9 @@ fun SourcesScreen(
                 }
             }
 
+            if (winter) item(key = "winter-decoration") {
+                app.farvater.ui.components.WinterHeaderDecoration(app.farvater.ui.components.WinterDecoration.Sources)
+            }
             item(key = "add") {
                 IosSection {
                     IosRow(
@@ -155,7 +160,7 @@ fun SourcesScreen(
                     IosSection(header = stringResource(R.string.my_subscriptions)) {
                         own.forEachIndexed { i, source ->
                             if (i > 0) IosDivider(start = 59.dp)
-                            val alpha by animateFloatAsState(if (source.inMode) 1f else 0.55f, tween(220), label = "dim")
+                            val alpha by animateFloatAsState(if (source.inMode || readableSources) 1f else 0.55f, tween(220), label = "dim")
                             IosRow(
                                 title = source.title,
                                 subtitle = statusText(source),
@@ -260,7 +265,7 @@ fun SourcesScreen(
 @Composable
 private fun CommunityRow(source: SourceUi, onToggle: (String, Boolean) -> Unit, onOpen: () -> Unit) {
     val c = Ios.colors
-    val alpha by animateFloatAsState(if (source.enabled && source.inMode) 1f else 0.55f, tween(220), label = "dim")
+    val alpha by animateFloatAsState(if (Ios.colorOs || Ios.winter || (source.enabled && source.inMode)) 1f else 0.55f, tween(220), label = "dim")
     IosRow(
         title = source.title,
         subtitle = "${source.author} · ${source.license}\n" + statusText(source),

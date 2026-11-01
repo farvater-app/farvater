@@ -42,7 +42,7 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.concurrent.thread
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], application = Application::class, shadows = [VpnServiceLifecycleTest.Core::class, VpnServiceLifecycleTest.Bridge::class, VpnServiceLifecycleTest.Probe::class, VpnServiceLifecycleTest.Selection::class],
+@Config(sdk = [35], application = Application::class, shadows = [VpnServiceLifecycleTest.Core::class, VpnServiceLifecycleTest.Bridge::class, VpnServiceLifecycleTest.Probe::class, VpnServiceLifecycleTest.Selection::class, VpnServiceLifecycleTest.TilePlatform::class],
     instrumentedPackages = ["app.farvater.engine.XrayEngine", "app.farvater.engine.TunBridge", "app.farvater.engine.NodeTester", "app.farvater.data.Prefs"] , qualifiers = "ru")
 class VpnServiceLifecycleTest {
     private lateinit var service: FarvaterVpnService
@@ -127,6 +127,129 @@ class VpnServiceLifecycleTest {
         service.onStartCommand(Intent().setAction(FarvaterVpnService.ACTION_STOP), 0, 2)
         queue.drain()
         assertEquals(0, Core.starts)
+    }
+
+    @Config(sdk = [28, 34])
+    @Test fun tileRendersOffBeforeNativeStopFinishes() {
+        org.robolectric.shadows.ShadowVpnService.setPrepareResult(null)
+        val tile = Robolectric.buildService(app.farvater.vpn.QsTileService::class.java).create().get()
+        val connected = VpnState.Connected(App.prefs.lastNode!!, 123)
+        VpnBus.state.value = connected
+        tile.onStartListening()
+        try {
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+            assertEquals(android.service.quicksettings.Tile.STATE_ACTIVE, tile.qsTile.state)
+            command(FarvaterVpnService.ACTION_STOP, 1)
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+            assertEquals(android.service.quicksettings.Tile.STATE_INACTIVE, tile.qsTile.state)
+            assertEquals(connected, VpnBus.state.value)
+        } finally {
+            tile.onStopListening()
+        }
+    }
+
+    @Config(sdk = [28, 34])
+    @Test fun tileWithoutSavedNodeExplainsWhyItOpensApp() {
+        App.prefs.clearSelection()
+        VpnBus.state.value = VpnState.Idle
+        val tile = Robolectric.buildService(app.farvater.vpn.QsTileService::class.java).create().get()
+        tile.onClick()
+        val shadow = org.robolectric.Shadows.shadowOf(ApplicationProvider.getApplicationContext<Application>())
+        assertNull(shadow.nextStartedService)
+        assertEquals(FarvaterActivity::class.java.name, shadow.nextStartedActivity.component?.className)
+        assertEquals(tile.getString(R.string.choose_node_first), org.robolectric.shadows.ShadowToast.getTextOfLatestToast())
+    }
+
+    @Config(sdk = [28, 34])
+    @Test fun tileWithoutVpnPermissionOpensAppWithoutStartingService() {
+        org.robolectric.shadows.ShadowVpnService.setPrepareResult(Intent())
+        VpnBus.state.value = VpnState.Idle
+        val tile = Robolectric.buildService(app.farvater.vpn.QsTileService::class.java).create().get()
+        tile.onClick()
+        val shadow = org.robolectric.Shadows.shadowOf(ApplicationProvider.getApplicationContext<Application>())
+        assertNull(shadow.nextStartedService)
+        assertEquals(FarvaterActivity::class.java.name, shadow.nextStartedActivity.component?.className)
+    }
+
+    @Config(sdk = [28, 34])
+    @Test fun delayedStopDeliveryCannotReplaceNewerTileRequest() {
+        org.robolectric.shadows.ShadowVpnService.setPrepareResult(null)
+        val tile = Robolectric.buildService(app.farvater.vpn.QsTileService::class.java).create().get()
+        val shadow = org.robolectric.Shadows.shadowOf(ApplicationProvider.getApplicationContext<Application>())
+        VpnBus.state.value = VpnState.Connected(App.prefs.lastNode!!, 123)
+        tile.onClick()
+        val first = shadow.nextStartedService
+        tile.onClick()
+        val second = shadow.nextStartedService
+        assertEquals(FarvaterVpnService.ACTION_STOP, first.action)
+        assertEquals(FarvaterVpnService.ACTION_START, second.action)
+        service.onStartCommand(first, 0, 1)
+        tile.onClick()
+        val third = shadow.nextStartedService
+        assertEquals(FarvaterVpnService.ACTION_STOP, third.action)
+        service.onStartCommand(second, 0, 2)
+        service.onStartCommand(third, 0, 3)
+        queue.drain()
+        assertEquals(0, Core.starts)
+        assertEquals(VpnState.Idle, VpnBus.state.value)
+    }
+
+    @Config(sdk = [28, 34])
+    @Test fun tileCancelsStartBeforeServiceReceivesIt() {
+        org.robolectric.shadows.ShadowVpnService.setPrepareResult(null)
+        val tile = Robolectric.buildService(app.farvater.vpn.QsTileService::class.java).create().get()
+        val shadow = org.robolectric.Shadows.shadowOf(ApplicationProvider.getApplicationContext<Application>())
+        VpnBus.state.value = VpnState.Idle
+        tile.onClick()
+        val start = shadow.nextStartedService
+        tile.onClick()
+        val stop = shadow.nextStartedService
+        assertEquals(FarvaterVpnService.ACTION_START, start.action)
+        assertEquals(FarvaterVpnService.ACTION_STOP, stop.action)
+        service.onStartCommand(start, 0, 1)
+        service.onStartCommand(stop, 0, 2)
+        queue.drain()
+        assertEquals(0, Core.starts)
+        assertEquals(VpnState.Idle, VpnBus.state.value)
+    }
+
+    @Config(sdk = [28, 34])
+    @Test fun tileCanStartAgainWhileStopIsQueued() {
+        org.robolectric.shadows.ShadowVpnService.setPrepareResult(null)
+        val tile = Robolectric.buildService(app.farvater.vpn.QsTileService::class.java).create().get()
+        VpnBus.state.value = VpnState.Connected(App.prefs.lastNode!!, 123)
+        tile.onClick()
+        val app = org.robolectric.Shadows.shadowOf(ApplicationProvider.getApplicationContext<Application>())
+        val stop = app.nextStartedService
+        assertEquals(FarvaterVpnService.ACTION_STOP, stop.action)
+        service.onStartCommand(stop, 0, 1)
+        tile.onClick()
+        val start = app.nextStartedService
+        assertEquals(FarvaterVpnService.ACTION_START, start?.action)
+        service.onStartCommand(start, 0, 2)
+        queue.drain()
+        assertEquals(1, Core.starts)
+    }
+
+    @Config(sdk = [28, 34])
+    @Test fun tileStopStartStopStillCancelsQueuedStart() {
+        org.robolectric.shadows.ShadowVpnService.setPrepareResult(null)
+        val tile = Robolectric.buildService(app.farvater.vpn.QsTileService::class.java).create().get()
+        val app = org.robolectric.Shadows.shadowOf(ApplicationProvider.getApplicationContext<Application>())
+        VpnBus.state.value = VpnState.Connected(App.prefs.lastNode!!, 123)
+        tile.onClick()
+        service.onStartCommand(app.nextStartedService, 0, 1)
+        tile.onClick()
+        val start = app.nextStartedService
+        assertEquals(FarvaterVpnService.ACTION_START, start?.action)
+        service.onStartCommand(start, 0, 2)
+        tile.onClick()
+        val stop = app.nextStartedService
+        assertEquals(FarvaterVpnService.ACTION_STOP, stop?.action)
+        service.onStartCommand(stop, 0, 3)
+        queue.drain()
+        assertEquals(0, Core.starts)
+        assertEquals(VpnState.Idle, VpnBus.state.value)
     }
 
     @Test
@@ -374,6 +497,7 @@ class VpnServiceLifecycleTest {
         service.onDestroy()
         queue.drain()
         assertEquals(0, Core.starts)
+        assertNull(VpnBus.request.value)
         assertFalse(scope.coroutineContext[kotlinx.coroutines.Job]!!.isActive)
     }
 
@@ -382,6 +506,14 @@ class VpnServiceLifecycleTest {
         override fun dispatch(context: CoroutineContext, block: Runnable) { synchronized(tasks) { tasks.add(block) } }
         fun drain() { while (true) (synchronized(tasks) { tasks.pollFirst() } ?: return).run() }
         fun runLast() { synchronized(tasks) { tasks.pollLast() }?.run() }
+    }
+
+    @Implements(android.service.quicksettings.TileService::class)
+    class TilePlatform : org.robolectric.shadows.ShadowTileService() {
+        @Implementation(minSdk = 34)
+        fun startActivityAndCollapse(intent: android.app.PendingIntent) {
+            intent.send()
+        }
     }
 
     @Implements(value = app.farvater.data.Prefs::class, isInAndroidSdk = false)

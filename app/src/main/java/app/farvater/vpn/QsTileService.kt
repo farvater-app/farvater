@@ -13,6 +13,7 @@ import app.farvater.FarvaterActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 class QsTileService : TileService() {
@@ -23,7 +24,10 @@ class QsTileService : TileService() {
     private var job: Job? = null
 
     override fun onStartListening() {
-        job = CoroutineScope(Dispatchers.Main).launch { VpnBus.state.collect { render(it) } }
+        job?.cancel()
+        job = CoroutineScope(Dispatchers.Main).launch {
+            combine(VpnBus.state, VpnBus.request) { state, _ -> state }.collect { render(it) }
+        }
     }
 
     override fun onStopListening() {
@@ -33,16 +37,16 @@ class QsTileService : TileService() {
 
     private fun render(state: VpnState) {
         val tile = qsTile ?: return
-        tile.state = when (state) {
-            is VpnState.Connected, is VpnState.Connecting -> Tile.STATE_ACTIVE
-            else -> Tile.STATE_INACTIVE
-        }
+        val requested = VpnBus.request.value
+        tile.state = if (isActive(state)) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.icon = android.graphics.drawable.Icon.createWithResource(this, app.farvater.data.AppIcons.current(this).monochrome)
         tile.label = localizedString(app.farvater.R.string.app_name)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            tile.subtitle = when (state) {
-                is VpnState.Connected -> state.node.name
-                is VpnState.Connecting -> localizedString(app.farvater.R.string.settings_connection)
+            tile.subtitle = when {
+                requested?.active == true -> localizedString(app.farvater.R.string.settings_connection)
+                requested?.active == false -> localizedString(app.farvater.R.string.vpn_state_off)
+                state is VpnState.Connected -> state.node.name
+                state is VpnState.Connecting -> localizedString(app.farvater.R.string.settings_connection)
                 else -> localizedString(app.farvater.R.string.vpn_state_off)
             }
         }
@@ -50,18 +54,24 @@ class QsTileService : TileService() {
     }
 
     override fun onClick() {
-        when (VpnBus.state.value) {
-            is VpnState.Connected, is VpnState.Connecting -> FarvaterVpnService.stop(this)
-            else -> {
-                val node = App.prefs.lastNode
-                if (node != null && VpnService.prepare(this) == null) {
-                    FarvaterVpnService.start(this, node)
-                } else {
-                    openApp()
+        if (isActive(VpnBus.state.value)) {
+            FarvaterVpnService.stop(this)
+        } else {
+            val node = App.prefs.lastNode
+            if (node != null && VpnService.prepare(this) == null) {
+                FarvaterVpnService.start(this, node)
+            } else {
+                if (node == null) {
+                    android.widget.Toast.makeText(this, localizedString(app.farvater.R.string.choose_node_first), android.widget.Toast.LENGTH_LONG).show()
                 }
+                openApp()
             }
         }
+        render(VpnBus.state.value)
     }
+
+    private fun isActive(state: VpnState): Boolean =
+        VpnBus.request.value?.active ?: (state is VpnState.Connected || state is VpnState.Connecting)
 
     private fun openApp() {
         val intent = Intent(this, FarvaterActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

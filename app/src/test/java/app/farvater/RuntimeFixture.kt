@@ -25,5 +25,6 @@ internal fun prepareRuntime(app: Application) {
         flow.value = emptyMap<String, Any>()
     }
     VpnBus.state.value = VpnState.Idle
+    VpnBus.request.value = null
     VpnBus.failedChecks.value = 0
 }
