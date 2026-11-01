@@ -1,3 +1,4 @@
 -keep class libv2ray.** { *; }
 -keep class go.** { *; }
 -keep class hev.sockstun.** { *; }
+-keep class * extends androidx.room.RoomDatabase { <init>(); }
