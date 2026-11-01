@@ -77,7 +77,8 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.indication
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.foundation.gestures.ScrollableState
@@ -161,24 +162,12 @@ fun Modifier.iosPress(
 
 @OptIn(ExperimentalFoundationApi::class)
 fun Modifier.iosRowPress(onLongClick: (() -> Unit)? = null, onClick: () -> Unit): Modifier = composed {
-    if (Ios.material) {
-        combinedClickable(onLongClick = onLongClick, onClick = onClick)
-    } else {
-        val interaction = remember { MutableInteractionSource() }
-        val pressed by interaction.collectIsPressedAsState()
-        val c = Ios.colors
-        val bg by animateColorAsState(
-            if (pressed) c.highlight else Color.Transparent,
-            if (pressed) snap() else tween(320),
-            label = "row",
-        )
-        background(bg).combinedClickable(
-            interactionSource = interaction,
-            indication = null,
-            onLongClick = onLongClick,
-            onClick = onClick,
-        )
-    }
+    combinedClickable(
+        interactionSource = remember { MutableInteractionSource() },
+        indication = LocalIndication.current,
+        onLongClick = onLongClick,
+        onClick = onClick,
+    )
 }
 
 val SectionCorner = 24.dp
@@ -646,6 +635,7 @@ fun IosSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier:
         return
     }
     if (Ios.material) {
+        val interaction = remember { MutableInteractionSource() }
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange?.let { change ->
@@ -654,7 +644,8 @@ fun IosSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier:
                     change(it)
                 }
             },
-            modifier = modifier,
+            interactionSource = interaction,
+            modifier = modifier.indication(interaction, LocalIndication.current),
             colors = if (Ios.nothing) {
                 SwitchDefaults.colors(
                     checkedTrackColor = c.red,
@@ -770,7 +761,10 @@ fun IosSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, 
         val nothing = Ios.nothing
         SingleChoiceSegmentedButtonRow(modifier.fillMaxWidth()) {
             options.forEachIndexed { i, label ->
+                val interaction = remember { MutableInteractionSource() }
                 SegmentedButton(
+                    interactionSource = interaction,
+                    modifier = Modifier.indication(interaction, LocalIndication.current),
                     selected = i == selected,
                     onClick = { pick(i) },
                     shape = SegmentedButtonDefaults.itemShape(index = i, count = options.size),
@@ -953,7 +947,7 @@ fun IosButton(
                 .clip(CircleShape)
                 .background(bg)
                 .then(if (outlined) Modifier.border(1.5.dp, color, CircleShape) else Modifier)
-                .clickable(interactionSource = press, indication = ripple(), enabled = enabled, role = Role.Button, onClick = onClick)
+                .clickable(interactionSource = press, indication = LocalIndication.current, enabled = enabled, role = Role.Button, onClick = onClick)
                 .padding(horizontal = 24.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,

@@ -72,8 +72,10 @@ object LinkParser {
         val (encoded, query) = splitOnce(beforeFragment, '?')
         val options = parseQuery(query)
         val payload = Base64Util.decodeToString(encoded) ?: return null
-        val obj = if (payload.trimStart().startsWith('{')) json.parseToJsonElement(payload).jsonObject
-            else shadowrocketVmess(payload, options) ?: return null
+        val obj = if (payload.trimStart().startsWith('{')) {
+            if (!JsonDepth.supported(payload)) return null
+            json.parseToJsonElement(payload).jsonObject
+        } else shadowrocketVmess(payload, options) ?: return null
         fun s(key: String) = (obj[key] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
 
         val host = s("add")

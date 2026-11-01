@@ -1,5 +1,6 @@
 package app.farvater.ui.screens
 
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.ui.res.stringResource
 import app.farvater.ui.components.WitchStyleMark
@@ -338,6 +339,8 @@ private fun SettingsRoot(
                 )
                 IosRow(
                     title = stringResource(R.string.settings_language),
+                    icon = Icons.Rounded.Language,
+                    iconTint = c.teal,
                     value = when (app.farvater.data.AppLanguages.selected(LocalContext.current).substringBefore('-')) {
                         "ru" -> stringResource(R.string.language_ru)
                         "en" -> stringResource(R.string.language_en)

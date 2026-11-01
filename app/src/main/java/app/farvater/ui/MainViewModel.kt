@@ -58,6 +58,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.channels.Channel
 import java.security.MessageDigest
 
@@ -196,6 +197,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val events = _events.asSharedFlow()
 
     private var pendingNode: ProxyNode? = null
+    private var pendingAutomatic = false
+    private var pendingStopEpoch = 0L
     private var updateCheckJob: Job? = null
     private var updateDownloadJob: Job? = null
     private var testJob: Job? = null
@@ -661,12 +664,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun requestImport(text: String) = _state.update { it.copy(pendingImport = text) }
     fun rejectImport() = toast(messageText(R.string.import_invalid))
-    fun confirmImport() {
-        val text = _state.value.pendingImport ?: return
-        _state.update { it.copy(pendingImport = null) }
-        importText(text)
+    fun confirmImport(expected: String) {
+        if (consumeImport(expected)) importText(expected)
     }
-    fun dismissImport() = _state.update { it.copy(pendingImport = null) }
+    fun dismissImport(expected: String) {
+        consumeImport(expected)
+    }
+    private fun consumeImport(expected: String): Boolean {
+        while (true) {
+            val current = _state.value
+            if (current.pendingImport != expected) return false
+            if (_state.compareAndSet(current, current.copy(pendingImport = null))) return true
+        }
+    }
 
     fun deleteManualNode(node: ProxyNode) {
         if (node.sourceId != ProxyNode.MANUAL_SOURCE) return
@@ -859,6 +869,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun findWorking() {
         if (pathJob?.isActive == true || testJob?.isActive == true) return
         cancelServiceChecks()
+        val stopEpoch = VpnBus.stopEpoch.get()
         pathJob = viewModelScope.launch {
             val me = coroutineContext.job
             _state.update { it.copy(gals = true, sensing = true) }
@@ -867,8 +878,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             } finally {
                 if (pathJob === me) _state.update { it.copy(sensing = false) }
             }
+            if (stopEpoch != VpnBus.stopEpoch.get()) {
+                cancelTest()
+                return@launch
+            }
             _state.update { it.copy(galsNet = net) }
-            findWorkingNow()
+            findWorkingNow(stopEpoch)
         }
     }
 
@@ -891,7 +906,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return net
     }
 
-    private fun findWorkingNow() {
+    private fun findWorkingNow(stopEpoch: Long = VpnBus.stopEpoch.get()) {
         if (_state.value.nodes.isEmpty()) {
             _state.update { it.copy(gals = false, galsNet = null) }
             testAll()
@@ -913,6 +928,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
             suspend fun attempt(node: ProxyNode) {
                 tried += node.id
+                if (stopEpoch != VpnBus.stopEpoch.get() || !eligibleAutomaticNode(node)) return
                 val found = try {
                     Pathfinder.find(node, prefs.profileFor(node.id), ordinaryBlocking, checkDns = settings.encryptedDns) { t ->
                         _state.update { it.copy(pathfinding = GalsStep(node.name, t)) }
@@ -920,6 +936,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 } finally {
                     if (pathJob === me) _state.update { it.copy(pathfinding = null) }
                 }
+                coroutineContext.ensureActive()
+                if (stopEpoch != VpnBus.stopEpoch.get() || !eligibleAutomaticNode(node)) return
                 if (found.dnsBlocked) dnsBlocked = true
                 val profile = found.profile
                 if (profile == null) {
@@ -935,11 +953,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 prefs.rememberProfile(node.id, profile)
                 verified[node.id] = node to found.speedBps
-                if (connected == null) {
+                if (connected == null && selectAutomatic(node, mode, stopEpoch)) {
                     connected = node
                     _state.update { it.copy(gals = false, galsNet = null, refining = true) }
-                    setSelected(node, rememberFor = mode)
-                    connect(node, restart = true)
                 }
             }
 
@@ -947,7 +963,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val since = System.currentTimeMillis()
                 testAll()
                 var scanned = 0
-                while (scanned < PATH_CANDIDATES) {
+                while (scanned < PATH_CANDIDATES && stopEpoch == VpnBus.stopEpoch.get()) {
                     val running = testJob?.isActive == true
                     val node = GalsPlan.next(_state.value.nodes, results.value, _state.value.dead, tried, failedKinds, failedHosts, since)
                     if (node == null) {
@@ -963,22 +979,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 if (pathJob === me) _state.update { it.copy(gals = false, galsNet = null, refining = false) }
             }
 
+            if (stopEpoch != VpnBus.stopEpoch.get()) return@launch
             val current = connected
             if (current != null) {
-                val bestId = GalsPlan.fastest(verified.mapValues { it.value.second }) ?: return@launch
+                val eligible = verified.filterValues { eligibleAutomaticNode(it.first) }
+                val bestId = GalsPlan.fastest(eligible.mapValues { it.value.second }) ?: return@launch
                 val (best, bestSpeed) = verified.getValue(bestId)
                 val currentSpeed = verified[current.id]?.second ?: 0L
                 val vpn = VpnBus.state.value
                 val stillOnCurrent = (vpn as? VpnState.Connected)?.node?.id == current.id || (vpn as? VpnState.Connecting)?.node?.id == current.id
-                if (best.id != current.id && stillOnCurrent && GalsPlan.worthSwitching(currentSpeed, bestSpeed)) {
-                    setSelected(best, rememberFor = mode)
-                    connect(best, restart = true)
+                if (best.id != current.id && stillOnCurrent && GalsPlan.worthSwitching(currentSpeed, bestSpeed) &&
+                    selectAutomatic(best, mode, stopEpoch)) {
                     toast(messageText(R.string.gals_faster_node, splitFlag(best.name).second))
                 }
                 return@launch
             }
 
-            val target = GalsPlan.fallback(_state.value.nodes, results.value, _state.value.dead, tried, partial)
+            val target = GalsPlan.fallback(_state.value.nodes.filter(::eligibleAutomaticNode), results.value,
+                _state.value.dead, tried, partial)
             if (target == null) {
                 toast(
                     when {
@@ -997,9 +1015,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     else -> messageText(R.string.gals_data_fallback)
                 },
             )
-            setSelected(target)
-            connect(target, restart = true)
+            selectAutomatic(target, null, stopEpoch)
         }
+    }
+
+    private fun eligibleAutomaticNode(node: ProxyNode): Boolean = synchronized(selectionLock) {
+        if (!prefs.allowedForAuto(node) || snapshots.value[node.sourceId]?.nodes?.contains(node) != true) return@synchronized false
+        val sourceMode = prefs.sourceConfigs[node.sourceId]?.mode
+            ?: BuiltInCatalog.byId(node.sourceId)?.mode ?: SourceMode.ANY
+        sourceMode.fits(effectiveMode(prefs.settings))
+    }
+
+    private fun selectAutomatic(node: ProxyNode, mode: NetMode?, stopEpoch: Long): Boolean = synchronized(selectionLock) {
+        if (stopEpoch != VpnBus.stopEpoch.get() || !eligibleAutomaticNode(node)) return@synchronized false
+        setSelected(node, rememberFor = mode)
+        connect(node, restart = true, automatic = true, expectedStopEpoch = stopEpoch)
+        true
     }
 
     private fun bestNode(): ProxyNode? =
@@ -1055,6 +1086,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun preflight(node: ProxyNode) {
         preflightJob?.cancel()
+        val stopEpoch = VpnBus.stopEpoch.get()
         preflightJob = viewModelScope.launch {
             val me = coroutineContext.job
             _state.update { it.copy(preflight = node) }
@@ -1066,7 +1098,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             results.update { it + (r.nodeId to r) }
             _state.update { it.copy(results = results.value) }
             recordHealth(listOf(r))
-            if (r.alive) connect(node) else _state.update { it.copy(deadPrompt = node) }
+            coroutineContext.ensureActive()
+            if (stopEpoch != VpnBus.stopEpoch.get()) return@launch
+            if (r.alive) connect(node, expectedStopEpoch = stopEpoch) else _state.update { it.copy(deadPrompt = node) }
         }
     }
 
@@ -1170,10 +1204,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return chosen
     }
 
-    private fun connect(node: ProxyNode, restart: Boolean = false) {
+    private fun connect(node: ProxyNode, restart: Boolean = false, automatic: Boolean = false,
+        expectedStopEpoch: Long = VpnBus.stopEpoch.get()) {
+        if (expectedStopEpoch != VpnBus.stopEpoch.get() || (automatic && !eligibleAutomaticNode(node))) return
         val permission = VpnService.prepare(getApplication())
         if (permission != null) {
             pendingNode = node
+            pendingAutomatic = automatic
+            pendingStopEpoch = expectedStopEpoch
             _events.tryEmit(UiEvent.RequestVpnPermission(permission))
         } else {
             FarvaterVpnService.start(getApplication(), node, restart)
@@ -1182,8 +1220,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun onVpnPermissionResult(granted: Boolean) {
         val node = pendingNode
+        val automatic = pendingAutomatic
+        val stopEpoch = pendingStopEpoch
         pendingNode = null
-        if (granted && node != null) FarvaterVpnService.start(getApplication(), node)
+        pendingAutomatic = false
+        if (granted && node != null && stopEpoch == VpnBus.stopEpoch.get() && (!automatic || eligibleAutomaticNode(node))) FarvaterVpnService.start(getApplication(), node)
         else if (!granted) toast(messageText(R.string.vpn_permission_denied))
     }
 
@@ -1211,16 +1252,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             old.directRuServices != new.directRuServices ||
             old.encryptedDns != new.encryptedDns ||
             old.mtu != new.mtu
-        if (tunnelChanged && vpn is VpnState.Connected) reconnectSoon()
+        if (tunnelChanged && (vpn is VpnState.Connected || vpn is VpnState.Connecting)) reconnectSoon()
     }
 
     private var reconnectJob: Job? = null
     private fun reconnectSoon() {
         reconnectJob?.cancel()
+        val stopEpoch = VpnBus.stopEpoch.get()
         reconnectJob = viewModelScope.launch {
             delay(RECONNECT_DELAY_MS)
+            if (stopEpoch != VpnBus.stopEpoch.get() || VpnBus.request.value?.active == false) return@launch
             val vpn = VpnBus.state.value
-            if (vpn is VpnState.Connected) connect(_state.value.selectedNode ?: vpn.node, restart = true)
+            val node = when (vpn) {
+                is VpnState.Connected -> vpn.node
+                is VpnState.Connecting -> vpn.node
+                else -> null
+            }
+            if (node != null) connect(node, restart = true, expectedStopEpoch = stopEpoch)
         }
     }
 

@@ -5,6 +5,15 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.provider.Settings
 import android.view.View
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import app.farvater.ui.ios.iosRowPress
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +64,68 @@ class PressFeedbackTest {
             view.draw(Canvas(result))
         }
         return result
+    }
+
+    @Test fun themePressNeverPaintsCornersAndRestoresAfterReleaseOrCancel() {
+        val style = mutableStateOf(UiStyle.IOS)
+        val dark = mutableStateOf(false)
+        var clicks = 0
+        rule.mainClock.autoAdvance = false
+        rule.setContent {
+            view = LocalView.current
+            FarvaterTheme(style = style.value, darkTheme = dark.value) {
+                androidx.compose.foundation.layout.Column {
+                    for (primitive in 0..4) {
+                        Box(Modifier.background(Color.Magenta)) {
+                            Box(Modifier.size(160.dp, 64.dp).testTag("press-$primitive").then(when (primitive) {
+                                0 -> Modifier.clickable { clicks++ }
+                                1 -> Modifier.combinedClickable(onClick = { clicks++ })
+                                2 -> Modifier.selectable(false) { clicks++ }
+                                3 -> Modifier.toggleable(false) { clicks++ }
+                                else -> Modifier.iosRowPress { clicks++ }
+                            })) {
+                                Box(Modifier.align(androidx.compose.ui.Alignment.Center).size(100.dp, 36.dp)
+                                    .background(Color.Cyan, androidx.compose.foundation.shape.CircleShape))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for (ui in UiStyle.entries) for (night in listOf(false, true)) for (primitive in 0..4) {
+            rule.runOnIdle { style.value = ui; dark.value = night }
+            rule.mainClock.advanceTimeBy(1000)
+            val button = rule.onNodeWithTag("press-$primitive")
+            val bounds = button.fetchSemanticsNode().boundsInRoot
+            val before = pixels()
+            for (cancelled in listOf(false, true)) {
+                val initialClicks = clicks
+                button.performTouchInput { down(center) }
+                rule.mainClock.advanceTimeBy(1000)
+                rule.runOnIdle {
+                    org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(1000))
+                }
+                rule.mainClock.advanceTimeByFrame()
+                val held = pixels()
+                assertFalse("$ui/$night/$primitive/$cancelled must visibly react", before.sameAs(held))
+                for ((x, y) in listOf(bounds.left.toInt() + 2 to bounds.top.toInt() + 2,
+                    bounds.right.toInt() - 3 to bounds.bottom.toInt() - 3)) {
+                    assertEquals("$ui/$night corner", Color.Magenta.toArgb(), held.getPixel(x, y))
+                }
+                button.performTouchInput { if (cancelled) cancel() else up() }
+                rule.mainClock.advanceTimeBy(5000)
+                rule.runOnIdle {
+                    org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(5000))
+                }
+                rule.mainClock.advanceTimeByFrame()
+                val released = pixels()
+                assertTrue("$ui/$night no persistent highlight", before.sameAs(released))
+                assertEquals(initialClicks + if (cancelled) 0 else 1, clicks)
+                held.recycle()
+                released.recycle()
+            }
+            before.recycle()
+        }
     }
 
     @Test fun keyboardFocusIsVisibleWithoutRectangularIndication() {

@@ -46,6 +46,7 @@ object TunBridge {
         running = false
     }
 
+    @Synchronized
     fun stats(): LongArray? =
         if (running) runCatching { TProxyService.TProxyGetStats() }.getOrNull() else null
 }

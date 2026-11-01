@@ -21,6 +21,17 @@ class VmessNameTest {
     private fun link(name: String = "", pretty: Boolean = false) =
         "vmess://" + Base64.getEncoder().encodeToString(payload(name, pretty).toByteArray())
 
+    @Test fun nestedJsonIsBoundedBeforeParsingAndSerializingId() {
+        for (depth in listOf(63, 64, 2000)) {
+            val nested = "[".repeat(depth) + "0" + "]".repeat(depth)
+            val json = payload("Depth").dropLast(1) + ",\"extra\":" + nested + "}"
+            val raw = "vmess://" + Base64.getEncoder().encodeToString(json.toByteArray())
+            if (depth == 63) assertEquals("Depth", LinkParser.parse(raw)?.name)
+            else assertNull(LinkParser.parse(raw))
+        }
+        assertEquals("[".repeat(100), LinkParser.parse(link("[".repeat(100)))?.name)
+    }
+
     @Test fun jsonNamePreservesUtf8EmojiAndLiteralPercent() {
         val name = "Москва 東京 تهران 🎄 + 100%20"
         assertEquals(name, LinkParser.parse(link(name))!!.name)

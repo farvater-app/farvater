@@ -6,6 +6,7 @@ local.properties
 *.iml
 .DS_Store
 /app/libs/*.aar
+/app/libs/natives-sha256.json
 /app/src/main/jniLibs/
 *.jks
 *.keystore

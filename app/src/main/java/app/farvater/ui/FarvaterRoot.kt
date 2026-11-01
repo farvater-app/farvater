@@ -200,14 +200,16 @@ fun FarvaterRoot(vm: MainViewModel) {
     }
 
     state.pendingImport?.let { text ->
-        IosAlert(
-            title = stringResource(R.string.import_link_question),
-            message = text.take(300),
-            onDismiss = vm::dismissImport,
-            actions = listOf(
-                AlertAction(stringResource(R.string.action_cancel)) { vm.dismissImport() },
-                AlertAction(stringResource(R.string.action_add), AlertRole.Preferred) { vm.confirmImport() },
-            ),
-        )
+        androidx.compose.runtime.key(text) {
+            IosAlert(
+                title = stringResource(R.string.import_link_question),
+                message = text.take(300),
+                onDismiss = { vm.dismissImport(text) },
+                actions = listOf(
+                    AlertAction(stringResource(R.string.action_cancel)) { vm.dismissImport(text) },
+                    AlertAction(stringResource(R.string.action_add), AlertRole.Preferred) { vm.confirmImport(text) },
+                ),
+            )
+        }
     }
 }

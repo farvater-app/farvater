@@ -26,6 +26,7 @@ object VpnBus {
     const val STALL_CHECKS = 3
     val state = MutableStateFlow<VpnState>(VpnState.Idle)
     val request = MutableStateFlow<VpnRequest?>(null)
+    val stopEpoch = java.util.concurrent.atomic.AtomicLong()
     val traffic = MutableStateFlow(Traffic())
     val speedHistory = MutableStateFlow<List<Long>>(emptyList())
     val failedChecks = MutableStateFlow(0)

@@ -9,6 +9,8 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -818,7 +820,10 @@ private fun MaterialFrame(
             }
             ShortNavigationBar(modifier = Modifier.align(Alignment.BottomCenter), containerColor = c.bar) {
                 Tab.entries.forEach { t ->
+                    val interaction = remember { MutableInteractionSource() }
                     ShortNavigationBarItem(
+                        interactionSource = interaction,
+                        modifier = Modifier.indication(interaction, LocalIndication.current),
                         selected = t == tab,
                         onClick = {
                             if (t != tab) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)

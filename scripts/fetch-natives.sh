@@ -12,6 +12,7 @@ gh release download "$XRAY_LIB_VERSION" -R 2dust/AndroidLibXrayLite -p 'libv2ray
 
 echo "TUN-мост (hev-socks5-tunnel $HEV_VERSION)"
 WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
 git clone --depth 1 --branch "$HEV_VERSION" --recursive --shallow-submodules \
   https://github.com/heiher/hev-socks5-tunnel "$WORK/jni"
 patch -p1 -d "$WORK/jni" < "$ROOT/scripts/hev-udp-bind.patch"
@@ -26,4 +27,5 @@ patch -p1 -d "$WORK/jni" < "$ROOT/scripts/hev-udp-bind.patch"
 mkdir -p "$ROOT/app/src/main/jniLibs"
 cp -r "$WORK/libs/"* "$ROOT/app/src/main/jniLibs/"
 find "$ROOT/app/src/main/jniLibs" -name '*.so'
+python3 "$ROOT/scripts/check-natives.py" --record
 echo "Готово"

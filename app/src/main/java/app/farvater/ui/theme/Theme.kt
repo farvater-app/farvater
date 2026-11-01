@@ -4,6 +4,9 @@ import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.material3.LocalRippleConfiguration
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -1042,6 +1045,7 @@ private fun ColorScheme.lerpTo(o: ColorScheme, t: Float) = copy(
 val Numeric = TextStyle(fontFeatureSettings = "tnum")
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun FarvaterTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     style: UiStyle = UiStyle.IOS,
@@ -1139,7 +1143,13 @@ fun FarvaterTheme(
                 material -> M3Shapes
                 else -> IosShapes
             },
-            content = content,
+            content = {
+                CompositionLocalProvider(
+                    LocalIndication provides PressIndication,
+                    LocalRippleConfiguration provides null,
+                    content = content,
+                )
+            },
         )
     }
 }

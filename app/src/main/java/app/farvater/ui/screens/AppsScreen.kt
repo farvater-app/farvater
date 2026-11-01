@@ -54,12 +54,12 @@ fun BypassAppsSheet(selected: Set<String>, ruApps: Set<String>, onChange: (Set<S
     val pm = context.packageManager
     var query by remember { mutableStateOf("") }
     val initial = remember { selected + ruApps }
-    val apps by produceState<List<InstalledApp>?>(null) {
-        value = withContext(Dispatchers.IO) { loadApps(pm, context.packageName, initial) }
-    }
     val icons = remember { HashMap<String, ImageBitmap?>() }
 
     IosSheet(title = stringResource(R.string.bypass_apps), onClose = onClose) {
+        val apps by produceState<List<InstalledApp>?>(null) {
+            value = withContext(Dispatchers.IO) { loadApps(pm, context.packageName, initial) }
+        }
         IosSearchField(
             value = query,
             onValueChange = { query = it },

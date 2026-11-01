@@ -89,6 +89,7 @@ class FarvaterVpnService : VpnService() {
         private val requestLock = Any()
 
         private fun request(active: Boolean): VpnRequest = synchronized(requestLock) {
+            if (!active) VpnBus.stopEpoch.incrementAndGet()
             VpnRequest(requestIds.incrementAndGet(), active).also { VpnBus.request.value = it }
         }
 

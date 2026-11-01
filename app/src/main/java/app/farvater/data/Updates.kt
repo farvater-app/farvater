@@ -48,7 +48,17 @@ data class UpdateInfo(
         Build.SUPPORTED_ABIS.firstNotNullOfOrNull { assets[it] } ?: assets["universal"]
 }
 
-class UpdateRepository(
+internal data class UpdateSizeLimits(
+    val manifestBytes: Long = 1024 * 1024,
+    val apkBytes: Long = 256L * 1024 * 1024,
+) {
+    init {
+        require(manifestBytes in 1L..(1024L * 1024))
+        require(apkBytes in 1L..(256L * 1024 * 1024))
+    }
+}
+
+class UpdateRepository internal constructor(
     private val context: Context,
     private val baseClient: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -56,6 +66,7 @@ class UpdateRepository(
         .followSslRedirects(false)
         .build(),
     suppliedTunnelClient: OkHttpClient? = null,
+    private val sizeLimits: UpdateSizeLimits = UpdateSizeLimits(),
 ) {
     private val json = Json { ignoreUnknownKeys = true }
     private val dir = File(context.cacheDir, "updates").apply { mkdirs() }
@@ -83,9 +94,19 @@ class UpdateRepository(
                 val request = Request.Builder().url(url).header("User-Agent", "Farvater/${BuildConfig.VERSION_NAME}").build()
                 client.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) error("HTTP ${response.code}")
-                    val info = json.decodeFromString(UpdateInfo.serializer(), response.body?.string().orEmpty())
+                    val body = response.body
+                    if (body != null) {
+                        checkSize(body.contentLength(), sizeLimits.manifestBytes)
+                        if (body.source().request(sizeLimits.manifestBytes + 1)) {
+                            throw IllegalStateException(context.localizedString(R.string.error_update_size))
+                        }
+                    }
+                    currentCoroutineContext().ensureActive()
+                    val info = json.decodeFromString(UpdateInfo.serializer(), body?.string().orEmpty())
                     return@withContext Result.success(info.takeIf { it.versionCode > BuildConfig.VERSION_CODE })
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 lastError = e
             }
@@ -99,6 +120,7 @@ class UpdateRepository(
             try {
                 val asset = info.assetForDevice() ?: error(context.localizedString(R.string.error_no_apk))
                 if (!asset.url.startsWith("https://")) error(context.localizedString(R.string.error_apk_https))
+                checkSize(asset.size, sizeLimits.apkBytes)
                 val file = File(dir, "farvater-${info.versionCode}.apk")
                 target = file
                 dir.listFiles()?.filter { it != file }?.forEach { it.delete() }
@@ -155,6 +177,7 @@ class UpdateRepository(
             networkRead { call.execute() }.use { response ->
                 if (!response.isSuccessful) throw DownloadNetworkException(IOException("HTTP ${response.code}"))
                 val body = response.body ?: throw DownloadNetworkException(IOException("Empty response"))
+                checkSize(body.contentLength(), sizeLimits.apkBytes)
                 val total = body.contentLength().takeIf { it > 0 } ?: asset.size
                 var read = 0L
                 body.byteStream().use { input ->
@@ -164,6 +187,7 @@ class UpdateRepository(
                             currentCoroutineContext().ensureActive()
                             val n = networkRead { input.read(buffer) }
                             if (n < 0) break
+                            checkSize(n.toLong(), sizeLimits.apkBytes - read)
                             output.write(buffer, 0, n)
                             digest.update(buffer, 0, n)
                             read += n
@@ -179,6 +203,10 @@ class UpdateRepository(
     }
 
     private class DownloadNetworkException(cause: IOException) : IOException(cause)
+
+    private fun checkSize(bytes: Long, limit: Long) {
+        check(bytes <= limit) { context.localizedString(R.string.error_update_size) }
+    }
 
     private inline fun <T> networkRead(block: () -> T): T = try {
         block()

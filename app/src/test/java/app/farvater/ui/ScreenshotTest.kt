@@ -456,6 +456,7 @@ class ScreenshotTest {
         shot(
             "30_apps_dark", dark = true, screen = true,
             act = {
+                rule.mainClock.autoAdvance = true
                 rule.onNodeWithText("Подключение").performClick()
                 rule.mainClock.advanceTimeBy(1_500)
                 rule.onNodeWithText("Приложения мимо VPN").performClick()

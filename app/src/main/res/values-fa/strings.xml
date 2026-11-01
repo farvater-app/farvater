@@ -501,4 +501,5 @@
     <string name="services_no_results">نتیجه‌ای برای بررسی وجود ندارد</string>
     <string name="services_no_results_hint">برای این سرویس نتیجهٔ تازه‌ای وجود ندارد. روی «آزمایش همهٔ گره‌ها» بزنید و منتظر پایان بررسی صفحه‌ها بمانید.</string>
     <string name="vpn_interface_failed">"اندروید نتوانست VPN را ایجاد کند. VPN دیگر را قطع کنید و دوباره وصل شوید."</string>
+    <string name="error_update_size">به‌روزرسانی بیش از حد بزرگ است. بعداً دوباره بررسی کنید.</string>
 </resources>
