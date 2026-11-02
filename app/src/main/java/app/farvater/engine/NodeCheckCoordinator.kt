@@ -186,24 +186,29 @@ object NodeCheckCoordinator {
         val prefs = App.prefs
         val targets = ServiceChecks.targets(prefs.settings)
         if (generation != serviceGeneration || targets.isEmpty() || serviceJob?.isActive == true) return
-        val candidates = nodes.filter { node -> targets.any { target ->
-            ServiceChecks.due(prefs.serviceChecks[ServiceChecks.key(mode, node.id, target)])
-        } }.take(ServiceChecks.MAX_NODES)
+        val history = prefs.serviceChecks
+        val candidates = nodes.mapNotNull { node ->
+            targets.filter { target -> ServiceChecks.due(history[ServiceChecks.key(mode, node.id, target)]) }
+                .takeIf { it.isNotEmpty() }?.let { node to it }
+        }.take(ServiceChecks.MAX_NODES)
         if (candidates.isEmpty()) return
         val job = launch(context, mode) {
-            _state.update { it.copy(services = true, serviceDone = 0, serviceTotal = candidates.size * targets.size) }
+            _state.update { it.copy(services = true, serviceDone = 0, serviceTotal = candidates.sumOf { it.second.size }) }
             try {
                 withTimeoutOrNull(90_000) {
-                    for (node in candidates) {
+                    for ((node, planned) in candidates) {
                         if (generation != serviceGeneration || mode != currentMode() || !prefs.settings.serviceChecksEnabled) break
                         val due = serviceLock.withLock {
                             val current = prefs.serviceChecks
-                            val wanted = targets.filter { ServiceChecks.due(current[ServiceChecks.key(mode, node.id, it)]) }
+                            val wanted = planned.filter { ServiceChecks.due(current[ServiceChecks.key(mode, node.id, it)]) }
                             prefs.serviceChecks = current + wanted.associate { target ->
                                 ServiceChecks.key(mode, node.id, target) to ServiceCheck(ServiceVerdict.UNKNOWN,
-                                    ServiceReason.NETWORK, System.currentTimeMillis())
+                                    ServiceReason.INCOMPLETE, System.currentTimeMillis())
                             }
                             wanted
+                        }
+                        if (due.size != planned.size) _state.update {
+                            it.copy(serviceTotal = it.serviceTotal - planned.size + due.size)
                         }
                         _state.update { it.copy(revision = it.revision + 1) }
                         app.farvater.net.orDefault(Unit) {

@@ -13,7 +13,7 @@ enum class ServiceKind { GEMINI, CHATGPT, CLAUDE, YOUTUBE, CUSTOM }
 enum class ServiceVerdict { RESPONDED, REJECTED, UNKNOWN }
 
 @Serializable
-enum class ServiceReason { PAGE, STATUS, REGION, CHALLENGE, HTTP_ERROR, UNEXPECTED, NETWORK }
+enum class ServiceReason { PAGE, STATUS, REGION, CHALLENGE, HTTP_ERROR, UNEXPECTED, NETWORK, INCOMPLETE, CORE, TIMEOUT, TLS }
 
 @Serializable
 data class ServiceCheck(val verdict: ServiceVerdict, val reason: ServiceReason, val at: Long)

@@ -179,6 +179,54 @@ class NodeCheckServiceTest {
         assertEquals(1, Services.entered)
         assertFalse(restored.state.value.serviceChecking)
         assertEquals(ServiceVerdict.UNKNOWN, App.prefs.serviceChecks.values.single().verdict)
+        assertEquals(ServiceReason.INCOMPLETE, App.prefs.serviceChecks.values.single().reason)
+        assertFalse(ServiceChecks.due(App.prefs.serviceChecks.values.single()))
+    }
+
+    @Test
+    fun serviceProgressCountsOnlyAddressesDueForChecking() {
+        enableServices()
+        App.prefs.settings = App.prefs.settings.copy(checkedServices = ServiceChecks.builtIn.map { it.kind }.toSet())
+        val node = nodes.first()
+        val cached = ServiceCheck(ServiceVerdict.RESPONDED, ServiceReason.PAGE, System.currentTimeMillis())
+        App.prefs.serviceChecks = ServiceChecks.builtIn.drop(1).associate {
+            ServiceChecks.key("BLACK", node.id, it) to cached
+        }
+        val vm = model(listOf(node))
+        vm.testAll()
+        startService()
+        Nodes.permits.trySend(Unit)
+        await { Services.entered == 1 }
+        assertEquals(1, NodeCheckCoordinator.state.value.serviceTotal)
+        Services.permits.trySend(Unit)
+        await { !NodeCheckCoordinator.state.value.active }
+        assertEquals(1, NodeCheckCoordinator.state.value.serviceDone)
+        assertEquals(1, NodeCheckCoordinator.state.value.serviceTotal)
+        assertEquals(4, App.prefs.serviceChecks.size)
+        ServiceChecks.builtIn.drop(1).forEach {
+            assertEquals(cached, App.prefs.serviceChecks[ServiceChecks.key("BLACK", node.id, it)])
+        }
+    }
+
+    @Test
+    fun cancellationKeepsCompletedResultsAndMarksRemainingChecksIncomplete() {
+        enableServices()
+        App.prefs.settings = App.prefs.settings.copy(checkedServices = ServiceChecks.builtIn.map { it.kind }.toSet())
+        val node = nodes.first()
+        val vm = model(listOf(node))
+        vm.testAll()
+        startService()
+        Nodes.permits.trySend(Unit)
+        await { Services.entered == 1 }
+        Services.permits.trySend(Unit)
+        await { NodeCheckCoordinator.state.value.serviceDone == 1 }
+        vm.cancelTest()
+        await { Services.closed == 1 }
+        val results = ServiceChecks.builtIn.map { App.prefs.serviceChecks.getValue(ServiceChecks.key("BLACK", node.id, it)) }
+        assertEquals(ServiceVerdict.RESPONDED, results.first().verdict)
+        assertEquals(ServiceReason.PAGE, results.first().reason)
+        assertTrue(results.drop(1).all { it.verdict == ServiceVerdict.UNKNOWN && it.reason == ServiceReason.INCOMPLETE })
+        assertTrue(results.none { ServiceChecks.due(it) })
     }
 
     @Test

@@ -22,6 +22,35 @@ import org.junit.Test
 
 class ServiceProbeTest {
     @Test
+    fun unavailableEngineReportsLaunchFailureForEveryTarget() = runBlocking {
+        val node = LinkParser.parse("vless://test@probe.example.test:443?security=tls")!!
+        val results = mutableMapOf<ServiceTarget, ServiceCheck>()
+        var launches = 0
+        ServiceProbe.checkWithEngine(node, null, ServiceChecks.builtIn, { target, result -> results[target] = result },
+            { launches++; null }, {})
+        assertEquals(1, launches)
+        assertEquals(ServiceChecks.builtIn.toSet(), results.keys)
+        assertTrue(results.values.all { it.verdict == ServiceVerdict.UNKNOWN && it.reason == ServiceReason.CORE })
+        assertTrue(results.values.none { ServiceChecks.due(it) })
+    }
+
+    @Test
+    fun networkFailuresKeepTheirCauseAndNeverClaimARegionRestriction() = runBlocking {
+        val target = ServiceChecks.builtIn.first { it.kind == ServiceKind.GEMINI }
+        for ((failure, reason) in listOf(
+            java.net.SocketTimeoutException("timeout") to ServiceReason.TIMEOUT,
+            java.io.InterruptedIOException("timeout") to ServiceReason.TIMEOUT,
+            javax.net.ssl.SSLHandshakeException("untrusted") to ServiceReason.TLS,
+            java.net.ConnectException("refused") to ServiceReason.NETWORK,
+        )) {
+            val http = OkHttpClient.Builder().addInterceptor { throw failure }.build()
+            val checked = ServiceProbe.request(http, target)
+            assertEquals(ServiceVerdict.UNKNOWN, checked.verdict)
+            assertEquals(reason, checked.reason)
+        }
+    }
+
+    @Test
     fun everyBuiltInServiceRecognizesItsPageIncludingLateGeminiTitle() = runBlocking {
         for (target in ServiceChecks.builtIn) {
             val heading = when (target.kind) {

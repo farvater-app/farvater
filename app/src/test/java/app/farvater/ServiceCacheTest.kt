@@ -23,6 +23,20 @@ import kotlin.concurrent.thread
 @Config(sdk = [35], application = Application::class)
 class ServiceCacheTest {
     @Test
+    fun previousResultsAndNewFailureReasonsSurviveReloadWithTheSameRetryWindow() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val now = System.currentTimeMillis()
+        val history = ServiceReason.entries.associate { reason ->
+            reason.name to ServiceCheck(if (reason == ServiceReason.PAGE) ServiceVerdict.RESPONDED else ServiceVerdict.UNKNOWN, reason, now)
+        }
+        Prefs(app).serviceChecks = history
+        val restored = Prefs(app).serviceChecks
+        assertEquals(history, restored)
+        assertTrue(restored.values.none { ServiceChecks.due(it, now + ServiceChecks.RETRY_MS - 1) })
+        assertTrue(restored.values.all { ServiceChecks.due(it, now + ServiceChecks.RETRY_MS) })
+    }
+
+    @Test
     fun pruningCannotOverwriteConcurrentFreshResult() {
         val app = ApplicationProvider.getApplicationContext<Application>()
         val health = app.getSharedPreferences("farvater_health", 0)
