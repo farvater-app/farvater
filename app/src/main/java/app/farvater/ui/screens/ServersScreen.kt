@@ -24,6 +24,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -231,6 +233,8 @@ fun ServersScreen(
                         }
                         Text(stringResource(if (state.serviceChecking) R.string.services_running else R.string.services_results_hint),
                             style = IosType.footnote, color = c.secondaryLabel)
+                        if (state.serviceChecks.isNotEmpty()) Text(stringResource(R.string.services_details_hint),
+                            style = IosType.footnote, color = c.secondaryLabel)
                     }
                     Row(
                         Modifier.fillMaxWidth().height(48.dp)
@@ -387,7 +391,8 @@ fun ServersScreen(
             subtitle = "${node.protocol.title}, ${node.address}:${node.port} · ${state.sourceTitle(node.sourceId, stringResource(R.string.interval_manual))}",
             onDismiss = { menuFor = null },
         ) { close ->
-            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                app.farvater.ui.components.ServiceCheckDetails(node.id, serviceMode, serviceTargets, state.serviceChecks, serviceNow)
                 IosButton(
                     stringResource(R.string.action_test),
                     onClick = { close { onTestNode(node) } },

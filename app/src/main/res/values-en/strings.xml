@@ -510,4 +510,15 @@
     <string name="nodes_show_all">Show all nodes</string>
     <string name="checks_start_failed">Could not start the check. Open the app and try again.</string>
     <string name="checks_timed_out">The check timed out. Start it again.</string>
+    <string name="services_details">Service check results</string>
+    <string name="services_details_hint">Touch and hold a node to see the reasons.</string>
+    <string name="service_reason_region">%1$s: the service reported a regional restriction</string>
+    <string name="service_reason_challenge">%1$s: the service requested a bot check</string>
+    <string name="service_reason_http">%1$s: the service returned an error</string>
+    <string name="service_reason_unexpected">%1$s: unexpected response; availability could not be determined</string>
+    <string name="service_reason_network">%1$s: could not receive a response over the network</string>
+    <string name="service_reason_incomplete">%1$s: the check did not finish</string>
+    <string name="service_reason_core">%1$s: could not start the check through the node</string>
+    <string name="service_reason_timeout">%1$s: the response timed out</string>
+    <string name="service_reason_tls">%1$s: could not establish a secure connection</string>
 </resources>

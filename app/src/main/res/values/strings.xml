@@ -510,4 +510,15 @@
     <string name="nodes_show_all">Показать все узлы</string>
     <string name="checks_start_failed">Не удалось начать проверку. Откройте приложение и повторите.</string>
     <string name="checks_timed_out">Время проверки истекло. Запустите её снова.</string>
+    <string name="services_details">Результаты проверки сервисов</string>
+    <string name="services_details_hint">Чтобы увидеть причины, нажмите и удерживайте узел.</string>
+    <string name="service_reason_region">%1$s: сервис сообщил об ограничении региона</string>
+    <string name="service_reason_challenge">%1$s: сервис запросил проверку на бота</string>
+    <string name="service_reason_http">%1$s: сервис вернул ошибку</string>
+    <string name="service_reason_unexpected">%1$s: получен неожиданный ответ; доступность не определена</string>
+    <string name="service_reason_network">%1$s: не удалось получить ответ по сети</string>
+    <string name="service_reason_incomplete">%1$s: проверка не завершена</string>
+    <string name="service_reason_core">%1$s: не удалось запустить проверку через узел</string>
+    <string name="service_reason_timeout">%1$s: время ожидания ответа истекло</string>
+    <string name="service_reason_tls">%1$s: не удалось установить защищённое соединение</string>
 </resources>

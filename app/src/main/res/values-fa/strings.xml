@@ -510,4 +510,15 @@
     <string name="nodes_show_all">نمایش همهٔ گره‌ها</string>
     <string name="checks_start_failed">بررسی آغاز نشد. برنامه را باز کنید و دوباره تلاش کنید.</string>
     <string name="checks_timed_out">زمان بررسی پایان یافت. دوباره آن را آغاز کنید.</string>
+    <string name="services_details">نتایج بررسی سرویس‌ها</string>
+    <string name="services_details_hint">برای دیدن دلیل، گره را لمس کنید و نگه دارید.</string>
+    <string name="service_reason_region">%1$s: سرویس محدودیت منطقه‌ای را اعلام کرد</string>
+    <string name="service_reason_challenge">%1$s: سرویس درخواست بررسی ربات کرد</string>
+    <string name="service_reason_http">%1$s: سرویس خطا برگرداند</string>
+    <string name="service_reason_unexpected">%1$s: پاسخ غیرمنتظره؛ دسترسی مشخص نشد</string>
+    <string name="service_reason_network">%1$s: دریافت پاسخ از شبکه ممکن نشد</string>
+    <string name="service_reason_incomplete">%1$s: بررسی کامل نشد</string>
+    <string name="service_reason_core">%1$s: آغاز بررسی از طریق گره ممکن نشد</string>
+    <string name="service_reason_timeout">%1$s: مهلت دریافت پاسخ به پایان رسید</string>
+    <string name="service_reason_tls">%1$s: برقراری اتصال امن ممکن نشد</string>
 </resources>
