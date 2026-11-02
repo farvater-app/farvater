@@ -15,7 +15,7 @@
     <string name="service_youtube">YouTube</string>
     <string name="service_custom">Свой адрес</string>
     <string name="services_enable">Проверять страницы сервисов</string>
-    <string name="services_hint">Выберите сервисы. После обычной проверки проверяем их страницы через не более чем 10 ответивших узлов с наименьшей задержкой, последовательно, до 90 секунд. Один адрес через один узел — не чаще раза в 30 минут. При уходе из приложения проверка останавливается.</string>
+    <string name="services_hint">Выберите сервисы. После обычной проверки проверяем их страницы через не более чем 10 ответивших узлов с наименьшей задержкой, последовательно, до 90 секунд. Один адрес через один узел — не чаще раза в 30 минут. Проверка продолжается в фоне. Остановить её можно в уведомлении.</string>
     <string name="services_add_custom">Добавить или изменить адрес</string>
     <string name="services_expected_code">Ожидаемый ответ: HTTP %1$d</string>
     <string name="services_custom_hint">Укажите публичный HTTPS-адрес без логина и пароля и ожидаемый код ответа. Переходы по перенаправлениям для своего адреса не выполняются.</string>
@@ -24,7 +24,7 @@
     <string name="services_invalid">Проверьте HTTPS-адрес и код от 200 до 599. Локальные адреса не подходят.</string>
     <string name="services_filter">Подходит для…</string>
     <string name="services_running">Проверяем страницы сервисов…</string>
-    <string name="services_results_hint">Результат действителен сутки и показывает ответ страницы на момент проверки. Работа аккаунта, чата или видео может отличаться.</string>
+    <string name="services_results_hint">Результат действителен сутки. Работа сервисов может отличаться.</string>
     <string name="services_responded">%1$s: страница ответила или получен ожидаемый код</string>
     <string name="services_rejected">%1$s: проверочный запрос отклонён или код не совпал</string>
     <string name="services_unknown">%1$s: не удалось определить</string>
@@ -151,6 +151,7 @@
     <string name="unit_kilobytes">"%1$s КБ"</string>
     <string name="unit_megabytes">"%1$s МБ"</string>
     <string name="unit_gigabytes">"%1$s ГБ"</string>
+    <string name="unit_terabytes">"%1$s ТБ"</string>
     <string name="unit_speed">"%1$s/с"</string>
     <string name="updated_never">"ещё не загружался"</string>
     <string name="updated_now">"только что"</string>
@@ -502,4 +503,11 @@
     <string name="services_no_results_hint">Для этого сервиса нет свежих результатов. Нажмите «Проверить все узлы» и дождитесь проверки страниц.</string>
     <string name="vpn_interface_failed">"Android не создал VPN. Отключите другой VPN и повторите подключение."</string>
     <string name="error_update_size">Обновление слишком большое. Повторите проверку позже.</string>
+    <string name="node_test_timeout">тайм-аут</string>
+    <string name="node_test_refused">отказ соединения</string>
+    <string name="node_test_tls">ошибка TLS</string>
+    <string name="node_test_connection">ошибка соединения</string>
+    <string name="nodes_show_all">Показать все узлы</string>
+    <string name="checks_start_failed">Не удалось начать проверку. Откройте приложение и повторите.</string>
+    <string name="checks_timed_out">Время проверки истекло. Запустите её снова.</string>
 </resources>

@@ -5,7 +5,6 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
 
 import kotlinx.coroutines.launch
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.spring
@@ -13,9 +12,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -163,40 +160,31 @@ fun HomeScreen(
     val connectedNode = remember(vpn) { (vpn as? VpnState.Connected)?.node?.name?.let { splitFlag(it).second } }
 
     val status: @Composable () -> Unit = {
-        AnimatedContent(
-            targetState = mode,
-            transitionSpec = {
-                (fadeIn(tween(240)) + scaleIn(spring(dampingRatio = 0.8f, stiffness = 400f), initialScale = 0.92f)) togetherWith
-                    fadeOut(tween(120))
-            },
-            label = "status",
-            modifier = Modifier.fillMaxWidth(),
-        ) { m ->
-            Column(Modifier.fillMaxWidth().padding(horizontal = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    headline(m, state).let { if (nothing) it.uppercase() else it },
-                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                    style = if (Ios.material) MaterialTheme.typography.headlineSmall else IosType.title2,
-                    color = statusColor(m),
-                    textAlign = TextAlign.Center,
+        val m = mode
+        Column(Modifier.fillMaxWidth().padding(horizontal = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                headline(m, state).let { if (nothing) it.uppercase() else it },
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                style = if (Ios.material) MaterialTheme.typography.headlineSmall else IosType.title2,
+                color = statusColor(m),
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                if (winter && m == ConnectMode.Idle) stringResource(R.string.winter_connect_hint) else if (witch && m == ConnectMode.Idle) stringResource(R.string.witch_connect_hint) else if (m == ConnectMode.Connected && stalled) stringResource(R.string.node_stalled) else supporting(m, vpn, state, sumie),
+                style = IosType.subheadline,
+                color = c.secondaryLabel,
+                textAlign = TextAlign.Center,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (m == ConnectMode.Connected && stalled) {
+                IosButton(
+                    stringResource(R.string.find_working_short),
+                    onClick = onFindWorking,
+                    style = IosButtonStyle.Plain,
+                    modifier = Modifier.padding(top = 4.dp),
                 )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    if (winter && m == ConnectMode.Idle) stringResource(R.string.winter_connect_hint) else if (witch && m == ConnectMode.Idle) stringResource(R.string.witch_connect_hint) else if (m == ConnectMode.Connected && stalled) stringResource(R.string.node_stalled) else supporting(m, vpn, state, sumie),
-                    style = IosType.subheadline,
-                    color = c.secondaryLabel,
-                    textAlign = TextAlign.Center,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (m == ConnectMode.Connected && stalled) {
-                    IosButton(
-                        stringResource(R.string.find_working_short),
-                        onClick = onFindWorking,
-                        style = IosButtonStyle.Plain,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                }
             }
         }
     }
@@ -323,11 +311,11 @@ fun HomeScreen(
             }
 
             AnimatedVisibility(
-                visible = vpn is VpnState.Connected,
+                visible = mode == ConnectMode.Connected,
                 enter = fadeIn() + expandVertically(spring(dampingRatio = 0.85f, stiffness = 380f)),
                 exit = fadeOut() + shrinkVertically(),
             ) {
-                if (vpn is VpnState.Connected) SessionSection(vpn, traffic, history, state.settings.encryptedDns)
+                if (mode == ConnectMode.Connected && vpn is VpnState.Connected) SessionSection(vpn, traffic, history, state.settings.encryptedDns)
             }
 
             IosSection(

@@ -8,6 +8,7 @@ import java.lang.reflect.Method
 import java.lang.reflect.Proxy
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
@@ -106,14 +107,22 @@ object XrayEngine {
         controller = null
     }
 
-    fun measureDelay(config: String, url: String): Long {
-        val m = measureMethod ?: return -1
+    fun measureDelay(config: String, url: String): Long = measureDelayDetailed(config, url).delayMs
+
+    fun measureDelayDetailed(config: String, url: String): DelayMeasurement {
+        val m = measureMethod ?: return DelayMeasurement(-1)
         val task = measurers.submit<Long> {
             ready.await()
             (m.invoke(null, config, url) as Number).toLong()
         }
-        return runCatching { task.get(MEASURE_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
-            .onFailure { task.cancel(true) }
-            .getOrDefault(-1L)
+        return awaitDelay(task)
+    }
+
+    internal fun awaitDelay(task: Future<Long>): DelayMeasurement = try {
+        DelayMeasurement(task.get(MEASURE_TIMEOUT_MS, TimeUnit.MILLISECONDS))
+    } catch (error: Exception) {
+        task.cancel(true)
+        if (error is InterruptedException) Thread.currentThread().interrupt()
+        DelayMeasurement(-1, TestFailure.from(error))
     }
 }

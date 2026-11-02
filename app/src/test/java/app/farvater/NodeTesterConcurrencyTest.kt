@@ -5,6 +5,7 @@ import app.farvater.core.model.Protocol
 import app.farvater.core.model.ProxyNode
 import app.farvater.engine.NodeTester
 import app.farvater.engine.XrayEngine
+import app.farvater.engine.DelayMeasurement
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
@@ -91,6 +92,9 @@ class NodeTesterConcurrencyTest {
     class Core {
         @Implementation
         fun isAvailable() = true
+
+        @Implementation
+        fun measureDelayDetailed(config: String, url: String): DelayMeasurement = DelayMeasurement(measureDelay(config, url))
 
         @Implementation
         fun measureDelay(config: String, url: String): Long {

@@ -33,6 +33,8 @@ import app.farvater.engine.Failover
 import app.farvater.engine.GalsPlan
 import app.farvater.engine.NetModeDetector
 import app.farvater.engine.NodeTester
+import app.farvater.engine.NodeCheckCoordinator
+import app.farvater.engine.NodeCheckFailure
 import app.farvater.engine.Pathfinder
 import app.farvater.engine.TestMethod
 import app.farvater.engine.TestResult
@@ -115,6 +117,7 @@ data class UiState(
     val refining: Boolean = false,
     val galsNet: NetMode? = null,
     val dead: Set<String> = emptySet(),
+    val groupedDead: Set<String> = dead,
     val preflight: ProxyNode? = null,
     val deadPrompt: ProxyNode? = null,
     val checking: Set<String> = emptySet(),
@@ -210,11 +213,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private var detectJob: Job? = null
     private val attempts = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
-    private val healthLock = Mutex()
+    private val healthLock = NodeCheckCoordinator.healthLock
 
     init {
-        if (results.value.isEmpty()) results.value = NodeHealth.results(prefs.nodeHealth, modeKey())
-        _state.update { it.copy(results = results.value, dead = deadFor(prefs.nodeHealth, modeKey())) }
+        NodeCheckCoordinator.cancelIfModeChanged(modeKey())
+        if (results.value.isEmpty() || cachedResultsMode != modeKey()) results.value = NodeHealth.results(prefs.nodeHealth, modeKey())
+        cachedResultsMode = modeKey()
+        _state.update { it.copy(results = results.value, dead = deadFor(prefs.nodeHealth, modeKey()), groupedDead = groupedDeadFor(it.nodes)) }
         viewModelScope.launch(Dispatchers.Default) {
             healthLock.withLock {
                 val history = prefs.nodeHealth
@@ -232,6 +237,36 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch { rebuildVersion.collect { rebuildRequests.trySend(Unit) } }
         viewModelScope.launch { _state.collect { cachedState = it } }
+        viewModelScope.launch {
+            var failureSession = -1L
+            NodeCheckCoordinator.state.collect { work ->
+                val mode = modeKey()
+                val sameMode = work.mode == mode
+                if (cachedResultsMode != mode) {
+                    results.value = NodeHealth.results(prefs.nodeHealth, mode)
+                    cachedResultsMode = mode
+                }
+                testing = sameMode && work.progress != null
+                if (sameMode) results.update { current ->
+                    current + work.results.filter { (id, result) -> (current[id]?.at ?: Long.MIN_VALUE) <= result.at }
+                }
+                _state.update { old -> old.copy(
+                    settings = prefs.settings,
+                    results = results.value,
+                    progress = work.progress?.takeIf { sameMode }?.let { TestProgress(it.done, it.total, it.alive) },
+                    checking = if (sameMode) work.checking else emptySet(),
+                    serviceChecking = sameMode && work.services,
+                    serviceChecks = if (prefs.settings.serviceChecksEnabled) prefs.serviceChecks else emptyMap(),
+                    dead = deadFor(prefs.nodeHealth, modeKey()),
+                    groupedDead = groupedDeadFor(old.nodes),
+                    nodes = if (prefs.settings.liveSort) sortNodes(old.nodes, results.value) else old.nodes,
+                ) }
+                if (sameMode && work.failure != null && failureSession != work.session) {
+                    failureSession = work.session
+                    toast(messageText(if (work.failure == NodeCheckFailure.TIMEOUT) R.string.checks_timed_out else R.string.checks_start_failed))
+                }
+            }
+        }
         viewModelScope.launch(Dispatchers.IO) {
             if (snapshots.value.isEmpty()) {
                 val ids = fetchTargets().map { it.first } + ProxyNode.MANUAL_SOURCE
@@ -256,6 +291,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             VpnBus.state.collect { vpn ->
                 if (vpn is VpnState.Failed) toast(vpn.message)
                 val node = (vpn as? VpnState.Connected)?.node ?: (vpn as? VpnState.Connecting)?.node
+                _state.update { it.copy(groupedDead = groupedDeadFor(it.nodes)) }
                 if (node != null && node.id != _state.value.selectedId) {
                     _state.update { it.copy(selectedId = node.id, savedNode = node) }
                 }
@@ -692,81 +728,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun testAll(onFinished: (() -> Unit)? = null) {
+    fun testAll() {
         if (testJob?.isActive == true) return
-        cancelServiceChecks()
-        val serviceGeneration = this.serviceGeneration
-        val allowServiceChecks = !_state.value.gals && pathJob?.isActive != true
         val nodes = _state.value.nodes
         if (nodes.isEmpty()) {
             toast(messageText(R.string.nodes_list_empty))
             return
         }
-        val settings = prefs.settings
-        val vpn = VpnBus.state.value
-        val connected = (vpn as? VpnState.Connected)?.node?.takeIf { node -> nodes.any { it.id == node.id } }
-        val exempt = sameAccount(nodes)
-        testing = true
-        testJob = viewModelScope.launch {
-            val me = coroutineContext.job
-            var done = 0
-            var alive = 0
-            var lastFlush = 0L
-            val pending = HashMap<String, TestResult>()
-            val finished = ArrayList<TestResult>()
-            fun flush(finished: Boolean = false) {
-                if (pending.isNotEmpty()) {
-                    val batch = HashMap(pending)
-                    pending.clear()
-                    results.update { it + batch }
-                }
-                _state.update {
-                    it.copy(
-                        results = results.value,
-                        progress = if (finished) null else TestProgress(done, nodes.size, alive),
-                        nodes = if (settings.liveSort) sortNodes(it.nodes, results.value) else it.nodes,
-                    )
-                }
-            }
-            fun take(r: TestResult) {
-                done++
-                if (!r.alive && r.nodeId in exempt) return
-                if (r.alive) alive++
-                pending[r.nodeId] = r
-                finished += r
-                val now = System.nanoTime() / 1_000_000
-                if (now - lastFlush >= FLUSH_MS) {
-                    lastFlush = now
-                    flush()
-                }
-            }
-            _state.update { it.copy(progress = TestProgress(0, nodes.size, 0)) }
-            try {
-                val rest = if (connected == null) {
-                    nodes
-                } else {
-                    val tunnel = NodeTester.throughTunnel(connected, settings.testUrl)
-                    if (tunnel == null) {
-                        nodes
-                    } else {
-                        take(tunnel)
-                        nodes.filter { it.id != connected.id }
-                    }
-                }
-                NodeTester.testAll(rest, settings.testUrl, settings.concurrency).collect { take(it) }
-            } finally {
-                if (testJob === me) {
-                    testing = false
-                    flush(finished = true)
-                }
-                recordHealth(finished, exempt)
-            }
-            rebuildNow()
-            _state.update { it.copy(progress = null) }
-            onFinished?.invoke()
-            if (allowServiceChecks) checkServices(nodes.filter { node -> finished.any { it.nodeId == node.id && it.alive && it.method == TestMethod.REAL } }
-                .sortedBy { results.value[it.id]?.delayMs ?: Long.MAX_VALUE }, serviceGeneration)
-        }
+        val connected = (VpnBus.state.value as? VpnState.Connected)?.node?.takeIf { node -> nodes.any { it.id == node.id } }
+        testJob = NodeCheckCoordinator.testAll(getApplication(), nodes, prefs.settings, modeKey(), connected,
+            sameAccount(nodes), !_state.value.gals && pathJob?.isActive != true)
     }
 
     fun toggleGroup(sourceId: String) {
@@ -777,94 +748,28 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun testNode(node: ProxyNode) {
-        if (node.id in _state.value.checking) return
-        val serviceGeneration = this.serviceGeneration
-        _state.update { it.copy(checking = it.checking + node.id) }
+        val started = System.currentTimeMillis()
+        val connected = (VpnBus.state.value as? VpnState.Connected)?.node?.id == node.id
+        val job = NodeCheckCoordinator.testNode(getApplication(), node, prefs.settings, modeKey(), connected, sameAccount(listOf(node))) ?: return
         viewModelScope.launch {
-            try {
-                val r = testOne(node)
-                results.update { it + (r.nodeId to r) }
-                _state.update { it.copy(results = results.value) }
-                recordHealth(listOf(r), sameAccount(listOf(node)))
-                val name = splitFlag(node.name).second
-                toast(if (r.alive) messageText(R.string.node_test_alive, name, r.delayMs) else messageText(R.string.dead_node_title, name))
-                if (r.alive && r.method == TestMethod.REAL) checkServices(listOf(node), serviceGeneration)
-            } finally {
-                _state.update { it.copy(checking = it.checking - node.id) }
-            }
+            job.join()
+            if (job.isCancelled) return@launch
+            val result = NodeCheckCoordinator.state.value.results[node.id]?.takeIf { it.at >= started } ?: return@launch
+            val name = splitFlag(node.name).second
+            toast(if (result.alive) messageText(R.string.node_test_alive, name, result.delayMs) else messageText(R.string.dead_node_title, name))
         }
     }
 
     fun cancelTest() {
-        cancelServiceChecks()
+        NodeCheckCoordinator.cancel()
         testJob?.cancel()
         pathJob?.cancel()
         _state.update { it.copy(progress = null, pathfinding = null, gals = false, sensing = false, galsNet = null, refining = false) }
     }
 
     private var pathJob: Job? = null
-    private var serviceJob: Job? = null
-    private var serviceForeground = false
-    private var serviceGeneration = 0L
 
-    fun setServiceForeground(foreground: Boolean) {
-        serviceForeground = foreground
-        if (!foreground) cancelServiceChecks()
-    }
-
-    fun cancelServiceChecks() {
-        serviceGeneration++
-        serviceJob?.cancel()
-        _state.update { it.copy(serviceChecking = false) }
-    }
-
-    private fun checkServices(nodes: List<ProxyNode>, generation: Long) {
-        val targets = app.farvater.data.ServiceChecks.targets(prefs.settings)
-        if (generation != serviceGeneration || !serviceForeground || targets.isEmpty() || serviceJob?.isActive == true || pathJob?.isActive == true ||
-            _state.value.progress != null) return
-        val mode = modeKey()
-        val history = prefs.serviceChecks
-        val candidates = nodes.filter { node -> targets.any { target ->
-            app.farvater.data.ServiceChecks.due(history[app.farvater.data.ServiceChecks.key(mode, node.id, target)])
-        } }.take(app.farvater.data.ServiceChecks.MAX_NODES)
-        if (candidates.isEmpty()) return
-        serviceJob = viewModelScope.launch {
-            val me = coroutineContext.job
-            _state.update { it.copy(serviceChecking = true) }
-            try {
-                kotlinx.coroutines.withTimeoutOrNull(90_000) {
-                    for (node in candidates) {
-                        if (!serviceForeground || mode != modeKey() || !prefs.settings.serviceChecksEnabled) break
-                        val due = serviceLock.withLock {
-                            val current = prefs.serviceChecks
-                            val wanted = targets.filter { app.farvater.data.ServiceChecks.due(current[app.farvater.data.ServiceChecks.key(mode, node.id, it)]) }
-                            val attempted = wanted.associate { target ->
-                                app.farvater.data.ServiceChecks.key(mode, node.id, target) to app.farvater.data.ServiceCheck(
-                                    app.farvater.data.ServiceVerdict.UNKNOWN, app.farvater.data.ServiceReason.NETWORK, System.currentTimeMillis())
-                            }
-                            prefs.serviceChecks = current + attempted
-                            wanted
-                        }
-                        if (due.isEmpty()) continue
-                        rebuildNow()
-                        app.farvater.net.orDefault(Unit) {
-                            kotlinx.coroutines.withTimeoutOrNull(25_000) {
-                                app.farvater.engine.ServiceProbe.check(node, prefs.profileFor(node.id), due) { target, checked ->
-                                    serviceLock.withLock {
-                                        prefs.serviceChecks = prefs.serviceChecks +
-                                            (app.farvater.data.ServiceChecks.key(mode, node.id, target) to checked)
-                                    }
-                                    rebuildNow()
-                                }
-                            }
-                        }
-                    }
-                }
-            } finally {
-                if (serviceJob === me) _state.update { it.copy(serviceChecking = false) }
-            }
-        }
-    }
+    fun cancelServiceChecks() = NodeCheckCoordinator.cancelServices()
 
     fun findWorking() {
         if (pathJob?.isActive == true || testJob?.isActive == true) return
@@ -1041,6 +946,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun deadFor(history: Map<String, NodeCheck>, mode: String): Set<String> =
         if (prefs.settings.groupDead) NodeHealth.dead(history, mode) else emptySet()
 
+    private fun groupedDeadFor(nodes: List<ProxyNode>): Set<String> {
+        if (!prefs.settings.groupDead) return emptySet()
+        val mode = effectiveMode(prefs.settings)
+        val eligible = nodes.filter { node ->
+            val sourceMode = prefs.sourceConfigs[node.sourceId]?.mode ?: BuiltInCatalog.byId(node.sourceId)?.mode ?: SourceMode.ANY
+            prefs.allowedForAuto(node) && sourceMode.fits(mode)
+        }.mapTo(HashSet()) { it.id }
+        val current = when (val vpn = VpnBus.state.value) {
+            is VpnState.Connected -> vpn.node.id
+            is VpnState.Connecting -> vpn.node.id
+            else -> null
+        }
+        return NodeHealth.groupedDead(prefs.nodeHealth, prefs.fullNodeChecks[modeKey()], modeKey(),
+            eligible, sameAccount(nodes) + setOfNotNull(current))
+    }
+
     private fun sameAccount(nodes: List<ProxyNode>): Set<String> {
         val current = when (val vpn = VpnBus.state.value) {
             is VpnState.Connected -> vpn.node
@@ -1071,14 +992,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 dead
             }
         }
-        _state.update { it.copy(dead = dead) }
+        _state.update { it.copy(dead = dead, groupedDead = groupedDeadFor(it.nodes)) }
         rebuild()
     }
 
     private fun reloadHealth() {
+        val mode = modeKey()
+        NodeCheckCoordinator.cancelIfModeChanged(mode)
+        val work = NodeCheckCoordinator.state.value
+        testing = work.mode == mode && work.progress != null
         if (testing) return
-        results.value = NodeHealth.results(prefs.nodeHealth, modeKey())
-        _state.update { it.copy(results = results.value, dead = deadFor(prefs.nodeHealth, modeKey())) }
+        results.value = NodeHealth.results(prefs.nodeHealth, mode)
+        cachedResultsMode = mode
+        _state.update { it.copy(results = results.value, dead = deadFor(prefs.nodeHealth, mode), groupedDead = groupedDeadFor(it.nodes),
+            progress = null, checking = if (work.mode == mode) work.checking else emptySet(), serviceChecking = work.mode == mode && work.services) }
         rebuild()
     }
 
@@ -1245,7 +1172,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         prefs.settings = new
         if (old.serviceChecksEnabled != new.serviceChecksEnabled || old.checkedServices != new.checkedServices ||
             old.serviceCustomUrl != new.serviceCustomUrl || old.serviceExpectedCode != new.serviceExpectedCode) cancelServiceChecks()
-        if (old.groupDead != new.groupDead) _state.update { it.copy(dead = deadFor(prefs.nodeHealth, modeKey())) }
+        if (old.groupDead != new.groupDead) _state.update { it.copy(dead = deadFor(prefs.nodeHealth, modeKey()), groupedDead = groupedDeadFor(it.nodes)) }
         rebuild()
         val vpn = VpnBus.state.value
         val tunnelChanged = old.bypassApps != new.bypassApps ||
@@ -1368,6 +1295,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 sources = sources,
                 nodes = if (testing && !settings.liveSort) keepOrder(it.nodes, nodes) else sortNodes(nodes, res),
                 hiddenInsecure = all.size - secure.size,
+                groupedDead = groupedDeadFor(nodes),
                 duplicates = secure.size - single.size,
                 results = res,
                 netMode = mode,
@@ -1407,6 +1335,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun hostOf(url: String) = url.substringAfter("://").substringBefore('/').ifBlank { messageText(R.string.subscription_title) }
 
     companion object {
+        @Volatile private var cachedResultsMode: String? = null
         private val communityIds = BuiltInCatalog.sources.map { it.id }.toSet()
         private const val HOUR_MS = 60 * 60 * 1000L
         private const val DEFAULT_INTERVAL_H = 6
@@ -1417,13 +1346,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         @Volatile private var lastDetect = 0L
         private const val UPDATE_CHECK_GAP_MS = 15 * 60 * 1000L
         private const val REBUILD_GAP_MS = 150L
-        private const val FLUSH_MS = 300L
         private const val RECONNECT_DELAY_MS = 1200L
         private const val PATH_CANDIDATES = 8
         private const val SCOUT_MS = 300L
 
         private val selectionLock = app.farvater.data.Prefs.selectionLock
-        private val serviceLock = Mutex()
         private val rebuildVersion = MutableStateFlow(0L)
         private val cachedSnapshots = MutableStateFlow<Map<String, SourceSnapshot>>(emptyMap())
         private val cachedResults = MutableStateFlow<Map<String, TestResult>>(emptyMap())

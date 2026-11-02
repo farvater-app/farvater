@@ -133,10 +133,7 @@ private fun DrawScope.winterLights(mode: ConnectMode, progress: Float, time: Flo
             if (power > 0.7f) drawCircle(Color(0xFFFFF6DD), 0.8f, point)
         }
     }
-    val starPower = when {
-        busy -> if (still) 0.45f else 0.5f + 0.3f * sin(time * 2f)
-        else -> ((progress - 0.82f) / 0.18f).coerceIn(0f, 1f)
-    }
+    val starPower = winterStarPower(mode, progress, time, still)
     val center = Offset(120f, 33f)
     val starColor = if (mode == ConnectMode.Error) Color(0xFFD96C65) else Color(0xFFFFDF92)
     if (starPower > 0f) {
@@ -155,6 +152,12 @@ internal fun winterLampPower(mode: ConnectMode, progress: Float, time: Float, in
         return (1f - distance / 7f).coerceIn(0.12f, 1f)
     }
     return (progress * 43f - index).coerceIn(0f, 1f)
+}
+
+internal fun winterStarPower(mode: ConnectMode, progress: Float, time: Float, still: Boolean): Float = when (mode) {
+    ConnectMode.Searching, ConnectMode.Connecting -> if (still) 0.8f else 0.85f + 0.15f * sin(time * 2f)
+    ConnectMode.Connected -> 0.7f + 0.3f * ((progress - 0.82f) / 0.18f).coerceIn(0f, 1f)
+    else -> progress.coerceIn(0f, 1f)
 }
 
 internal fun winterStar(center: Offset, radius: Float): Path = Path().apply {

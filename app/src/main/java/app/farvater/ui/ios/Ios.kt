@@ -107,6 +107,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -231,7 +232,9 @@ fun IosLargeTitle(
         return
     }
     if (Ios.oneUi) {
-        val height = (LocalConfiguration.current.screenHeightDp * 0.3f).dp.coerceIn(190.dp, 300.dp)
+        val screenHeight = LocalConfiguration.current.screenHeightDp
+        val height = if (screenHeight <= 700) (screenHeight * 0.24f).dp.coerceIn(96.dp, 168.dp)
+            else (screenHeight * 0.3f).dp.coerceIn(190.dp, 300.dp)
         Column(
             modifier.fillMaxWidth().heightIn(min = height).padding(start = 24.dp, end = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -528,22 +531,45 @@ fun IosRow(
             leading()
             Spacer(Modifier.width(12.dp))
         }
-        Column(Modifier.weight(1f)) {
-            Text(title, style = titleStyle, color = titleColor ?: c.label, maxLines = titleLines, overflow = TextOverflow.Ellipsis)
-            if (badge != null) RowBadge(badge)
-            if (subtitle != null) {
-                Text(
-                    subtitle,
-                    style = subtitleStyle,
-                    color = subtitleColor ?: c.secondaryLabel,
-                    maxLines = subtitleLines,
-                    overflow = TextOverflow.Ellipsis,
-                )
+        Layout(
+            modifier = Modifier.weight(1f),
+            content = {
+                Column {
+                    Text(title, style = titleStyle, color = titleColor ?: c.label,
+                        maxLines = if (value == null) titleLines else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis)
+                    if (badge != null) RowBadge(badge)
+                    if (subtitle != null) {
+                        Text(
+                            subtitle,
+                            style = subtitleStyle,
+                            color = subtitleColor ?: c.secondaryLabel,
+                            maxLines = subtitleLines,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                if (value != null) {
+                    Text(value, style = valueStyle, color = valueColor ?: c.secondaryLabel, textAlign = TextAlign.End)
+                }
+            },
+        ) { measurables, constraints ->
+            val width = constraints.maxWidth
+            val gap = if (measurables.size == 2) 8.dp.roundToPx().coerceAtMost(width) else 0
+            val titleReserve = if (measurables.size == 2) {
+                measurables[0].maxIntrinsicWidth(constraints.maxHeight).coerceAtMost((width - gap) / 2)
+            } else 0
+            val valuePlaceable = measurables.getOrNull(1)?.measure(
+                constraints.copy(minWidth = 0, minHeight = 0, maxWidth = width - gap - titleReserve),
+            )
+            val titlePlaceable = measurables[0].measure(
+                constraints.copy(minWidth = 0, minHeight = 0, maxWidth = width - gap - (valuePlaceable?.width ?: 0)),
+            )
+            val height = maxOf(titlePlaceable.height, valuePlaceable?.height ?: 0)
+                .coerceIn(constraints.minHeight, constraints.maxHeight)
+            layout(width, height) {
+                titlePlaceable.placeRelative(0, (height - titlePlaceable.height) / 2)
+                valuePlaceable?.placeRelative(width - valuePlaceable.width, (height - valuePlaceable.height) / 2)
             }
-        }
-        if (value != null) {
-            Spacer(Modifier.width(8.dp))
-            Text(value, style = valueStyle, color = valueColor ?: c.secondaryLabel, maxLines = 1)
         }
         if (trailing != null) {
             Spacer(Modifier.width(8.dp))
@@ -920,7 +946,7 @@ fun IosButton(
     if (Ios.material) {
         val scheme = MaterialTheme.colorScheme
         val brand = color == c.tint
-        val outlined = Ios.nothing && style == IosButtonStyle.Tinted
+        val outlined = (Ios.nothing || app.farvater.ui.theme.LocalUiStyle.current == app.farvater.data.UiStyle.SUMIE) && style == IosButtonStyle.Tinted
         val bg = when {
             outlined -> Color.Transparent
             style == IosButtonStyle.Filled -> if (brand) scheme.primary else color

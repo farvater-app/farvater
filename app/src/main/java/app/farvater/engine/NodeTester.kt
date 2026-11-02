@@ -33,6 +33,7 @@ data class TestResult(
     val delayMs: Long,
     val method: TestMethod,
     val at: Long = System.currentTimeMillis(),
+    val reason: TestFailure = TestFailure.UNKNOWN,
 ) {
     val alive: Boolean get() = delayMs > 0
 }
@@ -61,9 +62,9 @@ object NodeTester {
             launch(workers) {
                 val coreOnly = node.protocol == Protocol.HYSTERIA2 || node.isJson
                 val host = hostGates.getOrPut(node.address.lowercase()) { Semaphore(PER_HOST) }
-                val tcp = if (coreOnly) 0L else host.withPermit { tcpGate.withPermit { tcping(node) } }
-                if (tcp < 0 || !real) {
-                    send(TestResult(node.id, if (coreOnly) -1L else tcp, TestMethod.TCP))
+                val tcp = if (coreOnly) DelayMeasurement(0) else host.withPermit { tcpGate.withPermit { tcping(node) } }
+                if (tcp.delayMs < 0 || !real) {
+                    send(TestResult(node.id, if (coreOnly) -1L else tcp.delayMs, TestMethod.TCP, reason = tcp.reason))
                     return@launch
                 }
                 val sni = sniGates.getOrPut(handshakeKey(node)) { Semaphore(PER_SNI) }
@@ -92,18 +93,18 @@ object NodeTester {
     }
 
     fun test(node: ProxyNode, url: String): TestResult = when {
-        XrayEngine.isAvailable -> TestResult(
-            node.id,
-            XrayEngine.measureDelay(XrayConfigBuilder.build(node, directRuServices = false, forTest = true), url),
-            TestMethod.REAL,
-        )
+        XrayEngine.isAvailable -> XrayEngine.measureDelayDetailed(
+            XrayConfigBuilder.build(node, directRuServices = false, forTest = true), url,
+        ).let { TestResult(node.id, it.delayMs, TestMethod.REAL, reason = it.reason) }
         node.protocol == Protocol.HYSTERIA2 -> TestResult(node.id, -1, TestMethod.TCP)
-        else -> TestResult(node.id, tcping(node), TestMethod.TCP)
+        else -> tcping(node).let { TestResult(node.id, it.delayMs, TestMethod.TCP, reason = it.reason) }
     }
 
-    private fun tcping(node: ProxyNode): Long = runCatching {
+    private fun tcping(node: ProxyNode): DelayMeasurement = try {
         val start = System.nanoTime()
         Socket().use { it.connect(InetSocketAddress(node.address, node.port), TCP_TIMEOUT_MS) }
-        ((System.nanoTime() - start) / 1_000_000).coerceAtLeast(1)
-    }.getOrDefault(-1L)
+        DelayMeasurement(((System.nanoTime() - start) / 1_000_000).coerceAtLeast(1))
+    } catch (error: Exception) {
+        DelayMeasurement(-1, TestFailure.from(error))
+    }
 }

@@ -43,6 +43,7 @@ fun TrafficPage(history: List<DayTraffic>, today: LocalDate = LocalDate.now()) {
     val days = TrafficHistory.days(history, if (period == 0) 7 else 30, today.toEpochDay())
     val total = days.fold(0L) { sum, day -> sum + day.bytes.coerceIn(0, Long.MAX_VALUE - sum) }
     val maximum = days.maxOf { it.bytes }.coerceAtLeast(1)
+    val recorded = days.asReversed().filter { it.bytes > 0 }
     val locale = LocalConfiguration.current.locales[0]
     val formatter = DateTimeFormatter.ofPattern("d MMM", locale).withDecimalStyle(DecimalStyle.of(locale))
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -67,9 +68,9 @@ fun TrafficPage(history: List<DayTraffic>, today: LocalDate = LocalDate.now()) {
         }
     }
     IosSection(footer = stringResource(R.string.traffic_privacy)) {
-        days.asReversed().forEachIndexed { index, day ->
+        recorded.forEachIndexed { index, day ->
             IosRow(title = LocalDate.ofEpochDay(day.day).format(formatter), value = formatBytes(day.bytes))
-            if (index != days.lastIndex) IosDivider()
+            if (index != recorded.lastIndex) IosDivider()
         }
     }
 }

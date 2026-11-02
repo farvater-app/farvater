@@ -28,6 +28,11 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
+import okio.Buffer
+import okio.BufferedSource
+import okio.ForwardingSource
+import okio.buffer
+import java.io.InputStreamReader
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Proxy
@@ -39,7 +44,6 @@ object ServiceProbe {
     private val base = OkHttpClient.Builder().connectTimeout(4, TimeUnit.SECONDS)
         .readTimeout(4, TimeUnit.SECONDS).callTimeout(6, TimeUnit.SECONDS)
         .followRedirects(false).followSslRedirects(false).build()
-    private val title = Regex("<title[^>]*>([^<]{1,300})</title>", RegexOption.IGNORE_CASE)
     private val titles = mapOf(ServiceKind.GEMINI to setOf("Gemini", "Google Gemini"), ServiceKind.CHATGPT to setOf("ChatGPT"),
         ServiceKind.CLAUDE to setOf("Claude", "Claude / Login"), ServiceKind.YOUTUBE to setOf("YouTube"))
 
@@ -133,20 +137,60 @@ object ServiceProbe {
         val type = response.body?.contentType()
         if (type?.type != "text" || type.subtype != "html") return result(ServiceVerdict.UNKNOWN, ServiceReason.UNEXPECTED)
         val source = response.body?.source() ?: return result(ServiceVerdict.UNKNOWN, ServiceReason.UNEXPECTED)
-        val prefix = okio.Buffer()
-        var heading = ""
-        while (prefix.size < 1024 * 1024L) {
-            if (source.read(prefix, minOf(8192, 1024 * 1024L - prefix.size)) <= 0) break
-            val html = prefix.snapshot().utf8()
-            val match = title.find(html)
-            if (match != null) {
-                heading = match.groupValues[1].filterNot { it in "\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069" }
-                break
-            }
-        }
+        val heading = readTitle(source).filterNot { it in "\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069" }
         return if (titles[target.kind]?.let { it.any { expected -> heading.trim().equals(expected, true) } } == true) {
             result(ServiceVerdict.RESPONDED, ServiceReason.PAGE)
         } else result(ServiceVerdict.UNKNOWN, ServiceReason.UNEXPECTED)
+    }
+
+    private fun readTitle(source: BufferedSource): String {
+        val bounded = object : ForwardingSource(source) {
+            var remaining = 1024 * 1024L
+            override fun read(sink: Buffer, byteCount: Long): Long {
+                if (remaining == 0L) return -1L
+                return super.read(sink, minOf(byteCount, remaining)).also { if (it > 0) remaining -= it }
+            }
+        }
+        val opening = "<title"
+        val closing = "</title>"
+        val heading = StringBuilder(300)
+        var openingMatch = 0
+        var closingMatch = 0
+        var stage = 0
+        val chars = CharArray(8192)
+        InputStreamReader(bounded.buffer().inputStream(), Charsets.UTF_8).use { reader ->
+            while (true) {
+                val count = reader.read(chars)
+                if (count < 0) break
+                for (index in 0 until count) {
+                    val char = chars[index]
+                    val lower = char.lowercaseChar()
+                    openingMatch = if (lower == opening[openingMatch]) openingMatch + 1 else if (lower == '<') 1 else 0
+                    if (openingMatch == opening.length) {
+                        openingMatch = 0
+                        heading.setLength(0)
+                        stage = 1
+                        continue
+                    }
+                    when (stage) {
+                        1 -> if (char == '>') stage = 2
+                        2 -> when {
+                            char == '<' -> { stage = 3; closingMatch = 1 }
+                            heading.length == 300 -> stage = 0
+                            else -> heading.append(char)
+                        }
+                        3 -> if (lower == closing[closingMatch]) {
+                            closingMatch++
+                            if (closingMatch == closing.length) {
+                                if (heading.isNotEmpty()) return heading.toString()
+                                stage = 0
+                            }
+                        } else stage = 0
+                    }
+                }
+            }
+        }
+        return ""
     }
 
     private fun result(verdict: ServiceVerdict, reason: ServiceReason) = ServiceCheck(verdict, reason, System.currentTimeMillis())

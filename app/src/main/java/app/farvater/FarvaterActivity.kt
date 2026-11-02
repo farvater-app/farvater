@@ -99,13 +99,11 @@ class FarvaterActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         lifecycleScope.launch { app.farvater.data.AppLanguages.applyBackupLanguage(this@FarvaterActivity) }
-        vm.setServiceForeground(true)
         vm.onForeground()
     }
 
     override fun onStop() {
         super.onStop()
-        vm.setServiceForeground(false)
         if (!isChangingConfigurations) AppIcons.applyPending(this)
     }
 

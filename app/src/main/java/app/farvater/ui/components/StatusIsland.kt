@@ -126,13 +126,7 @@ fun StatusIsland(
         modifier.fillMaxWidth().padding(top = 6.dp),
         contentAlignment = Alignment.TopCenter,
     ) {
-        AnimatedContent(
-            targetState = state,
-            transitionSpec = {
-                (fadeIn(tween(220, delayMillis = 60)) + scaleIn(spring(dampingRatio = 0.7f, stiffness = 420f), initialScale = 0.9f)) togetherWith
-                    fadeOut(tween(90)) using SizeTransform(clip = true) { _, _ -> spring(dampingRatio = 0.62f, stiffness = 360f) }
-            },
-            label = "island",
+        Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(50))
                 .background(Color.Black)
@@ -141,72 +135,81 @@ fun StatusIsland(
                     contentDescription = spoken
                     liveRegion = LiveRegionMode.Polite
                 },
-        ) { s ->
-            when (s) {
-                Island.Big -> Row(
-                    Modifier.height(64.dp).padding(start = 12.dp, end = 22.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Box(Modifier.size(40.dp).background(IslandGreen, CircleShape), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.GppGood, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
-                    }
-                    Column {
-                        Text(stringResource(R.string.state_connected), style = text.copy(fontSize = 15.sp, fontWeight = FontWeight.Bold))
-                        if (node != null) {
-                            Text(
-                                node,
-                                style = text.copy(fontSize = 12.sp, color = Color.White.copy(alpha = 0.62f)),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.widthIn(max = 220.dp),
-                            )
+        ) {
+            AnimatedContent(
+                targetState = state,
+                transitionSpec = {
+                    (fadeIn(tween(220, delayMillis = 60)) + scaleIn(spring(dampingRatio = 0.7f, stiffness = 420f), initialScale = 0.9f)) togetherWith
+                        fadeOut(tween(90)) using SizeTransform(clip = true) { _, _ -> spring(dampingRatio = 0.62f, stiffness = 360f) }
+                },
+                label = "island",
+            ) { s ->
+                when (s) {
+                    Island.Big -> Row(
+                        Modifier.height(64.dp).padding(start = 12.dp, end = 22.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Box(Modifier.size(40.dp).background(IslandGreen, CircleShape), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Rounded.GppGood, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
+                        }
+                        Column {
+                            Text(stringResource(R.string.state_connected), style = text.copy(fontSize = 15.sp, fontWeight = FontWeight.Bold))
+                            if (node != null) {
+                                Text(
+                                    node,
+                                    style = text.copy(fontSize = 12.sp, color = Color.White.copy(alpha = 0.62f)),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.widthIn(max = 220.dp),
+                                )
+                            }
                         }
                     }
-                }
-                else -> Row(
-                    Modifier.height(36.dp).padding(horizontal = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    when (s) {
-                        Island.Busy -> CircularProgressIndicator(
-                            modifier = Modifier.size(14.dp),
-                            color = IslandBlue,
-                            trackColor = IslandBlue.copy(alpha = 0.25f),
-                            strokeWidth = 2.dp,
-                        )
-                        Island.On -> Icon(Icons.Rounded.GppGood, contentDescription = null, tint = IslandGreen, modifier = Modifier.size(16.dp))
-                        else -> Box(
-                            Modifier
-                                .size(8.dp)
-                                .background(if (s == Island.Fail) c.red else Color(0xFF8E8E93), CircleShape),
-                        )
-                    }
-                    Text(
+                    else -> Row(
+                        Modifier.height(36.dp).padding(horizontal = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         when (s) {
-                            Island.Busy -> if (mode == ConnectMode.Connecting) stringResource(R.string.settings_connection) else stringResource(R.string.state_searching)
-                            Island.On -> node ?: stringResource(R.string.state_protected)
-                            Island.Fail -> stringResource(R.string.state_error)
-                            else -> stringResource(R.string.vpn_state_off)
-                        },
-                        style = text,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.widthIn(max = 170.dp),
-                    )
-                    val extra = when {
-                        s == Island.Busy && progress != null && mode == ConnectMode.Searching -> "${progress.first}/${progress.second}"
-                        s == Island.On && hyper -> "↓ ${formatSpeed(downBps)}"
-                        s == Island.On && since != null -> formatDuration(now - since)
-                        else -> null
-                    }
-                    if (extra != null) {
+                            Island.Busy -> CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                color = IslandBlue,
+                                trackColor = IslandBlue.copy(alpha = 0.25f),
+                                strokeWidth = 2.dp,
+                            )
+                            Island.On -> Icon(Icons.Rounded.GppGood, contentDescription = null, tint = IslandGreen, modifier = Modifier.size(16.dp))
+                            else -> Box(
+                                Modifier
+                                    .size(8.dp)
+                                    .background(if (s == Island.Fail) c.red else Color(0xFF8E8E93), CircleShape),
+                            )
+                        }
                         Text(
-                            extra,
-                            style = text.merge(Numeric).copy(color = if (s == Island.Busy) IslandBlue else IslandGreen),
+                            when (s) {
+                                Island.Busy -> if (mode == ConnectMode.Connecting) stringResource(R.string.settings_connection) else stringResource(R.string.state_searching)
+                                Island.On -> node ?: stringResource(R.string.state_protected)
+                                Island.Fail -> stringResource(R.string.state_error)
+                                else -> stringResource(R.string.vpn_state_off)
+                            },
+                            style = text,
                             maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.widthIn(max = 170.dp),
                         )
+                        val extra = when {
+                            s == Island.Busy && progress != null && mode == ConnectMode.Searching -> "${progress.first}/${progress.second}"
+                            s == Island.On && hyper -> "↓ ${formatSpeed(downBps)}"
+                            s == Island.On && since != null -> formatDuration(now - since)
+                            else -> null
+                        }
+                        if (extra != null) {
+                            Text(
+                                extra,
+                                style = text.merge(Numeric).copy(color = if (s == Island.Busy) IslandBlue else IslandGreen),
+                                maxLines = 1,
+                            )
+                        }
                     }
                 }
             }

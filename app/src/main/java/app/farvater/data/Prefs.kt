@@ -76,7 +76,12 @@ class Prefs(context: Context) {
     @Volatile private var cachedConfigs: Map<String, SourceConfig>? = null
 
     var settings: AppSettings
-        get() = cachedSettings ?: (read<AppSettings>("settings") ?: AppSettings()).also { cachedSettings = it }
+        get() = cachedSettings ?: run {
+            val stored = read<AppSettings>("settings") ?: AppSettings()
+            val current = stored.copy(testUrl = ProbeUrls.migrate(stored.testUrl))
+            if (current != stored) write("settings", current)
+            current
+        }.also { cachedSettings = it }
         set(value) = synchronized(selectionLock) {
             cachedSettings = value
             write("settings", value)
@@ -224,6 +229,17 @@ class Prefs(context: Context) {
         set(value) {
             cachedHealth = value
             health.edit().putString(HEALTH_KEY, json.encodeToString(serializer<Map<String, NodeCheck>>(), value)).apply()
+        }
+
+    @Volatile private var cachedFullNodeChecks: Map<String, FullNodeCheck>? = null
+
+    var fullNodeChecks: Map<String, FullNodeCheck>
+        get() = cachedFullNodeChecks ?: health.getString("full_node_checks", null)?.let {
+            runCatching { json.decodeFromString<Map<String, FullNodeCheck>>(it) }.getOrNull()
+        }.orEmpty().also { cachedFullNodeChecks = it }
+        set(value) {
+            cachedFullNodeChecks = value
+            health.edit().putString("full_node_checks", json.encodeToString(value)).apply()
         }
 
     var serviceChecks: Map<String, ServiceCheck>

@@ -14,6 +14,8 @@ import app.farvater.core.parser.LinkParser
 import app.farvater.data.SourceSnapshot
 import app.farvater.data.UserSource
 import app.farvater.engine.NodeTester
+import app.farvater.engine.NodeCheckCoordinator
+import app.farvater.engine.NodeCheckWork
 import app.farvater.engine.PathResult
 import app.farvater.engine.Pathfinder
 import app.farvater.engine.TestMethod
@@ -21,19 +23,24 @@ import app.farvater.engine.TestResult
 import app.farvater.ui.MainViewModel
 import app.farvater.ui.UiState
 import app.farvater.vpn.FarvaterVpnService
+import app.farvater.vpn.NodeCheckService
 import app.farvater.vpn.VpnBus
 import app.farvater.vpn.VpnState
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.update
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Robolectric
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.Implementation
@@ -52,6 +59,9 @@ class GalsEligibilityTest {
     private lateinit var vm: MainViewModel
     private lateinit var state: MutableStateFlow<UiState>
     private lateinit var snapshots: MutableStateFlow<Map<String, SourceSnapshot>>
+    private lateinit var results: MutableStateFlow<Map<String, TestResult>>
+    private var checkService: NodeCheckService? = null
+    private var checkStartId = 0
     private val source get() = BuiltInCatalog.sources.first { it.mode == SourceMode.BLACK }.id
 
     @Before fun prepare() {
@@ -65,6 +75,11 @@ class GalsEligibilityTest {
         state = field("_state").get(vm) as MutableStateFlow<UiState>
         @Suppress("UNCHECKED_CAST")
         snapshots = field("snapshots").get(vm) as MutableStateFlow<Map<String, SourceSnapshot>>
+        @Suppress("UNCHECKED_CAST")
+        results = field("results").get(vm) as MutableStateFlow<Map<String, TestResult>>
+        vm.viewModelScope.launch(Dispatchers.Unconfined) {
+            NodeCheckCoordinator.state.collect { publishCheckResults(it) }
+        }
         App.prefs.settings = App.prefs.settings.copy(communityEnabled = true, safeMode = false)
         App.prefs.enabledSources = setOf(source)
         ShadowVpnService.setPrepareResult(null)
@@ -74,7 +89,15 @@ class GalsEligibilityTest {
     }
 
     @After fun finish() {
+        NodeCheckCoordinator.cancel()
+        checkService?.onDestroy()
         vm.viewModelScope.cancel()
+        await {
+            (NodeCheckCoordinator::class.java.getDeclaredField("jobs").apply { isAccessible = true }.get(null) as Map<*, *>).isEmpty()
+        }
+        @Suppress("UNCHECKED_CAST")
+        val work = NodeCheckCoordinator::class.java.getDeclaredField("_state").apply { isAccessible = true }.get(null) as MutableStateFlow<NodeCheckWork>
+        work.value = NodeCheckWork()
         DelayProbe.onResult = {}
         PathProbe.onResult = { PathResult(null) }
         VpnBus.state.value = VpnState.Idle
@@ -207,6 +230,7 @@ class GalsEligibilityTest {
     }
 
     private fun stopAndMaybeFinish(finished: Boolean) {
+        dispatchChecking()
         FarvaterVpnService.stop(app)
         assertEquals(FarvaterVpnService.ACTION_STOP, shadowOf(app).nextStartedService?.action)
         if (finished) {
@@ -244,15 +268,35 @@ class GalsEligibilityTest {
         MainViewModel::class.java.getDeclaredMethod("findWorkingNow", Long::class.javaPrimitiveType)
             .apply { isAccessible = true }.invoke(vm, VpnBus.stopEpoch.get())
         await { (field("pathJob").get(vm) as? Job)?.isCompleted == true }
+        dispatchChecking()
     }
 
     private fun await(condition: () -> Boolean) {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
         while (!condition() && System.nanoTime() < deadline) {
+            dispatchChecking()
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(100))
             Thread.sleep(5)
         }
         assertTrue(condition())
+    }
+
+    private fun dispatchChecking() {
+        val application = shadowOf(app)
+        while (application.peekNextStartedService()?.component?.className == NodeCheckService::class.java.name) {
+            val intent = application.nextStartedService
+            if (checkService == null || shadowOf(checkService!!).isStoppedBySelf) {
+                checkService?.onDestroy()
+                checkService = Robolectric.buildService(NodeCheckService::class.java).create().get()
+            }
+            checkService!!.onStartCommand(intent, 0, ++checkStartId)
+        }
+    }
+
+    private fun publishCheckResults(work: NodeCheckWork) {
+        if (!::results.isInitialized || !::state.isInitialized) return
+        results.update { current -> current + work.results.filter { (id, result) -> (current[id]?.at ?: Long.MIN_VALUE) <= result.at } }
+        state.update { it.copy(results = results.value) }
     }
 
     private fun field(name: String) = MainViewModel::class.java.getDeclaredField(name).apply { isAccessible = true }

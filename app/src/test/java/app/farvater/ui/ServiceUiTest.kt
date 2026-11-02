@@ -79,6 +79,48 @@ class ServiceUiTest {
     }
 
     @Test
+    fun customAddressWithoutSchemeAndChangedStatusSurviveReopeningAndPrefsReload() {
+        val app = androidx.test.core.app.ApplicationProvider.getApplicationContext<Application>()
+        val prefs = Prefs(app)
+        prefs.settings = AppSettings(serviceChecksEnabled = true)
+        val settings = mutableStateOf(prefs.settings)
+        rule.setContent { FarvaterTheme(dynamicColor = false) {
+            ServiceSettings(settings.value) { update ->
+                prefs.settings = update(settings.value)
+                settings.value = prefs.settings
+            }
+        } }
+        rule.onNodeWithText("Добавить или изменить адрес").performClick()
+        rule.onNode(hasSetTextAction() and hasContentDescription("HTTPS-адрес"))
+            .performTextReplacement("service.example.test/status")
+        rule.onNodeWithText("Сохранить").performClick()
+        assertEquals("https://service.example.test/status", Prefs(app).settings.serviceCustomUrl)
+        assertEquals(200, Prefs(app).settings.serviceExpectedCode)
+        val firstKey = ServiceChecks.targets(Prefs(app).settings).single().key
+        rule.onNodeWithText("Добавить или изменить адрес").performClick()
+        rule.onNode(hasSetTextAction() and hasContentDescription("HTTPS-адрес"))
+            .assertTextContains("https://service.example.test/status")
+        for (status in listOf("199", "600")) {
+            rule.onNode(hasSetTextAction() and hasContentDescription("Код ответа: 200–599"))
+                .performTextReplacement(status)
+            rule.onNodeWithText("Сохранить").performClick()
+            rule.onNodeWithText("Проверьте HTTPS-адрес", substring = true).assertExists()
+            assertEquals(200, Prefs(app).settings.serviceExpectedCode)
+        }
+        rule.onNode(hasSetTextAction() and hasContentDescription("Код ответа: 200–599"))
+            .performTextReplacement("204")
+        rule.onNodeWithText("Сохранить").performClick()
+        val restored = Prefs(app).settings
+        assertEquals("https://service.example.test/status", restored.serviceCustomUrl)
+        assertEquals(204, restored.serviceExpectedCode)
+        assertEquals(setOf(ServiceKind.CUSTOM), restored.checkedServices)
+        assertNotEquals(firstKey, ServiceChecks.targets(restored).single().key)
+        rule.onNodeWithText("Добавить или изменить адрес").performClick()
+        rule.onNode(hasSetTextAction() and hasContentDescription("Код ответа: 200–599"))
+            .assertTextContains("204")
+    }
+
+    @Test
     @Config(qualifiers = "fa-w393dp-h852dp")
     fun customDialogKeepsPersianActionsCompleteAtDoubleFontSize() {
         org.robolectric.RuntimeEnvironment.setFontScale(2f)
@@ -109,6 +151,19 @@ class ServiceUiTest {
         rule.onNodeWithText("Сбросить фильтры списка").performClick()
         rule.onNodeWithText("First").assertExists()
         rule.onNodeWithText("Second").assertExists()
+    }
+
+    @Test
+    fun emptyFavoritesOffersAllNodes() {
+        val node = LinkParser.parse("vless://test@favorites.example.test:443?security=tls#Available")!!
+        rule.setContent { FarvaterTheme(dynamicColor = false) {
+            ServersScreen(UiState(nodes = listOf(node)), {}, {}, {}, {}, {})
+        } }
+        rule.onNodeWithText("Избранные").performClick()
+        rule.onNodeWithText("Available").assertDoesNotExist()
+        rule.onNodeWithText("Сбросить фильтры списка").assertDoesNotExist()
+        rule.onNodeWithText("Показать все узлы").performScrollTo().performClick()
+        rule.onNodeWithText("Available").assertExists()
     }
 
     @Test

@@ -21,6 +21,8 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -91,6 +93,7 @@ import app.farvater.ui.ios.IosDivider
 import app.farvater.ui.ios.IosLargeTitle
 import app.farvater.ui.ios.IosProgressBar
 import app.farvater.ui.ios.IosRow
+import app.farvater.ui.ios.iosRowPress
 import app.farvater.ui.ios.IosSearchField
 import app.farvater.ui.ios.IosSection
 import app.farvater.ui.ios.IosSegmented
@@ -164,9 +167,9 @@ fun ServersScreen(
         }
     }
     val alive = remember(state.nodes, state.results) { state.nodes.count { state.results[it.id]?.alive == true } }
-    val groups = remember(visible, state.sources, state.dead) {
+    val groups = remember(visible, state.sources, state.groupedDead) {
         val order = (state.sources.map { it.id } + ProxyNode.MANUAL_SOURCE).withIndex().associate { it.value to it.index }
-        val (dead, rest) = visible.partition { it.id in state.dead }
+        val (dead, rest) = visible.partition { it.id in state.groupedDead }
         val bySource = rest.groupBy { it.sourceId }.entries
             .sortedBy { order[it.key] ?: Int.MAX_VALUE }
             .map { it.key to it.value }
@@ -211,12 +214,21 @@ fun ServersScreen(
                     Spacer(Modifier.height(10.dp))
                     IosSegmented(Filters, filter, { filter = it })
                     if (serviceTargets.isNotEmpty()) {
-                        app.farvater.ui.ios.IosRow(
-                            title = stringResource(R.string.services_filter),
-                            value = selectedService?.let { serviceName(it.kind) } ?: stringResource(R.string.filter_all),
-                            chevron = true,
-                            onClick = { showServiceFilter = true },
-                        )
+                        Row(
+                            Modifier.padding(top = 10.dp, bottom = 6.dp).widthIn(max = 320.dp)
+                                .heightIn(min = 48.dp).clip(RoundedCornerShape(24.dp))
+                                .background(c.fill).border(1.dp, c.separator, RoundedCornerShape(24.dp))
+                                .clickable(role = Role.Button) { showServiceFilter = true }
+                                .padding(horizontal = 14.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(stringResource(R.string.services_filter), style = IosType.subheadline,
+                                color = c.label, modifier = Modifier.weight(1f, fill = false))
+                            Text(selectedService?.let { serviceName(it.kind) } ?: stringResource(R.string.filter_all),
+                                style = IosType.subheadline, color = c.tint)
+                            Icon(Icons.Rounded.KeyboardArrowDown, null, tint = c.tint, modifier = Modifier.size(18.dp))
+                        }
                         Text(stringResource(if (state.serviceChecking) R.string.services_running else R.string.services_results_hint),
                             style = IosType.footnote, color = c.secondaryLabel)
                     }
@@ -300,7 +312,8 @@ fun ServersScreen(
                         }
                     } else EmptyState(state.nodes.isEmpty())
                     if (query.isNotBlank() || filter != 0 || favoritesOnly || selectedService != null) {
-                        app.farvater.ui.ios.IosButton(stringResource(R.string.filters_reset), onClick = {
+                        app.farvater.ui.ios.IosButton(stringResource(if (favoritesOnly && state.nodes.none { it.id in state.settings.favoriteNodeIds })
+                            R.string.nodes_show_all else R.string.filters_reset), onClick = {
                             query = ""
                             filter = 0
                             favoritesOnly = false
@@ -335,7 +348,8 @@ fun ServersScreen(
                                     .animateItem()
                                     .padding(horizontal = 16.dp)
                                     .clip(shape)
-                                    .background(c.cell),
+                                    .background(c.cell)
+                                    .iosRowPress(onLongClick = { menuFor = node }, onClick = { onSelect(node) }),
                             ) {
                                 NodeRow(
                                     node = node,
@@ -344,8 +358,6 @@ fun ServersScreen(
                                     checking = node.id in state.checking,
                                     favorite = node.id in state.settings.favoriteNodeIds,
                                     onFavorite = { onToggleFavorite(node.id) },
-                                    onClick = { onSelect(node) },
-                                    onLongClick = { menuFor = node },
                                 )
                                 if (serviceTargets.isNotEmpty()) app.farvater.ui.components.ServiceBadges(
                                     node.id, serviceMode, serviceTargets, state.serviceChecks, serviceNow,
@@ -472,8 +484,6 @@ private fun NodeRow(
     checking: Boolean,
     favorite: Boolean,
     onFavorite: () -> Unit,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
 ) {
     val c = Ios.colors
     val selectedLabel = stringResource(R.string.node_selected)
@@ -485,8 +495,6 @@ private fun NodeRow(
         subtitleColor = if (node.isInsecure) c.red else null,
         subtitleLines = 1,
         leading = { NodeAvatar(flag, node) },
-        onClick = onClick,
-        onLongClick = onLongClick,
         trailing = {
             Box(
                 Modifier.size(48.dp).clip(CircleShape).toggleable(value = favorite, role = Role.Checkbox, onValueChange = { onFavorite() }),

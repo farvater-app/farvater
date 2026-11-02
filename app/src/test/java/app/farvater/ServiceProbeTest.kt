@@ -72,6 +72,41 @@ class ServiceProbeTest {
     }
 
     @Test
+    fun titleAndUtf8CharactersCanCrossEveryReadBoundary() = runBlocking {
+        val target = ServiceChecks.builtIn.first { it.kind == ServiceKind.GEMINI }
+        for (padding in 8170..8200) {
+            val html = " ".repeat(padding) + "<TiTlE data-test='yes'>\u200eGoogle Gemini\u200f</TiTlE>"
+            assertEquals("padding=$padding", ServiceVerdict.RESPONDED, ServiceProbe.request(client(200, html), target).verdict)
+        }
+    }
+
+    @Test
+    fun malformedTitlesDoNotHideALaterValidTitleOrReadBeyondTheLimit() = runBlocking {
+        val target = ServiceChecks.builtIn.first { it.kind == ServiceKind.GEMINI }
+        for (prefix in listOf("<title></title>", "<title>" + "x".repeat(301) + "</title>",
+            "<title>unfinished", "<title".repeat(100_000))) {
+            assertEquals(ServiceVerdict.RESPONDED,
+                ServiceProbe.request(client(200, "$prefix<title>Google Gemini</title>"), target).verdict)
+        }
+        val bytes = okio.Buffer().writeUtf8("<title".repeat(200_000) + ">Google Gemini</title>")
+        var consumed = 0L
+        val source = object : okio.ForwardingSource(bytes) {
+            override fun read(sink: okio.Buffer, byteCount: Long): Long =
+                super.read(sink, byteCount).also { if (it > 0) consumed += it }
+        }.buffer()
+        val body = object : okhttp3.ResponseBody() {
+            override fun contentType() = "text/html".toMediaType()
+            override fun contentLength() = -1L
+            override fun source() = source
+        }
+        val http = OkHttpClient.Builder().addInterceptor { chain ->
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("test").body(body).build()
+        }.build()
+        assertEquals(ServiceVerdict.UNKNOWN, ServiceProbe.request(http, target).verdict)
+        assertEquals(1024 * 1024L, consumed)
+    }
+
+    @Test
     fun disabledByDefaultAndInvalidCustomAddressesNeverBecomeTargets() {
         assertTrue(ServiceChecks.targets(AppSettings()).isEmpty())
         for (url in listOf("http://example.test/", "https://localhost/", "https://127.0.0.1/", "https://10.0.0.1/",

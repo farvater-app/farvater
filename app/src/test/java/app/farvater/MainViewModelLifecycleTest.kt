@@ -106,61 +106,6 @@ class MainViewModelLifecycleTest {
     }
 
     @Test
-    fun leavingAppCancelsServiceProbeAndLateNormalResultCannotRestartIt() {
-        vm.setServiceForeground(true)
-        val service = Job()
-        field("serviceJob").set(vm, service)
-        state.value = state.value.copy(serviceChecking = true)
-        vm.setServiceForeground(false)
-        assertTrue(service.isCancelled)
-        assertFalse(state.value.serviceChecking)
-        App.prefs.settings = App.prefs.settings.copy(serviceChecksEnabled = true,
-            checkedServices = setOf(app.farvater.data.ServiceKind.CHATGPT))
-        val node = LinkParser.parse("vless://test@probe.example.test:443?security=tls")!!
-        MainViewModel::class.java.getDeclaredMethod("checkServices", List::class.java, Long::class.javaPrimitiveType).apply { isAccessible = true }
-            .invoke(vm, listOf(node), field("serviceGeneration").getLong(vm))
-        assertSame(service, field("serviceJob").get(vm))
-        assertTrue(App.prefs.serviceChecks.isEmpty())
-    }
-
-    @Test
-    fun failedProbeLaunchClearsPreviousPositiveResultInUi() {
-        val initialization = vm.viewModelScope.coroutineContext[Job]!!.children.toList()
-        initialization.forEach { it.cancel() }
-        awaitCondition { initialization.all { it.isCompleted } }
-        vm.setServiceForeground(true)
-        App.prefs.settings = App.prefs.settings.copy(serviceChecksEnabled = true,
-            checkedServices = setOf(app.farvater.data.ServiceKind.CHATGPT))
-        val node = LinkParser.parse("vless://test@retry.example.test:443?security=tls")!!
-        val target = app.farvater.data.ServiceChecks.builtIn.first { it.kind == app.farvater.data.ServiceKind.CHATGPT }
-        val key = app.farvater.data.ServiceChecks.key("BLACK", node.id, target)
-        val previous = mapOf(key to app.farvater.data.ServiceCheck(app.farvater.data.ServiceVerdict.RESPONDED,
-            app.farvater.data.ServiceReason.PAGE, System.currentTimeMillis() - 3_600_000))
-        App.prefs.serviceChecks = previous
-        state.value = state.value.copy(serviceChecks = previous)
-        MainViewModel::class.java.getDeclaredMethod("checkServices", List::class.java, Long::class.javaPrimitiveType)
-            .apply { isAccessible = true }.invoke(vm, listOf(node), field("serviceGeneration").getLong(vm))
-        awaitCondition { (field("serviceJob").get(vm) as? Job)?.isCompleted == true }
-        assertEquals(app.farvater.data.ServiceVerdict.UNKNOWN, App.prefs.serviceChecks[key]?.verdict)
-        assertEquals(app.farvater.data.ServiceVerdict.UNKNOWN, state.value.serviceChecks[key]?.verdict)
-    }
-
-    @Test
-    fun stopRejectsLateContinuationFromSingleNodeCheck() {
-        vm.setServiceForeground(true)
-        App.prefs.settings = App.prefs.settings.copy(serviceChecksEnabled = true,
-            checkedServices = setOf(app.farvater.data.ServiceKind.CHATGPT))
-        val generation = field("serviceGeneration").getLong(vm)
-        vm.cancelTest()
-        val node = LinkParser.parse("vless://test@late.example.test:443?security=tls")!!
-        MainViewModel::class.java.getDeclaredMethod("checkServices", List::class.java, Long::class.javaPrimitiveType)
-            .apply { isAccessible = true }.invoke(vm, listOf(node), generation)
-        assertNull(field("serviceJob").get(vm))
-        assertFalse(state.value.serviceChecking)
-        assertTrue(App.prefs.serviceChecks.isEmpty())
-    }
-
-    @Test
     fun cancellationAfterFileRemovalStillClearsSavedSelectionAndBackups() {
         val node = LinkParser.parse("vless://test@delete.example.test:443?security=tls")!!
         App.repo.appendManual(listOf(node))

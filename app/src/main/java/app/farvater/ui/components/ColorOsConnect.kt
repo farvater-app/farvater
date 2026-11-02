@@ -1,5 +1,8 @@
 package app.farvater.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
@@ -35,6 +38,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.farvater.R
 import app.farvater.ui.theme.Ios
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 @Composable
 fun ColorOsConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -50,6 +56,11 @@ fun ColorOsConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = 
         ConnectMode.Error -> R.string.action_retry_connect
     })
     val active = mode == ConnectMode.Connected
+    val busy = mode == ConnectMode.Searching || mode == ConnectMode.Connecting
+    val still = rememberWinterStill()
+    val clock = rememberWinterClock(still || !busy)
+    val illumination = animateFloatAsState(if (active) 1f else 0f,
+        if (still) snap() else tween(520), label = "colorOsIllumination")
     val ink = if (active) Color.White else c.label
     val accent = if (mode == ConnectMode.Error) c.red else if (active) Color.White else c.tint
     val base = if (active) Color(0xFF065AC7) else c.cell
@@ -60,18 +71,28 @@ fun ColorOsConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = 
         .then(if (focused) Modifier.border(2.dp, if (active) Color.White else c.tint, RoundedCornerShape(28.dp)) else Modifier)
         .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick).semantics { contentDescription = description }) {
         Canvas(Modifier.align(Alignment.CenterEnd).size(150.dp).clearAndSetSemantics {}) {
-            val center = Offset(size.width * 0.68f, size.height * 0.48f)
-            val radius = size.minDimension * 0.43f
-            drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = 0.22f), Color.Transparent), center, radius), radius, center)
+            val progress = illumination.value
+            val flare = sin(progress * PI).toFloat()
+            val phase = if (busy && !still) clock.value * 2.2f else 0f
+            val pulse = if (busy && !still) (sin(phase * 2f) + 1f) * 0.5f else 0f
+            val center = Offset(size.width * (0.74f - progress * 0.09f), size.height * 0.48f)
+            val radius = size.minDimension * (0.36f + progress * 0.1f + flare * 0.035f)
+            drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = 0.18f + flare * 0.2f + pulse * 0.08f), Color.Transparent), center, radius), radius, center)
             repeat(3) { ring ->
-                drawCircle(accent.copy(alpha = 0.1f + ring * 0.04f), radius * (0.5f + ring * 0.26f), center,
+                drawCircle(accent.copy(alpha = 0.1f + ring * 0.04f + flare * 0.12f), radius * (0.5f + ring * 0.26f), center,
                     style = Stroke((1.4f - ring * 0.25f).dp.toPx()))
             }
-            drawCircle(accent.copy(alpha = 0.55f), 4.dp.toPx(), center + Offset(-radius * 0.73f, -radius * 0.43f))
+            val angle = phase - 2.61f
+            val beacon = center + Offset(cos(angle), sin(angle)) * (radius * 0.85f)
+            drawCircle(accent.copy(alpha = 0.15f + pulse * 0.15f), (7f + pulse * 3f).dp.toPx(), beacon)
+            drawCircle(accent.copy(alpha = 0.55f + pulse * 0.35f), 4.dp.toPx(), beacon)
         }
         Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
             Box(Modifier.size(48.dp).background(if (active) Color.White.copy(alpha = 0.18f) else c.highlight, CircleShape), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.PowerSettingsNew, null, tint = accent, modifier = Modifier.size(27.dp))
+                Icon(Icons.Rounded.PowerSettingsNew, null, tint = accent, modifier = Modifier.size(27.dp).graphicsLayer {
+                    scaleX = 1f + illumination.value * 0.1f
+                    scaleY = scaleX
+                })
             }
             Text(description, color = ink, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
                 modifier = Modifier.fillMaxWidth().clearAndSetSemantics {})

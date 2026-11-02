@@ -27,6 +27,7 @@ object ServiceChecks {
     const val TTL_MS = 24 * 60 * 60 * 1000L
     const val RETRY_MS = 30 * 60 * 1000L
     const val MAX_NODES = 10
+    private val explicitScheme = Regex("^[a-zA-Z][a-zA-Z0-9+.-]*://")
     val builtIn = listOf(
         ServiceTarget(ServiceKind.GEMINI, "https://gemini.google.com/app?hl=en"),
         ServiceTarget(ServiceKind.CHATGPT, "https://chatgpt.com/"),
@@ -36,7 +37,11 @@ object ServiceChecks {
 
     fun customUrl(value: String): HttpUrl? {
         if (value.length > 2048 || value.any(Char::isISOControl)) return null
-        val url = SafeHttp.parse(value) ?: return null
+        val input = value.trim()
+        if (input.startsWith('/') || input.startsWith('\\')) return null
+        val normalized = if (explicitScheme.containsMatchIn(input)) input else "https://$input"
+        if (normalized.length > 2048) return null
+        val url = SafeHttp.parse(normalized) ?: return null
         if (!url.isHttps || url.username.isNotEmpty() || url.password.isNotEmpty() || url.fragment != null) return null
         val host = url.host.trimEnd('.')
         if ('.' !in host && ':' !in host) return null

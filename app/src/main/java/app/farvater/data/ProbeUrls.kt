@@ -5,5 +5,7 @@ object ProbeUrls {
     const val CLOUDFLARE = "https://cp.cloudflare.com/generate_204"
     const val APPLE = "https://www.apple.com/library/test/success.html"
     const val FIREFOX = "https://detectportal.firefox.com/success.txt"
-    val all = setOf(GOOGLE, CLOUDFLARE, APPLE, FIREFOX)
+    val all = setOf(GOOGLE, CLOUDFLARE, APPLE)
+
+    fun migrate(url: String): String = if (url == FIREFOX) GOOGLE else url
 }

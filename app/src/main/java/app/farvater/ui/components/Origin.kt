@@ -10,10 +10,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -46,8 +43,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -73,10 +70,7 @@ import androidx.compose.ui.unit.dp
 import app.farvater.ui.ios.originRim
 import app.farvater.ui.theme.EaseInOut
 import app.farvater.ui.theme.Ios
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
-private const val ORIGIN_CALM_MS = 10_400L
 
 @Composable
 fun OriginTile(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
@@ -99,7 +93,7 @@ fun OriginTile(modifier: Modifier = Modifier, content: @Composable ColumnScope.(
 fun OriginConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modifier, size: Dp = 236.dp) {
     val c = Ios.colors
     val haptics = LocalHapticFeedback.current
-    val still = rememberReduceMotion()
+    val still = rememberWinterStill()
 
     val shake = remember { Animatable(0f) }
     var previous by remember { mutableStateOf(mode) }
@@ -160,15 +154,9 @@ fun OriginConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = M
     val squashX by animateFloatAsState(if (pressed) 0.9f else 1f, spring(dampingRatio = 0.36f, stiffness = 420f), label = "squashX")
     val squashY by animateFloatAsState(if (pressed) 0.84f else 1f, spring(dampingRatio = 0.36f, stiffness = 420f), label = "squashY")
 
-    var calm by remember { mutableStateOf(false) }
-    LaunchedEffect(mode) {
-        calm = false
-        delay(ORIGIN_CALM_MS)
-        calm = true
-    }
-    val breath by originLoop(!still && !calm, 2600, EaseInOut, RepeatMode.Reverse, "breath")
-    val orbit by originLoop(busy && !still, 1100, LinearEasing, RepeatMode.Restart, "orbit")
-    val ripple by originLoop(mode == ConnectMode.Connected && !still && !calm, 2400, FastOutSlowInEasing, RepeatMode.Restart, "ripple")
+    val breath by originLoop(!still, 2600, EaseInOut, RepeatMode.Reverse)
+    val orbit by originLoop(busy && !still, 1100, LinearEasing, RepeatMode.Restart)
+    val ripple by originLoop(mode == ConnectMode.Connected && !still, 2400, FastOutSlowInEasing, RepeatMode.Restart)
 
     val description = when (mode) {
         ConnectMode.Idle -> stringResource(R.string.action_connect)
@@ -297,13 +285,16 @@ fun OriginBars(values: List<Long>, color: Color, modifier: Modifier = Modifier, 
 }
 
 @Composable
-private fun originLoop(active: Boolean, durationMs: Int, easing: Easing, repeat: RepeatMode, label: String): State<Float> {
-    if (!active) return remember { mutableFloatStateOf(if (repeat == RepeatMode.Reverse) 0.5f else 0f) }
-    val transition = rememberInfiniteTransition(label = label)
-    return transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(durationMs, easing = easing), repeat),
-        label = label,
-    )
+private fun originLoop(active: Boolean, durationMs: Int, easing: Easing, repeat: RepeatMode): State<Float> {
+    val clock = rememberWinterClock(!active)
+    return remember(clock, active, durationMs, easing, repeat) {
+        derivedStateOf {
+            if (!active) {
+                if (repeat == RepeatMode.Reverse) 0.5f else 0f
+            } else {
+                val phase = clock.value * 1000f / durationMs % if (repeat == RepeatMode.Reverse) 2f else 1f
+                easing.transform(if (phase <= 1f) phase else 2f - phase)
+            }
+        }
+    }
 }

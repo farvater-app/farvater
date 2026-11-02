@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import app.farvater.core.model.ProxyNode
 import app.farvater.engine.TestMethod
 import app.farvater.engine.TestResult
+import app.farvater.engine.TestFailure
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.IosType
 import app.farvater.ui.theme.NothingDot
@@ -60,7 +61,13 @@ fun delayColor(result: TestResult?): Color {
 @Composable
 fun delayText(result: TestResult?): String = when {
     result == null -> "—"
-    !result.alive -> stringResource(R.string.no_response)
+    !result.alive -> stringResource(when (result.reason) {
+        TestFailure.UNKNOWN -> R.string.no_response
+        TestFailure.TIMEOUT -> R.string.node_test_timeout
+        TestFailure.REFUSED -> R.string.node_test_refused
+        TestFailure.TLS -> R.string.node_test_tls
+        TestFailure.CONNECTION -> R.string.node_test_connection
+    })
     result.method == TestMethod.TCP -> stringResource(R.string.latency_tcp, result.delayMs)
     else -> stringResource(R.string.latency_ms, result.delayMs)
 }

@@ -57,7 +57,7 @@ def check(apk, build_tools):
             ("TProxyStopService", "()Z"), ("TProxyGetStats", "()[J")],
     }
     for component in ("App", "FarvaterActivity", "vpn/ToggleActivity", "vpn/FarvaterVpnService",
-                      "vpn/QsTileService", "vpn/VpnWidget", "vpn/BootReceiver", "data/ApkProvider"):
+                      "vpn/QsTileService", "vpn/NodeCheckService", "vpn/VpnWidget", "vpn/BootReceiver", "data/ApkProvider"):
         contracts["app/farvater/" + component] = [("<init>", "()V")]
     for name, methods in contracts.items():
         present = classes.get(f"L{name};", [])

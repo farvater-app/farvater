@@ -7,12 +7,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -38,8 +34,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -68,7 +64,6 @@ import app.farvater.data.UiStyle
 import app.farvater.ui.ios.glassRim
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.LocalUiStyle
-import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -90,7 +85,7 @@ fun ConnectButton(
     val dark = c.dark
     val rim = glassRim(dark)
 
-    val still = rememberReduceMotion()
+    val still = rememberWinterStill()
     val burst = remember { Animatable(1f) }
     val shake = remember { Animatable(0f) }
     var previous by remember { mutableStateOf(mode) }
@@ -151,17 +146,9 @@ fun ConnectButton(
         animationSpec = tween(450),
         label = "beam",
     )
-    var calm by remember { mutableStateOf(false) }
-    LaunchedEffect(mode) {
-        calm = false
-        if (mode == ConnectMode.Connected) {
-            delay(PULSE_MS * 3L)
-            calm = true
-        }
-    }
     val ringStrength by animateFloatAsState(
         targetValue = when (mode) {
-            ConnectMode.Connected -> if (calm) 0f else 1f
+            ConnectMode.Connected -> 1f
             ConnectMode.Idle -> 0f
             else -> 0.5f
         },
@@ -169,8 +156,8 @@ fun ConnectButton(
         label = "rings",
     )
     val spinning = mode == ConnectMode.Searching || mode == ConnectMode.Connecting || beamStrength > 0.01f
-    val angle by loop(spinning, 1800, LinearEasing, "angle")
-    val pulse by loop(ringStrength > 0.01f, PULSE_MS, FastOutSlowInEasing, "pulse")
+    val angle by loop(spinning && !still, 1800, LinearEasing)
+    val pulse by loop(ringStrength > 0.01f && !still, PULSE_MS, FastOutSlowInEasing)
 
     val description = when (mode) {
         ConnectMode.Idle -> stringResource(R.string.action_connect)
@@ -324,13 +311,11 @@ private fun cookie(center: Offset, radius: Float, rotation: Float): Path {
 }
 
 @Composable
-private fun loop(active: Boolean, durationMs: Int, easing: Easing, label: String): State<Float> {
-    if (!active) return remember { mutableFloatStateOf(0f) }
-    val transition = rememberInfiniteTransition(label = label)
-    return transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(durationMs, easing = easing), RepeatMode.Restart),
-        label = label,
-    )
+private fun loop(active: Boolean, durationMs: Int, easing: Easing): State<Float> {
+    val clock = rememberWinterClock(!active)
+    return remember(clock, active, durationMs, easing) {
+        derivedStateOf {
+            if (active) easing.transform((clock.value * 1000f % durationMs) / durationMs) else 0f
+        }
+    }
 }

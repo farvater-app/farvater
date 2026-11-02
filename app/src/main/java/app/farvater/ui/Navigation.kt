@@ -46,6 +46,7 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ShortNavigationBar
 import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.Snackbar
@@ -78,10 +79,12 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -126,18 +129,129 @@ internal fun FarvaterFrame(
     snackbar: SnackbarHostState = remember { SnackbarHostState() },
     content: @Composable (PaddingValues) -> Unit,
 ) {
-    when {
-        Ios.colorOs -> ScenicFrame(tab, onTab, snackbar, floating = true, content = content)
-        Ios.winter -> ScenicFrame(tab, onTab, snackbar, floating = false, content = content)
-        Ios.witch -> WitchFrame(tab, onTab, snackbar, content)
-        Ios.nothing -> NothingFrame(tab, onTab, snackbar, content)
-        Ios.origin -> OriginFrame(tab, onTab, snackbar, content)
-        Ios.hyper -> HyperFrame(tab, onTab, snackbar, content)
-        Ios.harmony -> HarmonyFrame(tab, onTab, snackbar, content)
-        Ios.oneUi -> OneUiFrame(tab, onTab, snackbar, content)
-        Ios.oxygen -> OxygenFrame(tab, onTab, snackbar, content)
-        Ios.material -> MaterialFrame(tab, onTab, snackbar, content)
-        else -> GlassFrame(tab, onTab, snackbar, content)
+    val haptics = LocalHapticFeedback.current
+    val selectTab: (Tab) -> Unit = { selected ->
+        if (selected != tab) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+        onTab(selected)
+    }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val density = LocalDensity.current
+        val style = navigationLabelStyle()
+        val measurer = rememberTextMeasurer()
+        val inset = when {
+            Ios.origin -> 52.dp
+            !Ios.material -> 48.dp
+            Ios.colorOs -> 32.dp
+            Ios.oneUi || Ios.harmony -> 24.dp
+            else -> 16.dp
+        }
+        val width = with(density) { ((maxWidth - inset) / 4 - 4.dp).roundToPx().coerceAtLeast(1) }
+        val titles = Tab.entries.map { if (Ios.nothing) it.title.uppercase() else it.title }
+        val crowded = density.fontScale > 1.3f || titles.any {
+            measurer.measure(it, style = style, maxLines = 1, softWrap = false).size.width > width
+        }
+        if (crowded) {
+            AccessibleFrame(tab, selectTab, snackbar, style, content)
+        } else {
+            when {
+                Ios.colorOs -> ScenicFrame(tab, selectTab, snackbar, floating = true, content = content)
+                Ios.winter -> ScenicFrame(tab, selectTab, snackbar, floating = false, content = content)
+                Ios.witch -> WitchFrame(tab, selectTab, snackbar, content)
+                Ios.nothing -> NothingFrame(tab, selectTab, snackbar, content)
+                Ios.origin -> OriginFrame(tab, selectTab, snackbar, content)
+                Ios.hyper -> HyperFrame(tab, selectTab, snackbar, content)
+                Ios.harmony -> HarmonyFrame(tab, selectTab, snackbar, content)
+                Ios.oneUi -> OneUiFrame(tab, selectTab, snackbar, content)
+                Ios.oxygen -> OxygenFrame(tab, selectTab, snackbar, content)
+                Ios.material -> MaterialFrame(tab, selectTab, snackbar, content)
+                else -> GlassFrame(tab, selectTab, snackbar, content)
+            }
+        }
+    }
+}
+
+@Composable
+private fun navigationLabelStyle(): TextStyle = when {
+    Ios.nothing -> NothingLabel.copy(fontSize = 9.sp, letterSpacing = 1.sp)
+    Ios.origin -> TextStyle(fontFamily = localizedFont(OriginFont), fontWeight = FontWeight.ExtraBold, fontSize = 10.5.sp, lineHeight = 13.sp)
+    Ios.hyper -> TextStyle(fontFamily = localizedFont(HyperFont), fontWeight = FontWeight.SemiBold, fontSize = 11.sp, lineHeight = 14.sp)
+    Ios.oneUi -> TextStyle(fontFamily = localizedFont(OneUiFont), fontWeight = FontWeight.Bold, fontSize = 15.sp, lineHeight = 20.sp)
+    Ios.oxygen -> TextStyle(fontFamily = localizedFont(OxygenFont), fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 14.sp)
+    Ios.harmony -> TextStyle(fontFamily = localizedFont(HarmonyFont), fontWeight = FontWeight.Medium, fontSize = 10.sp, lineHeight = 13.sp)
+    Ios.witch -> TextStyle(fontFamily = localizedFont(OriginFont), fontSize = 11.sp, lineHeight = 14.sp)
+    Ios.winter || Ios.colorOs -> TextStyle(fontSize = 11.sp, lineHeight = 14.sp)
+    Ios.material -> MaterialTheme.typography.labelMedium
+    else -> IosType.caption2.copy(fontWeight = FontWeight.SemiBold)
+}
+
+@Composable
+private fun AccessibleFrame(
+    tab: Tab,
+    onTab: (Tab) -> Unit,
+    snackbar: SnackbarHostState,
+    labelStyle: TextStyle,
+    content: @Composable (PaddingValues) -> Unit,
+) {
+    val c = Ios.colors
+    val density = LocalDensity.current
+    val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val floating = !Ios.material || Ios.origin || Ios.colorOs
+    val gap = if (floating) 12.dp else 0.dp
+    val textSize = labelStyle.fontSize.value.coerceAtLeast(12f)
+    val style = labelStyle.copy(fontSize = textSize.sp, lineHeight = (textSize * 1.4f).sp)
+    val titles = Tab.entries.map { if (Ios.nothing) it.title.uppercase() else it.title }
+    val measurer = rememberTextMeasurer()
+    Surface(color = c.background, contentColor = c.label, modifier = Modifier.fillMaxSize()) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val textWidth = with(density) { ((maxWidth - gap * 2) / 2 - 24.dp).roundToPx().coerceAtLeast(1) }
+            val textHeight = titles.maxOf {
+                measurer.measure(it, style = style, constraints = Constraints(maxWidth = textWidth)).size.height
+            }
+            val rowHeight = with(density) { textHeight.toDp() + 20.dp }.coerceAtLeast(48.dp)
+            val barHeight = rowHeight * 2 + 8.dp
+            val bottomInset = navInset + barHeight + gap
+            when {
+                Ios.winter -> app.farvater.ui.components.WinterBackdrop(Modifier.matchParentSize())
+                Ios.nothing -> Box(Modifier.matchParentSize().dotGrid(c.label))
+                LocalUiStyle.current == UiStyle.SUMIE -> Box(Modifier.matchParentSize().paperGrain(c.label))
+                Ios.origin -> Box(Modifier.matchParentSize().drawBehind {
+                    drawRect(Brush.radialGradient(listOf(c.tint.copy(alpha = if (c.dark) 0.22f else 0.14f), Color.Transparent),
+                        center = Offset(size.width, 0f), radius = size.width * 1.15f))
+                })
+            }
+            CompositionLocalProvider(LocalBottomInset provides bottomInset) {
+                content(WindowInsets.statusBars.asPaddingValues())
+            }
+            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset + 12.dp))
+            val shape = RoundedCornerShape(if (floating) 28.dp else 0.dp)
+            Column(Modifier.align(Alignment.BottomCenter).padding(horizontal = gap).padding(bottom = navInset + gap)
+                .fillMaxWidth().height(barHeight).clip(shape).background(c.bar)
+                .then(if (floating) Modifier.border(0.75.dp, c.barBorder, shape) else Modifier)
+                .padding(4.dp)) {
+                Tab.entries.chunked(2).forEach { tabs ->
+                    Row(Modifier.fillMaxWidth().weight(1f)) {
+                        tabs.forEach { item ->
+                            val selected = item == tab
+                            val selectedColor = if (Ios.oneUi || Ios.nothing || Ios.oxygen) c.label else c.tint
+                            val tint = if (selected) selectedColor else c.secondaryLabel
+                            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(20.dp))
+                                .background(if (selected && !Ios.oneUi && !Ios.nothing && !Ios.oxygen) c.highlight else Color.Transparent)
+                                .clickable(role = Role.Tab) { onTab(item) }.semantics { this.selected = selected },
+                                contentAlignment = Alignment.Center) {
+                                Text(if (Ios.nothing) item.title.uppercase() else item.title,
+                                    style = style, color = tint, textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp))
+                                if (selected && (Ios.oneUi || Ios.nothing || Ios.oxygen)) {
+                                    Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp)
+                                        .size(if (Ios.oneUi) 22.dp else 5.dp, if (Ios.oneUi) 3.dp else 5.dp)
+                                        .background(if (Ios.nothing) c.red else c.tint, CircleShape))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -180,7 +294,8 @@ private fun ScenicFrame(tab: Tab, onTab: (Tab) -> Unit, snackbar: SnackbarHostSt
                                             Icon(if (active) item.icon else item.iconIdle, null, tint = tint, modifier = Modifier.size(24.dp))
                                         }
                                         Spacer(Modifier.height(4.dp))
-                                        Text(item.title, color = tint, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1)
+                                        Text(item.title, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
+                                            color = tint, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1)
                                     }
                                 }
                             }
@@ -252,7 +367,6 @@ private fun NothingFrame(
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val c = Ios.colors
-    val haptics = LocalHapticFeedback.current
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val bottomInset: Dp = navInset + 66.dp
     Surface(color = c.background, contentColor = c.label, modifier = Modifier.fillMaxSize()) {
@@ -279,7 +393,6 @@ private fun NothingFrame(
                 Row(Modifier.fillMaxWidth().height(65.dp).padding(horizontal = 6.dp)) {
                     Tab.entries.forEach { t ->
                         NothingTab(t, selected = t == tab, modifier = Modifier.weight(1f)) {
-                            if (t != tab) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
                             onTab(t)
                         }
                     }
@@ -316,7 +429,8 @@ private fun NothingTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick:
         Spacer(Modifier.height(5.dp))
         Icon(tab.iconIdle, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
         Spacer(Modifier.height(4.dp))
-        Text(tab.title.uppercase(), style = NothingLabel.copy(fontSize = 9.sp, letterSpacing = 1.sp), color = tint, maxLines = 1)
+        Text(tab.title.uppercase(), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
+            style = NothingLabel.copy(fontSize = 9.sp, letterSpacing = 1.sp), color = tint, maxLines = 1)
     }
 }
 
@@ -328,7 +442,6 @@ private fun OriginFrame(
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val c = Ios.colors
-    val haptics = LocalHapticFeedback.current
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val bottomInset: Dp = navInset + 64.dp + 24.dp
     Surface(color = c.background, contentColor = c.label, modifier = Modifier.fillMaxSize()) {
@@ -392,7 +505,6 @@ private fun OriginFrame(
                     Row(Modifier.fillMaxSize()) {
                         Tab.entries.forEach { t ->
                             OriginTab(t, selected = t == tab, modifier = Modifier.weight(1f)) {
-                                if (t != tab) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
                                 onTab(t)
                             }
                         }
@@ -425,6 +537,7 @@ private fun OriginTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick: 
         Text(
             tab.title,
             style = TextStyle(fontFamily = localizedFont(OriginFont), fontWeight = FontWeight.ExtraBold, fontSize = 10.5.sp, lineHeight = 13.sp),
+            modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
             color = tint,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -440,7 +553,6 @@ private fun HyperFrame(
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val c = Ios.colors
-    val haptics = LocalHapticFeedback.current
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val bottomInset: Dp = navInset + 64.dp
     Surface(color = c.background, contentColor = c.label, modifier = Modifier.fillMaxSize()) {
@@ -467,7 +579,6 @@ private fun HyperFrame(
                 Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 8.dp)) {
                     Tab.entries.forEach { t ->
                         HyperTab(t, selected = t == tab, modifier = Modifier.weight(1f)) {
-                            if (t != tab) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
                             onTab(t)
                         }
                     }
@@ -513,6 +624,7 @@ private fun HyperTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick: (
         Text(
             tab.title,
             style = TextStyle(fontFamily = localizedFont(HyperFont), fontWeight = FontWeight.SemiBold, fontSize = 11.sp, lineHeight = 14.sp),
+            modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
             color = tint,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -528,7 +640,6 @@ private fun OneUiFrame(
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val c = Ios.colors
-    val haptics = LocalHapticFeedback.current
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val bottomInset: Dp = navInset + 56.dp
     Surface(color = c.background, contentColor = c.label, modifier = Modifier.fillMaxSize()) {
@@ -554,7 +665,6 @@ private fun OneUiFrame(
                 Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 12.dp)) {
                     Tab.entries.forEach { t ->
                         OneUiTab(t, selected = t == tab, modifier = Modifier.weight(1f)) {
-                            if (t != tab) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
                             onTab(t)
                         }
                     }
@@ -582,6 +692,7 @@ private fun OneUiTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick: (
         Text(
             tab.title,
             style = TextStyle(fontFamily = localizedFont(OneUiFont), fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, fontSize = 15.sp, lineHeight = 20.sp),
+            modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
             color = tint,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -605,7 +716,6 @@ private fun OxygenFrame(
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val c = Ios.colors
-    val haptics = LocalHapticFeedback.current
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val bottomInset: Dp = navInset + 62.dp
     Surface(color = c.background, contentColor = c.label, modifier = Modifier.fillMaxSize()) {
@@ -631,7 +741,6 @@ private fun OxygenFrame(
                 Row(Modifier.fillMaxWidth().height(62.dp).padding(horizontal = 8.dp)) {
                     Tab.entries.forEach { t ->
                         OxygenTab(t, selected = t == tab, modifier = Modifier.weight(1f)) {
-                            if (t != tab) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
                             onTab(t)
                         }
                     }
@@ -661,6 +770,7 @@ private fun OxygenTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick: 
         Text(
             tab.title,
             style = TextStyle(fontFamily = localizedFont(OxygenFont), fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 14.sp),
+            modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
             color = tint,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -678,7 +788,6 @@ private fun HarmonyFrame(
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val c = Ios.colors
-    val haptics = LocalHapticFeedback.current
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val bottomInset: Dp = navInset + 60.dp
     Surface(color = c.background, contentColor = c.label, modifier = Modifier.fillMaxSize()) {
@@ -704,7 +813,6 @@ private fun HarmonyFrame(
                 Row(Modifier.fillMaxWidth().height(60.dp).padding(horizontal = 12.dp)) {
                     Tab.entries.forEach { t ->
                         HarmonyTab(t, selected = t == tab, modifier = Modifier.weight(1f)) {
-                            if (t != tab) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
                             onTab(t)
                         }
                     }
@@ -739,6 +847,7 @@ private fun HarmonyTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick:
         Text(
             tab.title,
             style = TextStyle(fontFamily = localizedFont(HarmonyFont), fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal, fontSize = 10.sp, lineHeight = 13.sp),
+            modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
             color = tint,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -806,7 +915,6 @@ private fun MaterialFrame(
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val c = Ios.colors
-    val haptics = LocalHapticFeedback.current
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val bottomInset: Dp = navInset + 64.dp
     val paper = if (LocalUiStyle.current == UiStyle.SUMIE) Modifier.paperGrain(c.label) else Modifier
@@ -826,11 +934,10 @@ private fun MaterialFrame(
                         modifier = Modifier.indication(interaction, LocalIndication.current),
                         selected = t == tab,
                         onClick = {
-                            if (t != tab) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
                             onTab(t)
                         },
                         icon = { Icon(if (t == tab) t.icon else t.iconIdle, contentDescription = null) },
-                        label = { Text(t.title, maxLines = 1) },
+                        label = { Text(t.title, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, maxLines = 1) },
                     )
                 }
             }
@@ -841,7 +948,6 @@ private fun MaterialFrame(
 @Composable
 private fun TabBar(current: Tab, onTab: (Tab) -> Unit, backdrop: GlassBackdrop, modifier: Modifier) {
     val c = Ios.colors
-    val haptics = LocalHapticFeedback.current
     if (LocalDensity.current.fontScale > 1.3f) {
         val height = (32 + 64 * LocalDensity.current.fontScale).dp
         Column(modifier.fillMaxWidth().height(height)
@@ -853,7 +959,6 @@ private fun TabBar(current: Tab, onTab: (Tab) -> Unit, backdrop: GlassBackdrop, 
                         Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(24.dp))
                             .background(if (selected) c.tint.copy(alpha = 0.12f) else Color.Transparent)
                             .clickable(role = Role.Tab) {
-                                if (!selected) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
                                 onTab(item)
                             }.semantics { this.selected = selected }, contentAlignment = Alignment.Center) {
                             Text(item.title, modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
@@ -884,7 +989,6 @@ private fun TabBar(current: Tab, onTab: (Tab) -> Unit, backdrop: GlassBackdrop, 
             Row(Modifier.fillMaxSize()) {
                 Tab.entries.forEach { t ->
                     TabItem(t, selected = t == current, modifier = Modifier.weight(1f)) {
-                        if (t != current) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
                         onTab(t)
                     }
                 }
@@ -927,6 +1031,7 @@ private fun TabItem(tab: Tab, selected: Boolean, modifier: Modifier, onClick: ()
         Text(
             tab.title,
             style = IosType.caption2.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium),
+            modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
             color = tint,
             maxLines = 1,
         )

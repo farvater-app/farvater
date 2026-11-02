@@ -153,7 +153,6 @@ private val TestUrls: List<Pair<String, String>>
     app.farvater.data.ProbeUrls.GOOGLE to stringResource(R.string.probe_google_default),
     app.farvater.data.ProbeUrls.CLOUDFLARE to "Cloudflare",
     app.farvater.data.ProbeUrls.APPLE to "Apple",
-    app.farvater.data.ProbeUrls.FIREFOX to "Firefox",
 )
 
 private val ConcurrencyOptions: List<Pair<Int, String>>
@@ -337,6 +336,7 @@ private fun SettingsRoot(
                     chevron = true,
                     onClick = { onOpen(SettingsPage.Appearance) },
                 )
+                IosDivider(start = 60.dp)
                 IosRow(
                     title = stringResource(R.string.settings_language),
                     icon = Icons.Rounded.Language,

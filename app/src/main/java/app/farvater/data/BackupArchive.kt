@@ -24,7 +24,9 @@ data class BackupArchive(
     val manualNodes: List<String> = emptyList(),
     val language: String = "",
 ) {
-    fun decodedSettings(): AppSettings = settingsJson.decodeFromJsonElement(AppSettings.serializer(), settings)
+    fun decodedSettings(): AppSettings = settingsJson.decodeFromJsonElement(AppSettings.serializer(), settings).let {
+        it.copy(testUrl = ProbeUrls.migrate(it.testUrl))
+    }
 
     fun securityChanges(current: AppSettings): BackupSecurityChanges {
         val restored = decodedSettings()

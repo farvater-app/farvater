@@ -4,14 +4,11 @@ import app.farvater.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.withInfiniteAnimationFrameMillis
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -45,27 +42,24 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import app.farvater.ui.theme.Ios
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 @Composable
 fun OneUiConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val c = Ios.colors
     val haptics = LocalHapticFeedback.current
-    val still = rememberReduceMotion()
+    val still = rememberWinterStill()
     val on = mode == ConnectMode.Connected
-    val busy = mode == ConnectMode.Searching || mode == ConnectMode.Connecting
-
-    val fill = remember { Animatable(if (on) 1f else 0f) }
+    val motion = rememberOneUiArcMotion(mode, still)
     var previous by remember { mutableStateOf(mode) }
     LaunchedEffect(mode) {
         val changed = previous != mode
         previous = mode
-        val target = if (on || mode == ConnectMode.Error) 1f else 0f
-        if (!changed || still) {
-            fill.snapTo(target)
-        } else {
-            fill.animateTo(target, tween(if (target > 0f) 700 else 300))
-        }
         if (!changed) return@LaunchedEffect
         when (mode) {
             ConnectMode.Connected -> haptics.performHapticFeedback(HapticFeedbackType.Confirm)
@@ -73,37 +67,28 @@ fun OneUiConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Mo
             else -> Unit
         }
     }
-    val spin by if (busy && !still) {
-        rememberInfiniteTransition(label = "spin").animateFloat(
-            initialValue = 0f,
-            targetValue = 360f,
-            animationSpec = infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Restart),
-            label = "spin",
-        )
-    } else {
-        remember { mutableFloatStateOf(0f) }
-    }
     val arc by animateColorAsState(
         when (mode) {
             ConnectMode.Error -> c.red
             else -> c.tint
         },
-        tween(400),
+        if (still) snap() else tween(400),
         label = "arc",
     )
-    val core by animateColorAsState(if (on) c.tint else c.cell, tween(400), label = "core")
+    val core by animateColorAsState(if (on) c.tint else c.cell, if (still) snap() else tween(400), label = "core")
     val glyph by animateColorAsState(
         when {
             on -> androidx.compose.ui.graphics.Color.White
             mode == ConnectMode.Error -> c.red
             else -> c.tint
         },
-        tween(400),
+        if (still) snap() else tween(400),
         label = "glyph",
     )
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) 0.95f else 1f, spring(dampingRatio = 0.55f, stiffness = 500f), label = "press")
+    val scale by animateFloatAsState(if (pressed) 0.95f else 1f,
+        if (still) snap() else spring(dampingRatio = 0.55f, stiffness = 500f), label = "press")
 
     val description = when (mode) {
         ConnectMode.Idle -> stringResource(R.string.action_connect)
@@ -132,9 +117,9 @@ fun OneUiConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Mo
                 val arcSize = androidx.compose.ui.geometry.Size(size.width - width, size.height - width)
                 val topLeft = androidx.compose.ui.geometry.Offset(inset, inset)
                 drawArc(c.fill, 0f, 360f, false, topLeft, arcSize, style = Stroke(width))
-                when {
-                    busy -> drawArc(arc, spin - 90f, 96f, false, topLeft, arcSize, style = Stroke(width, cap = StrokeCap.Round))
-                    fill.value > 0f -> drawArc(arc, -90f, 360f * fill.value, false, topLeft, arcSize, style = Stroke(width, cap = StrokeCap.Round))
+                if (motion.sweep.value > 0f) {
+                    drawArc(arc, motion.startAngle, motion.sweep.value, false, topLeft, arcSize,
+                        style = Stroke(width, cap = StrokeCap.Round))
                 }
             }
             Box(Modifier.size(150.dp).background(core, CircleShape), contentAlignment = Alignment.Center) {
@@ -142,4 +127,41 @@ fun OneUiConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Mo
             }
         }
     }
+}
+
+internal class OneUiArcMotion(mode: ConnectMode) {
+    var startAngle by mutableFloatStateOf(-90f)
+    val sweep = Animatable(oneUiSweep(mode))
+}
+
+@Composable
+internal fun rememberOneUiArcMotion(mode: ConnectMode, still: Boolean): OneUiArcMotion {
+    val motion = remember { OneUiArcMotion(mode) }
+    val owner = LocalLifecycleOwner.current
+    val busy = mode == ConnectMode.Searching || mode == ConnectMode.Connecting
+    LaunchedEffect(mode, still, owner) {
+        val target = oneUiSweep(mode)
+        if (still) {
+            motion.startAngle = -90f
+            motion.sweep.snapTo(target)
+        } else coroutineScope {
+            launch { motion.sweep.animateTo(target, tween(if (busy) 250 else if (target > 0f) 700 else 300)) }
+            if (busy) owner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                var previous = withInfiniteAnimationFrameMillis { it }
+                while (true) withInfiniteAnimationFrameMillis { now ->
+                    if (now - previous >= 32) {
+                        motion.startAngle = (motion.startAngle + (now - previous) * 360f / 1100f) % 360f
+                        previous = now
+                    }
+                }
+            }
+        }
+    }
+    return motion
+}
+
+private fun oneUiSweep(mode: ConnectMode) = when (mode) {
+    ConnectMode.Idle -> 0f
+    ConnectMode.Searching, ConnectMode.Connecting -> 96f
+    ConnectMode.Connected, ConnectMode.Error -> 360f
 }

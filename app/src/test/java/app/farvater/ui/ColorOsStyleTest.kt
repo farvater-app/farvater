@@ -28,6 +28,7 @@ import app.farvater.ui.ios.IosLargeTitle
 import app.farvater.ui.ios.IosSegmented
 import app.farvater.ui.ios.IosSwitch
 import app.farvater.ui.ios.IosRow
+import app.farvater.ui.ios.powerSave
 import app.farvater.ui.theme.FarvaterTheme
 import app.farvater.ui.theme.colorOsColors
 import org.junit.After
@@ -48,6 +49,7 @@ class ColorOsStyleTest {
 
     @After fun restoreAnimations() {
         Settings.Global.putFloat(app.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
+        powerSave = false
     }
 
     @Test fun largeTextKeepsTitlesAndTabsComplete() {
@@ -140,26 +142,93 @@ class ColorOsStyleTest {
         assertEquals(5, clicks)
     }
 
-    @Test fun reducedMotionFreezesSnowAndLights() {
-        Settings.Global.putFloat(app.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 0f)
+    @Test fun connectionAndDisconnectionHaveIntermediateFrames() {
         lateinit var view: View
+        val mode = mutableStateOf(ConnectMode.Idle)
         rule.mainClock.autoAdvance = false
         rule.setContent {
             view = LocalView.current
-            FarvaterTheme(style = UiStyle.COLOROS) { ColorOsConnect(ConnectMode.Searching, {}) }
+            FarvaterTheme(style = UiStyle.COLOROS) { ColorOsConnect(mode.value, {}) }
         }
+        applyChanges()
+        rule.mainClock.advanceTimeBy(600)
+        for (target in listOf(ConnectMode.Connected, ConnectMode.Idle)) {
+            val before = capture(view)
+            rule.runOnIdle { mode.value = target }
+            applyChanges()
+            rule.mainClock.advanceTimeBy(176)
+            val intermediate = capture(view)
+            rule.mainClock.advanceTimeBy(600)
+            val after = capture(view)
+            assertFalse("$target: no transition", intermediate.sameAs(before))
+            assertFalse("$target: jumped to final frame", intermediate.sameAs(after))
+        }
+    }
+
+    @Test fun searchingAndConnectingMoveTheBeacon() {
+        lateinit var view: View
+        val mode = mutableStateOf(ConnectMode.Searching)
+        rule.mainClock.autoAdvance = false
+        rule.setContent {
+            view = LocalView.current
+            FarvaterTheme(style = UiStyle.COLOROS) { ColorOsConnect(mode.value, {}) }
+        }
+        for (target in listOf(ConnectMode.Searching, ConnectMode.Connecting)) {
+            rule.runOnIdle { mode.value = target }
+            applyChanges()
+            rule.mainClock.advanceTimeBy(160)
+            val before = capture(view)
+            rule.mainClock.advanceTimeBy(320)
+            assertFalse("$target: busy indicator is static", before.sameAs(capture(view)))
+        }
+    }
+
+    @Test fun reducedMotionFreezesOrbAndTransitions() {
+        Settings.Global.putFloat(app.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 0f)
+        assertStaticScene()
+    }
+
+    @Test fun powerSavingFreezesOrbAndTransitions() {
+        powerSave = true
+        assertStaticScene()
+    }
+
+    private fun assertStaticScene() {
+        lateinit var view: View
+        val mode = mutableStateOf(ConnectMode.Searching)
+        rule.mainClock.autoAdvance = false
+        rule.setContent {
+            view = LocalView.current
+            FarvaterTheme(style = UiStyle.COLOROS) { ColorOsConnect(mode.value, {}) }
+        }
+        applyChanges()
         rule.mainClock.advanceTimeBy(500)
-        fun capture(): Bitmap {
-            lateinit var bitmap: Bitmap
-            rule.runOnIdle {
-                bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
-                view.draw(Canvas(bitmap))
-            }
-            return bitmap
-        }
-        val before = capture()
+        val before = capture(view)
         rule.mainClock.advanceTimeBy(12_000)
-        assertTrue(before.sameAs(capture()))
+        assertTrue(before.sameAs(capture(view)))
+        for (target in listOf(ConnectMode.Connected, ConnectMode.Idle)) {
+            rule.runOnIdle { mode.value = target }
+            applyChanges()
+            rule.mainClock.advanceTimeBy(64)
+            val first = capture(view)
+            rule.mainClock.advanceTimeBy(600)
+            assertTrue("$target still animates", first.sameAs(capture(view)))
+        }
+    }
+
+    private fun capture(view: View): Bitmap {
+        lateinit var bitmap: Bitmap
+        rule.runOnIdle {
+            bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+            view.draw(Canvas(bitmap))
+        }
+        return bitmap
+    }
+
+    private fun applyChanges() {
+        androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications()
+        rule.mainClock.advanceTimeByFrame()
+        rule.waitForIdle()
     }
 
     private fun contrast(a: Color, b: Color) =

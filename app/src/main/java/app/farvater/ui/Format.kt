@@ -23,7 +23,8 @@ fun formatBytes(context: Context, bytes: Long): String {
         b < 1024 -> R.string.unit_bytes to String.format(locale, "%d", b.toLong())
         b < 1024 * 1024 -> R.string.unit_kilobytes to String.format(locale, "%.0f", b / 1024)
         b < 1024.0 * 1024 * 1024 -> R.string.unit_megabytes to String.format(locale, "%.1f", b / 1024 / 1024)
-        else -> R.string.unit_gigabytes to String.format(locale, "%.2f", b / 1024 / 1024 / 1024)
+        b < 1024.0 * 1024 * 1024 * 1024 -> R.string.unit_gigabytes to String.format(locale, "%.2f", b / 1024 / 1024 / 1024)
+        else -> R.string.unit_terabytes to String.format(locale, "%.2f", b / 1024 / 1024 / 1024 / 1024)
     }
     return localized.getString(unit, value)
 }
