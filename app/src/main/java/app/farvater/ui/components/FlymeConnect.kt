@@ -51,7 +51,7 @@ fun FlymeConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Mo
     val clock = rememberWinterClock(still || !busy)
     val accent by animateColorAsState(if (mode == ConnectMode.Error) c.red else c.tint, shellSpring(), label = "flymeAccent")
     val scale by animateFloatAsState(if (pressed) 0.95f else 1f, shellSpring(), label = "flymePress")
-    val fill by animateColorAsState(if (active) Color(0xFF135BD4) else c.cell, shellSpring(), label = "flymePower")
+    val fill by animateColorAsState(if (active) c.tint else c.background, shellSpring(), label = "flymePower")
     val description = stringResource(when (mode) {
         ConnectMode.Idle -> R.string.action_connect
         ConnectMode.Searching -> R.string.action_stop_search

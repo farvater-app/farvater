@@ -181,8 +181,8 @@ val SectionCorner = 24.dp
 @Composable
 @ReadOnlyComposable
 fun sectionCorner(): Dp = when {
-    Ios.flyme -> 18.dp
-    Ios.colorOs -> 28.dp
+    Ios.flyme -> 10.dp
+    Ios.colorOs -> 32.dp
     Ios.origin -> 26.dp
     Ios.hyper -> 22.dp
     Ios.harmony -> 20.dp
@@ -201,7 +201,7 @@ fun originRim(dark: Boolean): Brush = Brush.verticalGradient(
 )
 
 val SheetCorner: Dp
-    @Composable @ReadOnlyComposable get() = when { Ios.flyme -> 24.dp; Ios.colorOs -> 30.dp; Ios.material -> 28.dp; else -> 34.dp }
+    @Composable @ReadOnlyComposable get() = when { Ios.flyme -> 16.dp; Ios.colorOs -> 32.dp; Ios.material -> 28.dp; else -> 34.dp }
 
 @Composable
 fun IosLargeTitle(
@@ -383,7 +383,7 @@ fun IosSection(
         Column(
             Modifier
                 .fillMaxWidth()
-                .then(if (Ios.origin || Ios.colorOs) Modifier.border(1.dp, originRim(c.dark), shape) else if (Ios.flyme) Modifier.border(0.5.dp, c.barBorder, shape) else Modifier)
+                .then(if (Ios.origin || Ios.colorOs) Modifier.border(1.dp, originRim(c.dark), shape) else Modifier)
                 .clip(shape)
                 .background(c.cell),
             content = content,
@@ -415,9 +415,7 @@ fun IosDivider(start: Dp = 16.dp) {
 fun IosIcon(icon: ImageVector, tint: Color, size: Dp = 29.dp) {
     val c = Ios.colors
     if (Ios.flyme) {
-        Box(Modifier.size(size + 5.dp).background(tint.copy(alpha = 0.12f), RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(size * 0.72f))
-        }
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(size))
     } else if (Ios.colorOs) {
         Box(Modifier.size(size + 3.dp).background(tint, CircleShape), contentAlignment = Alignment.Center) {
             Icon(icon, contentDescription = null, tint = if (c.dark) c.background else Color.White, modifier = Modifier.size(size * 0.66f))
@@ -916,7 +914,7 @@ fun IosSearchField(value: String, onValueChange: (String) -> Unit, placeholder: 
 fun IosTextField(value: String, onValueChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, label: String? = null) {
     val c = Ios.colors
     val material = Ios.material
-    val shape = RoundedCornerShape(if (Ios.flyme) 16.dp else if (Ios.colorOs) 22.dp else if (material) 12.dp else 10.dp)
+    val shape = RoundedCornerShape(if (Ios.flyme) 10.dp else if (Ios.colorOs) 22.dp else if (material) 12.dp else 10.dp)
     val textStyle = if (material) MaterialTheme.typography.bodyLarge else IosType.subheadline
     Box(
         modifier
@@ -970,7 +968,7 @@ fun IosButton(
             style == IosButtonStyle.Tinted -> if (brand) scheme.onSecondaryContainer else color
             else -> color
         }
-        val buttonShape = if (Ios.flyme) RoundedCornerShape(14.dp) else CircleShape
+        val buttonShape = if (Ios.flyme) RoundedCornerShape(10.dp) else CircleShape
         val press = remember { MutableInteractionSource() }
         val pressed by press.collectIsPressedAsState()
         val scale by animateFloatAsState(if (pressed) 0.96f else 1f, if (Ios.shell) shellSpring() else spring(dampingRatio = 0.6f, stiffness = 600f), label = "press")
@@ -984,7 +982,7 @@ fun IosButton(
                 }
                 .clip(buttonShape)
                 .background(bg)
-                .then(if (outlined) Modifier.border(1.5.dp, color, CircleShape) else Modifier)
+                .then(if (outlined) Modifier.border(1.5.dp, color, buttonShape) else Modifier)
                 .clickable(interactionSource = press, indication = LocalIndication.current, enabled = enabled, role = Role.Button, onClick = onClick)
                 .padding(horizontal = 24.dp),
             horizontalArrangement = Arrangement.Center,

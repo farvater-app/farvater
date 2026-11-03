@@ -1127,7 +1127,7 @@ fun FarvaterTheme(
         MaterialTheme(
             colorScheme = colorScheme,
             typography = when {
-                style == UiStyle.FLYME -> MaterialType.systemFont().copy(headlineLarge = TextStyle(fontSize = 34.sp, lineHeight = 42.sp, fontWeight = FontWeight.Medium), titleLarge = TextStyle(fontSize = 22.sp, lineHeight = 29.sp, fontWeight = FontWeight.Medium))
+                style == UiStyle.FLYME -> MaterialType.systemFont().copy(headlineLarge = TextStyle(fontSize = 28.sp, lineHeight = 36.sp, fontWeight = FontWeight.Medium), titleLarge = TextStyle(fontSize = 22.sp, lineHeight = 29.sp, fontWeight = FontWeight.Medium))
                 style == UiStyle.COLOROS -> MaterialType.systemFont()
                 style == UiStyle.WITCH -> WitchType
                 style == UiStyle.SUMIE -> SumieType
@@ -1141,8 +1141,8 @@ fun FarvaterTheme(
                 else -> Type
             }.let { if (LocalConfiguration.current.locales[0].language == "fa") it.systemFont() else it },
             shapes = when {
-                style == UiStyle.FLYME -> Shapes(small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(24.dp))
-                style == UiStyle.COLOROS -> Shapes(small = RoundedCornerShape(16.dp), medium = RoundedCornerShape(24.dp), large = RoundedCornerShape(30.dp))
+                style == UiStyle.FLYME -> Shapes(small = RoundedCornerShape(6.dp), medium = RoundedCornerShape(10.dp), large = RoundedCornerShape(16.dp))
+                style == UiStyle.COLOROS -> Shapes(small = RoundedCornerShape(16.dp), medium = RoundedCornerShape(24.dp), large = RoundedCornerShape(32.dp))
                 style == UiStyle.WITCH -> WitchShapes
                 style == UiStyle.SUMIE -> SumieShapes
                 style == UiStyle.NOTHING -> NothingShapes

@@ -659,7 +659,7 @@ private fun AppearancePage(
             title = stringResource(R.string.style_coloros),
             subtitle = stringResource(R.string.style_coloros_description),
             selected = settings.uiStyle == UiStyle.COLOROS,
-            leading = { StyleMark { IosIcon(Icons.Rounded.Palette, Ios.colors.blue) } },
+            leading = { StyleMark { androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.ic_style_coloros), null, Modifier.size(36.dp)) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.COLOROS) } },
         )
     }
@@ -669,7 +669,7 @@ private fun AppearancePage(
             title = stringResource(R.string.style_flyme),
             subtitle = stringResource(R.string.style_flyme_description),
             selected = settings.uiStyle == UiStyle.FLYME,
-            leading = { StyleMark { IosIcon(Icons.Rounded.Palette, Ios.colors.blue) } },
+            leading = { StyleMark { androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.ic_style_flyme), null, Modifier.size(36.dp)) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.FLYME) } },
         )
     }

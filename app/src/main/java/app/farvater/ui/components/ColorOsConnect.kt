@@ -63,14 +63,14 @@ fun ColorOsConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = 
     val clock = rememberWinterClock(still || !busy)
     val illumination = animateFloatAsState(if (active) 1f else 0f,
         if (still) snap() else tween(280), label = "colorOsIllumination")
-    val base by animateColorAsState(if (active) Color(0xFF065AC7) else c.cell, shellSpring(), label = "colorOsSurface")
-    val end by animateColorAsState(if (active) Color(0xFF234DAA) else c.highlight, shellSpring(), label = "colorOsLight")
+    val base by animateColorAsState(if (active) Color(0xFF006951) else c.cell, shellSpring(), label = "colorOsSurface")
+    val end by animateColorAsState(if (active) Color(0xFF124D40) else c.highlight, shellSpring(), label = "colorOsLight")
     val ink = app.farvater.ui.ios.readableOn(base)
     val accent = if (active) ink else if (mode == ConnectMode.Error) c.red else c.tint
     Box(modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth()
         .graphicsLayer { scaleX = scale; scaleY = scale }
-        .clip(RoundedCornerShape(28.dp)).background(Brush.linearGradient(listOf(base, base, end)))
-        .then(if (focused) Modifier.border(2.dp, if (active) Color.White else c.tint, RoundedCornerShape(28.dp)) else Modifier)
+        .clip(RoundedCornerShape(32.dp)).background(Brush.linearGradient(listOf(base, base, end)))
+        .then(if (focused) Modifier.border(2.dp, if (active) Color.White else c.tint, RoundedCornerShape(32.dp)) else Modifier)
         .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick).semantics { contentDescription = description }) {
         Canvas(Modifier.align(Alignment.CenterEnd).size(150.dp).clearAndSetSemantics {}) {
             val progress = illumination.value
