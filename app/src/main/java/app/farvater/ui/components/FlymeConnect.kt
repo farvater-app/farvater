@@ -70,7 +70,7 @@ fun FlymeConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = Mo
                     style = Stroke(3.dp.toPx(), cap = StrokeCap.Round))
             }
             Box(Modifier.size(154.dp).graphicsLayer { scaleX = scale; scaleY = scale }.clip(CircleShape)
-                .background(fill).border(if (focused) 3.dp else 1.dp, if (focused) accent else accent.copy(alpha = 0.25f), CircleShape)
+                .background(fill).border(if (focused) 3.dp else 1.dp, if (focused) app.farvater.ui.ios.readableOn(fill) else accent.copy(alpha = 0.25f), CircleShape)
                 .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick)
                 .semantics { contentDescription = description }, contentAlignment = Alignment.Center) {
                 Icon(Icons.Rounded.PowerSettingsNew, null, tint = app.farvater.ui.ios.readableOn(fill), modifier = Modifier.size(46.dp))
