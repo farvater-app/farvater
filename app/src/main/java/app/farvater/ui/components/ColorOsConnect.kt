@@ -1,5 +1,6 @@
 package app.farvater.ui.components
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
@@ -57,16 +58,17 @@ fun ColorOsConnect(mode: ConnectMode, onClick: () -> Unit, modifier: Modifier = 
     })
     val active = mode == ConnectMode.Connected
     val busy = mode == ConnectMode.Searching || mode == ConnectMode.Connecting
-    val still = rememberWinterStill()
+    val still = LocalShellMotionDisabled.current
+    val scale by animateFloatAsState(if (pressed) 0.98f else 1f, shellSpring(), label = "colorOsPress")
     val clock = rememberWinterClock(still || !busy)
     val illumination = animateFloatAsState(if (active) 1f else 0f,
-        if (still) snap() else tween(520), label = "colorOsIllumination")
-    val ink = if (active) Color.White else c.label
-    val accent = if (mode == ConnectMode.Error) c.red else if (active) Color.White else c.tint
-    val base = if (active) Color(0xFF065AC7) else c.cell
-    val end = if (active) Color(0xFF234DAA) else c.highlight
+        if (still) snap() else tween(280), label = "colorOsIllumination")
+    val base by animateColorAsState(if (active) Color(0xFF065AC7) else c.cell, shellSpring(), label = "colorOsSurface")
+    val end by animateColorAsState(if (active) Color(0xFF234DAA) else c.highlight, shellSpring(), label = "colorOsLight")
+    val ink = app.farvater.ui.ios.readableOn(base)
+    val accent = if (active) ink else if (mode == ConnectMode.Error) c.red else c.tint
     Box(modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth()
-        .graphicsLayer { scaleX = if (pressed) 0.98f else 1f; scaleY = scaleX }
+        .graphicsLayer { scaleX = scale; scaleY = scale }
         .clip(RoundedCornerShape(28.dp)).background(Brush.linearGradient(listOf(base, base, end)))
         .then(if (focused) Modifier.border(2.dp, if (active) Color.White else c.tint, RoundedCornerShape(28.dp)) else Modifier)
         .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick).semantics { contentDescription = description }) {

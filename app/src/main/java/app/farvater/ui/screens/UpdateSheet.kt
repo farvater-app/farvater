@@ -58,10 +58,12 @@ fun UpdateSheet(info: UpdateInfo, stage: UpdateStage, onUpdate: () -> Unit, onLa
     val corner = SheetCorner
     val scope = rememberCoroutineScope()
     val slide = remember { Animatable(1f) }
-    LaunchedEffect(Unit) { slide.animateTo(0f, spring(dampingRatio = 0.88f, stiffness = 300f)) }
+    val motion = if (Ios.shell) app.farvater.ui.components.shellSpring<Float>() else spring(dampingRatio = 0.88f, stiffness = 300f)
+    val exitMotion = if (Ios.shell) motion else spring<Float>(dampingRatio = 1f, stiffness = 520f)
+    LaunchedEffect(Unit) { slide.animateTo(0f, motion) }
     val close: () -> Unit = {
         scope.launch {
-            slide.animateTo(1f, spring(dampingRatio = 1f, stiffness = 520f))
+            slide.animateTo(1f, exitMotion)
             onLater()
         }
     }
@@ -100,7 +102,7 @@ fun UpdateSheet(info: UpdateInfo, stage: UpdateStage, onUpdate: () -> Unit, onLa
                     Modifier
                         .weight(1f, fill = false)
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(SectionCorner))
+                        .clip(RoundedCornerShape(app.farvater.ui.ios.sectionCorner()))
                         .background(c.cell)
                         .verticalScroll(rememberScrollState())
                         .padding(16.dp),

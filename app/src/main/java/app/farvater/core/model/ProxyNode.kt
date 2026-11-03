@@ -33,7 +33,8 @@ data class ProxyNode(
     private val protocolSecurityIssue: String?
         get() = when {
             (params["allowInsecure"] == "1" || params["insecure"] == "1") && pinnedCert == null -> "Без проверки сертификата"
-            protocol == Protocol.VLESS && (security.isBlank() || security == "none") -> "Без шифрования"
+            protocol == Protocol.VLESS && !isJson && vlessEncryption == VlessEncryption.Kind.UNKNOWN -> "Неизвестное шифрование VLESS"
+            protocol == Protocol.VLESS && !isJson && (security.isBlank() || security == "none") && vlessEncryption != VlessEncryption.Kind.SUPPORTED -> "Без шифрования"
             protocol == Protocol.TROJAN && security == "none" -> "Без шифрования"
             protocol == Protocol.VMESS && params["scy"].orEmpty().lowercase() in setOf("none", "zero") -> "Без шифрования"
             protocol == Protocol.SHADOWSOCKS -> {
@@ -47,8 +48,20 @@ data class ProxyNode(
             else -> null
         }
 
+    val vlessEncryption: VlessEncryption.Kind by lazy {
+        VlessEncryption.classify(if (isJson) XrayJsonParser.mainEncryption(raw) else params["encryption"])
+    }
+
     private val jsonSecurityIssue by lazy {
-        if (isJson) params["jsonSecurityIssue"] ?: XrayJsonParser.securityIssue(raw) else null
+        if (!isJson) null else {
+            val current = XrayJsonParser.securityIssue(raw)
+            val saved = params["jsonSecurityIssue"]
+            when {
+                current != null -> current
+                saved == "Без шифрования" && params["securityAssessmentVersion"] != "2" -> "Обновите источник для проверки защиты"
+                else -> saved ?: current
+            }
+        }
     }
 
     private val downloadSecurityIssue by lazy {
@@ -64,6 +77,7 @@ data class ProxyNode(
     val tags: List<String>
         get() = buildList {
             add(protocol.title)
+            if (protocol == Protocol.VLESS && vlessEncryption == VlessEncryption.Kind.SUPPORTED) add("VLESS Encryption")
             when (security) {
                 "reality" -> add("Reality")
                 "tls" -> add("TLS")

@@ -195,6 +195,12 @@ object Ios {
     val oneUi: Boolean
         @Composable @ReadOnlyComposable get() = LocalUiStyle.current == UiStyle.ONEUI
 
+    val flyme: Boolean
+        @Composable @ReadOnlyComposable get() = LocalUiStyle.current == UiStyle.FLYME
+
+    val shell: Boolean
+        @Composable @ReadOnlyComposable get() = colorOs || flyme
+
     val colorOs: Boolean
         @Composable @ReadOnlyComposable get() = LocalUiStyle.current == UiStyle.COLOROS
 
@@ -1056,8 +1062,8 @@ fun FarvaterTheme(
     val material = style != UiStyle.IOS
     val dark = darkTheme || style in setOf(UiStyle.ROSKOMPOZOR, UiStyle.WITCH)
     val targetScheme = remember(dark, style, dynamicColor) {
-        if (style in setOf(UiStyle.WINTER, UiStyle.COLOROS)) {
-            val colors = if (style == UiStyle.COLOROS) colorOsColors(dark) else winterColors(dark)
+        if (style in setOf(UiStyle.WINTER, UiStyle.COLOROS, UiStyle.FLYME)) {
+            val colors = when (style) { UiStyle.COLOROS -> colorOsColors(dark); UiStyle.FLYME -> flymeColors(dark); else -> winterColors(dark) }
             scheme(colors).copy(onPrimary = if (dark) colors.background else Color.White,
                 primaryContainer = colors.fill, onPrimaryContainer = colors.label,
                 secondaryContainer = colors.fill, onSecondaryContainer = colors.label,
@@ -1098,6 +1104,7 @@ fun FarvaterTheme(
     }
     val targetIos = remember(targetScheme, dark, style) {
         when {
+            style == UiStyle.FLYME -> flymeColors(dark)
             style == UiStyle.COLOROS -> colorOsColors(dark)
             style == UiStyle.WINTER -> winterColors(dark)
             style == UiStyle.WITCH -> WitchColors
@@ -1115,10 +1122,12 @@ fun FarvaterTheme(
     }
     val colorScheme = if (style == UiStyle.WITCH) targetScheme else fadeTo(targetScheme) { a, b, t -> a.lerpTo(b, t) }
     val ios = if (style == UiStyle.WITCH) targetIos else fadeTo(targetIos) { a, b, t -> a.lerpTo(b, t) }
-    CompositionLocalProvider(LocalIos provides ios, LocalUiStyle provides style) {
+    val shellStill = if (style == UiStyle.COLOROS || style == UiStyle.FLYME) app.farvater.ui.components.rememberWinterStill() else false
+    CompositionLocalProvider(LocalIos provides ios, LocalUiStyle provides style, app.farvater.ui.components.LocalShellMotionDisabled provides shellStill) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = when {
+                style == UiStyle.FLYME -> MaterialType.systemFont().copy(headlineLarge = TextStyle(fontSize = 34.sp, lineHeight = 42.sp, fontWeight = FontWeight.Medium), titleLarge = TextStyle(fontSize = 22.sp, lineHeight = 29.sp, fontWeight = FontWeight.Medium))
                 style == UiStyle.COLOROS -> MaterialType.systemFont()
                 style == UiStyle.WITCH -> WitchType
                 style == UiStyle.SUMIE -> SumieType
@@ -1132,6 +1141,8 @@ fun FarvaterTheme(
                 else -> Type
             }.let { if (LocalConfiguration.current.locales[0].language == "fa") it.systemFont() else it },
             shapes = when {
+                style == UiStyle.FLYME -> Shapes(small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(24.dp))
+                style == UiStyle.COLOROS -> Shapes(small = RoundedCornerShape(16.dp), medium = RoundedCornerShape(24.dp), large = RoundedCornerShape(30.dp))
                 style == UiStyle.WITCH -> WitchShapes
                 style == UiStyle.SUMIE -> SumieShapes
                 style == UiStyle.NOTHING -> NothingShapes

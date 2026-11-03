@@ -1,5 +1,6 @@
 package app.farvater.ui.ios
 
+import app.farvater.ui.components.shellSpring
 import app.farvater.R
 import androidx.compose.ui.res.stringResource
 import android.os.Build
@@ -163,8 +164,12 @@ fun Modifier.iosPress(
 
 @OptIn(ExperimentalFoundationApi::class)
 fun Modifier.iosRowPress(onLongClick: (() -> Unit)? = null, onClick: () -> Unit): Modifier = composed {
-    combinedClickable(
-        interactionSource = remember { MutableInteractionSource() },
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val shell = Ios.shell
+    val scale by animateFloatAsState(if (shell && pressed) 0.985f else 1f, shellSpring(), label = "rowPress")
+    graphicsLayer { scaleX = scale; scaleY = scale }.combinedClickable(
+        interactionSource = interaction,
         indication = LocalIndication.current,
         onLongClick = onLongClick,
         onClick = onClick,
@@ -176,7 +181,8 @@ val SectionCorner = 24.dp
 @Composable
 @ReadOnlyComposable
 fun sectionCorner(): Dp = when {
-    Ios.colorOs -> 22.dp
+    Ios.flyme -> 18.dp
+    Ios.colorOs -> 28.dp
     Ios.origin -> 26.dp
     Ios.hyper -> 22.dp
     Ios.harmony -> 20.dp
@@ -195,7 +201,7 @@ fun originRim(dark: Boolean): Brush = Brush.verticalGradient(
 )
 
 val SheetCorner: Dp
-    @Composable @ReadOnlyComposable get() = if (Ios.material) 28.dp else 34.dp
+    @Composable @ReadOnlyComposable get() = when { Ios.flyme -> 24.dp; Ios.colorOs -> 30.dp; Ios.material -> 28.dp; else -> 34.dp }
 
 @Composable
 fun IosLargeTitle(
@@ -206,10 +212,10 @@ fun IosLargeTitle(
 ) {
     val c = Ios.colors
     val material = Ios.material
-    if (Ios.colorOs) {
+    if (Ios.shell) {
         Column(modifier.fillMaxWidth().padding(start = 24.dp, end = 20.dp, top = 28.dp, bottom = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(title, style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp),
+                Text(title, style = MaterialTheme.typography.headlineLarge.copy(fontWeight = if (Ios.flyme) FontWeight.Medium else FontWeight.Bold, letterSpacing = (-0.5).sp),
                     color = c.label, modifier = Modifier.weight(1f))
                 if (LocalDensity.current.fontScale <= 1.3f) trailing()
             }
@@ -223,7 +229,7 @@ fun IosLargeTitle(
         }
         return
     }
-    if ((Ios.witch || Ios.winter || Ios.colorOs) && LocalDensity.current.fontScale > 1.3f) {
+    if ((Ios.witch || Ios.winter || Ios.shell) && LocalDensity.current.fontScale > 1.3f) {
         Column(modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 28.dp, bottom = 14.dp)) {
             Text(title, style = MaterialTheme.typography.headlineLarge, color = c.label)
             if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = c.secondaryLabel)
@@ -301,7 +307,7 @@ fun IosLargeTitle(
 @Composable
 fun IosCompactBar(title: String, visible: Boolean, modifier: Modifier = Modifier, backdrop: GlassBackdrop? = null) {
     val c = Ios.colors
-    val largeText = (Ios.winter || Ios.colorOs) && LocalDensity.current.fontScale > 1.3f
+    val largeText = (Ios.winter || Ios.shell) && LocalDensity.current.fontScale > 1.3f
     val p by animateFloatAsState(if (visible) 1f else 0f, tween(180), label = "bar")
     if (p == 0f) return
     if (Ios.material) {
@@ -362,7 +368,7 @@ fun IosSection(
             header != null && material -> Text(
                 header,
                 style = MaterialTheme.typography.titleSmall,
-                color = if (Ios.colorOs || Ios.hyper || Ios.harmony || Ios.oneUi || Ios.oxygen) c.secondaryLabel else c.tint,
+                color = if (Ios.shell || Ios.hyper || Ios.harmony || Ios.oneUi || Ios.oxygen) c.secondaryLabel else c.tint,
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
             )
             header != null -> Text(
@@ -377,7 +383,7 @@ fun IosSection(
         Column(
             Modifier
                 .fillMaxWidth()
-                .then(if (Ios.origin) Modifier.border(1.dp, originRim(c.dark), shape) else Modifier)
+                .then(if (Ios.origin || Ios.colorOs) Modifier.border(1.dp, originRim(c.dark), shape) else if (Ios.flyme) Modifier.border(0.5.dp, c.barBorder, shape) else Modifier)
                 .clip(shape)
                 .background(c.cell),
             content = content,
@@ -396,7 +402,7 @@ fun IosSection(
 @Composable
 fun IosDivider(start: Dp = 16.dp) {
     val c = Ios.colors
-    if (Ios.colorOs) {
+    if (Ios.shell) {
         HorizontalDivider(Modifier.padding(start = start + 4.dp, end = 20.dp), thickness = 0.5.dp, color = c.separator)
     } else if (Ios.material) {
         Box(Modifier.fillMaxWidth().height(2.dp).background(c.background))
@@ -408,7 +414,11 @@ fun IosDivider(start: Dp = 16.dp) {
 @Composable
 fun IosIcon(icon: ImageVector, tint: Color, size: Dp = 29.dp) {
     val c = Ios.colors
-    if (Ios.colorOs) {
+    if (Ios.flyme) {
+        Box(Modifier.size(size + 5.dp).background(tint.copy(alpha = 0.12f), RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(size * 0.72f))
+        }
+    } else if (Ios.colorOs) {
         Box(Modifier.size(size + 3.dp).background(tint, CircleShape), contentAlignment = Alignment.Center) {
             Icon(icon, contentDescription = null, tint = if (c.dark) c.background else Color.White, modifier = Modifier.size(size * 0.66f))
         }
@@ -454,12 +464,12 @@ fun IosRow(
     val c = Ios.colors
     val material = Ios.material
     val haptics = LocalHapticFeedback.current
-    val showChevron = chevron && (!material || Ios.colorOs)
+    val showChevron = chevron && (!material || Ios.shell)
     val titleStyle = if (material) MaterialTheme.typography.bodyLarge else IosType.body
     val subtitleStyle = if (material) MaterialTheme.typography.bodyMedium else IosType.footnote
     val valueStyle = if (material) MaterialTheme.typography.bodyMedium else IosType.body
-    val vertical = if (Ios.colorOs) 13.dp else if (material) 10.dp else 9.dp
-    if ((Ios.winter || Ios.colorOs) && LocalDensity.current.fontScale > 1.3f) {
+    val vertical = if (Ios.flyme) 15.dp else if (Ios.colorOs) 13.dp else if (material) 10.dp else 9.dp
+    if ((Ios.winter || Ios.shell) && LocalDensity.current.fontScale > 1.3f) {
         Column(
             modifier.fillMaxWidth().then(
                 when {
@@ -651,7 +661,7 @@ fun IosChoiceRow(
 fun IosSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier: Modifier = Modifier) {
     val c = Ios.colors
     val haptics = LocalHapticFeedback.current
-    if (Ios.colorOs) {
+    if (Ios.shell) {
         ColorOsSwitch(checked, onCheckedChange?.let { change ->
             {
                 haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
@@ -749,11 +759,12 @@ fun IosSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, 
             onSelect(i)
         }
     }
-    if (Ios.colorOs && LocalDensity.current.fontScale <= 1.3f) {
+    if (Ios.shell && LocalDensity.current.fontScale <= 1.3f) {
         Row(modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(c.fill).padding(4.dp).selectableGroup()) {
             options.forEachIndexed { i, text ->
-                Box(Modifier.weight(1f).heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp))
-                    .background(if (i == selected) c.cell else Color.Transparent)
+                val fill by animateColorAsState(if (i == selected) c.cell else Color.Transparent, shellSpring(), label = "filterSelection")
+                Box(Modifier.weight(1f).heightIn(min = 48.dp).clip(RoundedCornerShape(if (Ios.flyme) 9.dp else 12.dp))
+                    .background(fill)
                     .selectable(selected = i == selected, role = Role.Tab, onClick = { pick(i) }), contentAlignment = Alignment.Center) {
                     Text(text, color = if (i == selected) c.tint else c.secondaryLabel,
                         style = MaterialTheme.typography.labelLarge, maxLines = 1, modifier = Modifier.padding(horizontal = 2.dp))
@@ -762,7 +773,7 @@ fun IosSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, 
         }
         return
     }
-    if ((Ios.winter || Ios.colorOs) && LocalDensity.current.fontScale > 1.3f) {
+    if ((Ios.winter || Ios.shell) && LocalDensity.current.fontScale > 1.3f) {
         Column(modifier.fillMaxWidth().selectableGroup(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             options.indices.chunked(2).forEach { indices ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -864,10 +875,10 @@ fun IosSearchField(value: String, onValueChange: (String) -> Unit, placeholder: 
     Row(
         modifier
             .fillMaxWidth()
-            .height(if (Ios.colorOs) 48.dp else if (material) 56.dp else 44.dp)
+            .height(if (Ios.shell) 48.dp else if (material) 56.dp else 44.dp)
             .clip(CircleShape)
             .background(
-                if (Ios.colorOs) c.cell else if (material) MaterialTheme.colorScheme.surfaceContainerHigh else c.fill.copy(alpha = if (c.dark) 0.7f else 1f),
+                if (Ios.shell) c.cell else if (material) MaterialTheme.colorScheme.surfaceContainerHigh else c.fill.copy(alpha = if (c.dark) 0.7f else 1f),
             )
             .padding(horizontal = if (material) 16.dp else 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -905,7 +916,7 @@ fun IosSearchField(value: String, onValueChange: (String) -> Unit, placeholder: 
 fun IosTextField(value: String, onValueChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, label: String? = null) {
     val c = Ios.colors
     val material = Ios.material
-    val shape = RoundedCornerShape(if (material) 12.dp else 10.dp)
+    val shape = RoundedCornerShape(if (Ios.flyme) 16.dp else if (Ios.colorOs) 22.dp else if (material) 12.dp else 10.dp)
     val textStyle = if (material) MaterialTheme.typography.bodyLarge else IosType.subheadline
     Box(
         modifier
@@ -959,9 +970,10 @@ fun IosButton(
             style == IosButtonStyle.Tinted -> if (brand) scheme.onSecondaryContainer else color
             else -> color
         }
+        val buttonShape = if (Ios.flyme) RoundedCornerShape(14.dp) else CircleShape
         val press = remember { MutableInteractionSource() }
         val pressed by press.collectIsPressedAsState()
-        val scale by animateFloatAsState(if (pressed) 0.96f else 1f, spring(dampingRatio = 0.6f, stiffness = 600f), label = "press")
+        val scale by animateFloatAsState(if (pressed) 0.96f else 1f, if (Ios.shell) shellSpring() else spring(dampingRatio = 0.6f, stiffness = 600f), label = "press")
         Row(
             modifier
                 .heightIn(min = 48.dp)
@@ -970,7 +982,7 @@ fun IosButton(
                     scaleX = scale
                     scaleY = scale
                 }
-                .clip(CircleShape)
+                .clip(buttonShape)
                 .background(bg)
                 .then(if (outlined) Modifier.border(1.5.dp, color, CircleShape) else Modifier)
                 .clickable(interactionSource = press, indication = LocalIndication.current, enabled = enabled, role = Role.Button, onClick = onClick)
@@ -1093,7 +1105,7 @@ fun IosPushedPage(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val c = Ios.colors
-    val largeText = (Ios.winter || Ios.colorOs) && LocalDensity.current.fontScale > 1.3f
+    val largeText = (Ios.winter || Ios.shell) && LocalDensity.current.fontScale > 1.3f
     val scroll = rememberScrollState()
     EdgeHaptics(scroll)
     if (Ios.material) {
@@ -1184,10 +1196,12 @@ fun IosSheet(title: String, onClose: () -> Unit, content: @Composable ColumnScop
     val corner = SheetCorner
     val scope = rememberCoroutineScope()
     val slide = remember { Animatable(1f) }
-    LaunchedEffect(Unit) { slide.animateTo(0f, spring(dampingRatio = 0.9f, stiffness = 300f)) }
+    val motion = if (Ios.shell) shellSpring<Float>() else spring(dampingRatio = 0.9f, stiffness = 300f)
+    val exitMotion = if (Ios.shell) motion else spring<Float>(dampingRatio = 1f, stiffness = 520f)
+    LaunchedEffect(Unit) { slide.animateTo(0f, motion) }
     val close: () -> Unit = {
         scope.launch {
-            slide.animateTo(1f, spring(dampingRatio = 1f, stiffness = 520f))
+            slide.animateTo(1f, exitMotion)
             onClose()
         }
     }
@@ -1221,15 +1235,17 @@ fun IosActionPanel(
     val scope = rememberCoroutineScope()
     val slide = remember { Animatable(1f) }
     var height by remember { mutableIntStateOf(1) }
-    LaunchedEffect(Unit) { slide.animateTo(0f, spring(dampingRatio = 0.86f, stiffness = 420f)) }
+    val motion = if (Ios.shell) shellSpring<Float>() else spring(dampingRatio = 0.86f, stiffness = 420f)
+    val exitMotion = if (Ios.shell) motion else spring<Float>(dampingRatio = 1f, stiffness = 600f)
+    LaunchedEffect(Unit) { slide.animateTo(0f, motion) }
     val close: (() -> Unit) -> Unit = { then ->
         then()
         scope.launch {
-            slide.animateTo(1f, spring(dampingRatio = 1f, stiffness = 600f))
+            slide.animateTo(1f, exitMotion)
             onDismiss()
         }
     }
-    val shape = RoundedCornerShape(if (material) 28.dp else 34.dp)
+    val shape = RoundedCornerShape(SheetCorner)
     val drag = rememberDraggableState { delta ->
         scope.launch { slide.snapTo((slide.value + delta / height).coerceAtLeast(0f)) }
     }
@@ -1257,7 +1273,7 @@ fun IosActionPanel(
                             if (slide.value > 0.3f || velocity > 1500f) {
                                 close {}
                             } else {
-                                slide.animateTo(0f, spring(dampingRatio = 0.86f, stiffness = 420f))
+                                slide.animateTo(0f, motion)
                             }
                         },
                     )
@@ -1463,7 +1479,8 @@ fun IosAlert(
     val material = Ios.material
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         val appear = remember { Animatable(0f) }
-        LaunchedEffect(Unit) { appear.animateTo(1f, spring(dampingRatio = 0.82f, stiffness = 520f)) }
+        val animation = if (Ios.shell) shellSpring<Float>() else spring(dampingRatio = 0.82f, stiffness = 520f)
+        LaunchedEffect(Unit) { appear.animateTo(1f, animation) }
         val motion = Modifier.graphicsLayer {
             val s = 1.1f - 0.1f * appear.value
             scaleX = s
@@ -1579,8 +1596,8 @@ private fun MaterialAlert(
         motion
             .padding(horizontal = 32.dp)
             .widthIn(min = 280.dp, max = 560.dp)
-            .clip(RoundedCornerShape(28.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clip(RoundedCornerShape(SheetCorner))
+            .background(if (Ios.shell) c.cell else MaterialTheme.colorScheme.surfaceContainerHigh)
             .padding(24.dp),
     ) {
         Text(title, style = MaterialTheme.typography.headlineSmall, color = c.label)

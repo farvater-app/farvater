@@ -767,6 +767,52 @@ class ScreenshotTest {
         act = { rule.onNodeWithContentDescription("Подключиться").performTouchInput { down(center) } },
     ) { Home(VpnState.Idle) }
 
+    @Test fun beta8FlymeAppearanceChoicesLight() = shot("M_flyme_appearance_choices_light", dark = false, style = UiStyle.FLYME, act = { rule.mainClock.autoAdvance = true; rule.onNodeWithText("Flyme").performScrollTo(); rule.onRoot().performTouchInput { swipeUp(startY = height * 0.8f, endY = height * 0.55f) } }) { Settings(page = "Appearance") }
+    @Test fun beta8FlymeAppearanceChoicesDark() = shot("M_flyme_appearance_choices_dark", dark = true, style = UiStyle.FLYME, act = { rule.mainClock.autoAdvance = true; rule.onNodeWithText("Flyme").performScrollTo(); rule.onRoot().performTouchInput { swipeUp(startY = height * 0.8f, endY = height * 0.55f) } }) { Settings(page = "Appearance") }
+    @Test fun beta8FlymeNodesPersianLarge() = shot("M_flyme_nodes_fa_large", dark = true, style = UiStyle.FLYME, language = "fa", fontScale = 2f) { Servers() }
+    @Test fun beta8FlymeTestingLarge() = shot("M_flyme_testing_large", dark = false, style = UiStyle.FLYME, fontScale = 2f) { Settings(page = "Testing") }
+    @Test fun beta8FlymeIdleLight() = shot("M_flyme_idle_light", dark = false, style = UiStyle.FLYME) { Home(VpnState.Idle) }
+    @Test fun beta8FlymeConnectedLight() = shot("M_flyme_connected_light", dark = false, style = UiStyle.FLYME) { Home(Fake.connected) }
+    @Test fun beta8FlymeSearchingLight() = shot("M_flyme_searching_light", dark = false, style = UiStyle.FLYME) { Home(VpnState.Idle, Fake.state.copy(progress = TestProgress(3, 10, 2))) }
+    @Test fun beta8FlymeErrorLight() = shot("M_flyme_error_light", dark = false, style = UiStyle.FLYME) { Home(VpnState.Failed("Узел не ответил", Fake.state.nodes.first())) }
+    @Test fun beta8FlymeNodesLight() = shot("M_flyme_nodes_light", dark = false, style = UiStyle.FLYME) { Servers() }
+    @Test fun beta8FlymeSourcesLight() = shot("M_flyme_sources_light", dark = false, style = UiStyle.FLYME) { Sources() }
+    @Test fun beta8FlymeSettingsLight() = shot("M_flyme_settings_light", dark = false, style = UiStyle.FLYME) { Settings() }
+    @Test fun beta8FlymeAppearanceLight() = shot("M_flyme_appearance_light", dark = false, style = UiStyle.FLYME) { Settings(page = "Appearance") }
+    @Test fun beta8FlymeConnectionLight() = shot("M_flyme_connection_light", dark = false, style = UiStyle.FLYME) { Settings(page = "Connection") }
+    @Test fun beta8FlymeSecurityLight() = shot("M_flyme_security_light", dark = false, style = UiStyle.FLYME) { Settings(page = "Security") }
+    @Test fun beta8FlymeSubscriptionsLight() = shot("M_flyme_subscriptions_light", dark = false, style = UiStyle.FLYME) { Settings(page = "Subscriptions") }
+    @Test fun beta8FlymeTestingLight() = shot("M_flyme_testing_light", dark = false, style = UiStyle.FLYME) { Settings(page = "Testing") }
+    @Test fun beta8FlymeBackgroundLight() = shot("M_flyme_background_light", dark = false, style = UiStyle.FLYME) { Settings(page = "Background") }
+    @Test fun beta8FlymeUpdatesLight() = shot("M_flyme_updates_light", dark = false, style = UiStyle.FLYME) { Settings(page = "Updates") }
+    @Test fun beta8FlymeDocumentsLight() = shot("M_flyme_documents_light", dark = false, style = UiStyle.FLYME) { Settings(page = "Documents") }
+    @Test fun beta8FlymeAboutLight() = shot("M_flyme_about_light", dark = false, style = UiStyle.FLYME) { Settings(page = "About") }
+    @Test fun beta8FlymeLanguageLight() = shot("M_flyme_language_light", dark = false, style = UiStyle.FLYME) { Settings(page = "Language") }
+    @Test fun beta8FlymeTrafficLight() = shot("M_flyme_traffic_light", dark = false, style = UiStyle.FLYME) { Settings(page = "Traffic") }
+    @Test fun beta8FlymeShareAppLight() = shot("M_flyme_shareapp_light", dark = false, style = UiStyle.FLYME) { Settings(page = "ShareApp") }
+    @Test fun beta8FlymeBackupLight() = shot("M_flyme_backup_light", dark = false, style = UiStyle.FLYME) { Settings(page = "Backup") }
+    @Test fun beta8FlymeIdleDark() = shot("M_flyme_idle_dark", dark = true, style = UiStyle.FLYME) { Home(VpnState.Idle) }
+    @Test fun beta8FlymeConnectedDark() = shot("M_flyme_connected_dark", dark = true, style = UiStyle.FLYME) { Home(Fake.connected) }
+    @Test fun beta8FlymeSearchingDark() = shot("M_flyme_searching_dark", dark = true, style = UiStyle.FLYME) { Home(VpnState.Idle, Fake.state.copy(progress = TestProgress(3, 10, 2))) }
+    @Test fun beta8FlymeErrorDark() = shot("M_flyme_error_dark", dark = true, style = UiStyle.FLYME) { Home(VpnState.Failed("Узел не ответил", Fake.state.nodes.first())) }
+    @Test fun beta8FlymeNodesDark() = shot("M_flyme_nodes_dark", dark = true, style = UiStyle.FLYME) { Servers() }
+    @Test fun beta8FlymeSourcesDark() = shot("M_flyme_sources_dark", dark = true, style = UiStyle.FLYME) { Sources() }
+    @Test fun beta8FlymeSettingsDark() = shot("M_flyme_settings_dark", dark = true, style = UiStyle.FLYME) { Settings() }
+    @Test fun beta8FlymeAppearanceDark() = shot("M_flyme_appearance_dark", dark = true, style = UiStyle.FLYME) { Settings(page = "Appearance") }
+    @Test fun beta8FlymeConnectionDark() = shot("M_flyme_connection_dark", dark = true, style = UiStyle.FLYME) { Settings(page = "Connection") }
+    @Test fun beta8FlymeSecurityDark() = shot("M_flyme_security_dark", dark = true, style = UiStyle.FLYME) { Settings(page = "Security") }
+    @Test fun beta8FlymeSubscriptionsDark() = shot("M_flyme_subscriptions_dark", dark = true, style = UiStyle.FLYME) { Settings(page = "Subscriptions") }
+    @Test fun beta8FlymeTestingDark() = shot("M_flyme_testing_dark", dark = true, style = UiStyle.FLYME) { Settings(page = "Testing") }
+    @Test fun beta8FlymeBackgroundDark() = shot("M_flyme_background_dark", dark = true, style = UiStyle.FLYME) { Settings(page = "Background") }
+    @Test fun beta8FlymeUpdatesDark() = shot("M_flyme_updates_dark", dark = true, style = UiStyle.FLYME) { Settings(page = "Updates") }
+    @Test fun beta8FlymeDocumentsDark() = shot("M_flyme_documents_dark", dark = true, style = UiStyle.FLYME) { Settings(page = "Documents") }
+    @Test fun beta8FlymeAboutDark() = shot("M_flyme_about_dark", dark = true, style = UiStyle.FLYME) { Settings(page = "About") }
+    @Test fun beta8FlymeLanguageDark() = shot("M_flyme_language_dark", dark = true, style = UiStyle.FLYME) { Settings(page = "Language") }
+    @Test fun beta8FlymeTrafficDark() = shot("M_flyme_traffic_dark", dark = true, style = UiStyle.FLYME) { Settings(page = "Traffic") }
+    @Test fun beta8FlymeShareAppDark() = shot("M_flyme_shareapp_dark", dark = true, style = UiStyle.FLYME) { Settings(page = "ShareApp") }
+    @Test fun beta8FlymeBackupDark() = shot("M_flyme_backup_dark", dark = true, style = UiStyle.FLYME) { Settings(page = "Backup") }
+    @Test fun beta8FlymePersianLarge() = shot("M_flyme_home_fa_large", dark = true, style = UiStyle.FLYME, language = "fa", fontScale = 2f) { Home(Fake.connected) }
+
     private fun shot(
         name: String,
         dark: Boolean,

@@ -521,4 +521,8 @@
     <string name="service_reason_core">%1$s: could not start the check through the node</string>
     <string name="service_reason_timeout">%1$s: the response timed out</string>
     <string name="service_reason_tls">%1$s: could not establish a secure connection</string>
+    <string name="security_unknown_vless">Unknown VLESS encryption</string>
+    <string name="security_refresh_source">Refresh the source to check protection</string>
+    <string name="style_flyme">Flyme</string>
+    <string name="style_flyme_description">Clean surfaces and fluid transitions inspired by Flyme AIOS 2</string>
 </resources>

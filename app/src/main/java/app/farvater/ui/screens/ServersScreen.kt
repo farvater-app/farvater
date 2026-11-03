@@ -341,10 +341,11 @@ fun ServersScreen(
                     }
                     if (!collapsed) {
                         itemsIndexed(nodes, key = { _, n -> n.id }, contentType = { _, _ -> "node" }) { i, node ->
+                            val corner = app.farvater.ui.ios.sectionCorner()
                             val shape = when {
-                                nodes.size == 1 -> RoundedCornerShape(SectionCorner)
-                                i == 0 -> RoundedCornerShape(topStart = SectionCorner, topEnd = SectionCorner)
-                                i == nodes.lastIndex -> RoundedCornerShape(bottomStart = SectionCorner, bottomEnd = SectionCorner)
+                                nodes.size == 1 -> RoundedCornerShape(corner)
+                                i == 0 -> RoundedCornerShape(topStart = corner, topEnd = corner)
+                                i == nodes.lastIndex -> RoundedCornerShape(bottomStart = corner, bottomEnd = corner)
                                 else -> RoundedCornerShape(0.dp)
                             }
                             Column(
@@ -493,7 +494,7 @@ private fun NodeRow(
     val c = Ios.colors
     val selectedLabel = stringResource(R.string.node_selected)
     val (flag, title) = remember(node.name) { splitFlag(node.name) }
-    val subtitle = (if (node.isInsecure) stringResource(R.string.node_unencrypted_prefix) else "") + nodeSummary(node)
+    val subtitle = (securityLabel(node.securityIssue)?.let { "$it · " } ?: "") + nodeSummary(node)
     IosRow(
         title = title,
         subtitle = subtitle,

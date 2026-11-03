@@ -521,4 +521,8 @@
     <string name="service_reason_core">%1$s: آغاز بررسی از طریق گره ممکن نشد</string>
     <string name="service_reason_timeout">%1$s: مهلت دریافت پاسخ به پایان رسید</string>
     <string name="service_reason_tls">%1$s: برقراری اتصال امن ممکن نشد</string>
+    <string name="security_unknown_vless">رمزگذاری ناشناختهٔ VLESS</string>
+    <string name="security_refresh_source">برای بررسی حفاظت، منبع را به‌روز کنید</string>
+    <string name="style_flyme">Flyme</string>
+    <string name="style_flyme_description">سطح‌های ساده و جابه‌جایی‌های روان با الهام از Flyme AIOS 2</string>
 </resources>

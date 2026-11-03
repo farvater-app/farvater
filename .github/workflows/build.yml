@@ -39,7 +39,7 @@ jobs:
             app/libs/libv2ray.aar
             app/libs/natives-sha256.json
             app/src/main/jniLibs
-          key: natives-${{ env.NDK_VERSION }}-${{ hashFiles('scripts/fetch-natives.sh', 'scripts/check-natives.py', 'scripts/hev-udp-bind.patch') }}
+          key: natives-${{ env.NDK_VERSION }}-${{ hashFiles('scripts/fetch-natives.sh', 'scripts/check-natives.py', 'scripts/native-versions.json', 'scripts/hev-udp-bind.patch') }}
 
       - name: NDK
         if: steps.natives.outputs.cache-hit != 'true'
@@ -63,8 +63,14 @@ jobs:
       - name: Проверки сборочных контрактов
         run: python3 scripts/test-build-contracts.py
 
+      - name: Ядро для проверки совместимости
+        run: python3 scripts/fetch-test-core.py "$RUNNER_TEMP/xray-test"
+
       - name: Тесты и debug-сборка
-        run: gradle :app:testDebugUnitTest :app:assembleDebug
+        env:
+          FARVATER_XRAY_BINARY: ${{ runner.temp }}/xray-test/xray
+          FARVATER_XRAY_CONFIG_DIR: ${{ runner.temp }}/xray-configs
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 
       - name: Состав APK
         run: |
@@ -112,7 +118,7 @@ jobs:
             app/libs/libv2ray.aar
             app/libs/natives-sha256.json
             app/src/main/jniLibs
-          key: natives-${{ env.NDK_VERSION }}-${{ hashFiles('scripts/fetch-natives.sh', 'scripts/check-natives.py', 'scripts/hev-udp-bind.patch') }}
+          key: natives-${{ env.NDK_VERSION }}-${{ hashFiles('scripts/fetch-natives.sh', 'scripts/check-natives.py', 'scripts/native-versions.json', 'scripts/hev-udp-bind.patch') }}
 
       - name: NDK
         if: steps.natives.outputs.cache-hit != 'true'

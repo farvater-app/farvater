@@ -521,4 +521,8 @@
     <string name="service_reason_core">%1$s: не удалось запустить проверку через узел</string>
     <string name="service_reason_timeout">%1$s: время ожидания ответа истекло</string>
     <string name="service_reason_tls">%1$s: не удалось установить защищённое соединение</string>
+    <string name="security_unknown_vless">Неизвестное шифрование VLESS</string>
+    <string name="security_refresh_source">Обновите источник для проверки защиты</string>
+    <string name="style_flyme">Flyme</string>
+    <string name="style_flyme_description">Светлые поверхности и плавные переходы в духе Flyme AIOS 2</string>
 </resources>

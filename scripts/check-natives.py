@@ -12,7 +12,19 @@ FILES = ("app/libs/libv2ray.aar",) + tuple(
 )
 
 
+def pinned(root):
+    return json.loads((root / "scripts/native-versions.json").read_text())
+
+
+def verify_aar(root=ROOT):
+    with (root / "app/libs/libv2ray.aar").open("rb") as stream:
+        actual = hashlib.file_digest(stream, "sha256").hexdigest()
+    if actual != pinned(root)["aarSha256"]:
+        raise ValueError("Xray AAR does not match the pinned release")
+
+
 def verify(root=ROOT, record=False):
+    verify_aar(root)
     manifest = root / "app/libs/natives-sha256.json"
     actual = {}
     for name in FILES:
@@ -34,6 +46,13 @@ def verify(root=ROOT, record=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--record", action="store_true")
+    parser.add_argument("--aar-only", action="store_true")
+    parser.add_argument("--xray-version", action="store_true")
     args = parser.parse_args()
-    verify(record=args.record)
-    print("Native digests verified")
+    if args.xray_version:
+        print(pinned(ROOT)["xrayLibrary"])
+    elif args.aar_only:
+        verify_aar()
+    else:
+        verify(record=args.record)
+        print("Native digests verified")

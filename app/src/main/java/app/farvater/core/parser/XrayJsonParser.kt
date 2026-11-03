@@ -94,7 +94,7 @@ object XrayJsonParser {
         val protocol = PROTOCOLS.getValue(main.str("protocol")?.lowercase()!!)
         val settings = main.obj("settings") ?: JsonObject(emptyMap())
         val server = proxyServers(settings, protocol).firstOrNull() ?: settings
-        val user = server.array("users").firstOrNull() as? JsonObject ?: server
+        val user = proxyUsers(settings, server, protocol).first()
         val stream = main.obj("streamSettings")
         val tls = stream?.obj("tlsSettings")
         val reality = stream?.obj("realitySettings")
@@ -140,6 +140,8 @@ object XrayJsonParser {
             (tls ?: reality)?.str("serverName")?.let { put("sni", it) }
             reality?.str("publicKey")?.let { put("pbk", it) }
             user.str("flow")?.let { put("flow", it) }
+            user.str("encryption")?.let { put("encryption", it) }
+            put("securityAssessmentVersion", "2")
             server.str("method")?.let { put("method", it) }
             user.str("security")?.let { put("scy", it) }
             if (tls?.bool("allowInsecure") == true) put("allowInsecure", "1")
@@ -187,6 +189,16 @@ object XrayJsonParser {
         }
     }
 
+    internal fun mainEncryption(raw: String): String? {
+        val config = runCatching { Json.parseToJsonElement(raw) as? JsonObject }.getOrNull() ?: return null
+        val output = config.array("outbounds").firstOrNull() as? JsonObject ?: return null
+        if (output.str("protocol") != "vless") return null
+        val settings = output.obj("settings") ?: return null
+        val server = proxyServers(settings, Protocol.VLESS).firstOrNull() ?: settings
+        val user = proxyUsers(settings, server, Protocol.VLESS).first()
+        return user.str("encryption")
+    }
+
     internal fun securityIssue(raw: String): String? =
         (runCatching { Json.parseToJsonElement(raw) }.getOrNull() as? JsonObject)?.let(::securityIssue)
 
@@ -210,6 +222,7 @@ object XrayJsonParser {
         if (stream == null) return null
         val tls = stream.obj("tlsSettings")
         val download = buildMap {
+            params["encryption"]?.let { put("encryption", it) }
             params["scy"]?.let { put("scy", it) }
             params["method"]?.let { put("method", it) }
             put("security", stream.str("security") ?: "none")
@@ -240,10 +253,11 @@ object XrayJsonParser {
                 val stream = output.obj("streamSettings")
                 val tls = stream?.obj("tlsSettings")
                 for (server in servers) {
-                    val users = server.array("users").filterIsInstance<JsonObject>().ifEmpty { listOf(server) }
+                    val users = proxyUsers(settings, server, protocol)
                     for (user in users) {
                         val params = buildMap {
                             put("security", stream?.str("security") ?: "none")
+                            user.str("encryption")?.let { put("encryption", it) }
                             user.str("security")?.let { put("scy", it) }
                             server.str("method")?.let { put("method", it) }
                             if (tls?.bool("allowInsecure") == true) put("allowInsecure", "1")
@@ -302,8 +316,13 @@ object XrayJsonParser {
 
     private val RAW_OBJECTS = setOf("settings", "extra", "proxysettings")
 
+    private fun proxyUsers(settings: JsonObject, server: JsonObject, protocol: Protocol): List<JsonObject> {
+        if (protocol == Protocol.VLESS && settings.str("address") != null) return listOf(settings)
+        return server.array("users").filterIsInstance<JsonObject>().ifEmpty { listOf(server) }
+    }
+
     private fun proxyServers(settings: JsonObject, protocol: Protocol): List<JsonObject> {
-        if (protocol == Protocol.SHADOWSOCKS && settings.str("address") != null) return listOf(settings)
+        if (protocol in setOf(Protocol.SHADOWSOCKS, Protocol.VLESS) && settings.str("address") != null) return listOf(settings)
         return (settings.array("vnext") + settings.array("servers")).filterIsInstance<JsonObject>().ifEmpty { listOf(settings) }
     }
 

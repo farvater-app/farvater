@@ -253,6 +253,7 @@ fun HomeScreen(
             } else {
                 Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.Center) {
                     when {
+                        Ios.flyme -> app.farvater.ui.components.FlymeConnect(mode, onToggle)
                         colorOs -> app.farvater.ui.components.ColorOsConnect(mode, onToggle)
                         winter -> app.farvater.ui.components.WinterHero(mode = mode, onClick = onToggle)
                         witch -> WitchFeedback { WitchHero(mode = mode, onClick = onToggle) }
@@ -446,7 +447,7 @@ private fun SessionSection(vpn: VpnState.Connected, traffic: Traffic, history: L
         }
     }
     IosSection(header = stringResource(R.string.session_title)) {
-        if ((Ios.winter || Ios.colorOs) && androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) {
+        if ((Ios.winter || Ios.shell) && androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) {
             Column(Modifier.fillMaxWidth().padding(16.dp)) {
                 Stat(Icons.Rounded.ArrowDownward, stringResource(R.string.traffic_download), formatSpeed(traffic.downBps), c.green, Modifier.fillMaxWidth())
                 Spacer(Modifier.height(12.dp))
@@ -508,6 +509,7 @@ private fun Stat(icon: ImageVector, label: String, value: String, tint: Color, m
 
 @Composable
 private fun protectionOf(node: ProxyNode): String = when {
+    node.protocol == Protocol.VLESS && node.vlessEncryption == app.farvater.core.model.VlessEncryption.Kind.SUPPORTED -> "VLESS Encryption"
     node.security == "reality" -> "Reality"
     node.security == "tls" || node.protocol == Protocol.HYSTERIA2 ||
         (node.protocol == Protocol.TROJAN && node.security.isBlank()) -> "TLS"
@@ -517,10 +519,12 @@ private fun protectionOf(node: ProxyNode): String = when {
 }
 
 @Composable
-private fun securityLabel(issue: String?): String? = when (issue) {
+internal fun securityLabel(issue: String?): String? = when (issue) {
     "Без проверки сертификата" -> stringResource(R.string.security_no_certificate)
     "Без шифрования" -> stringResource(R.string.security_no_encryption)
     "Устаревшее шифрование" -> stringResource(R.string.security_old_encryption)
+    "Неизвестное шифрование VLESS" -> stringResource(R.string.security_unknown_vless)
+    "Обновите источник для проверки защиты" -> stringResource(R.string.security_refresh_source)
     else -> issue
 }
 

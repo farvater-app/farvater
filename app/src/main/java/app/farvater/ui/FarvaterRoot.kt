@@ -63,7 +63,9 @@ fun FarvaterRoot(vm: MainViewModel) {
         vm.consumeMessage()
     }
 
-    val still = rememberReduceMotion()
+    val shell = app.farvater.ui.theme.Ios.shell
+    val still = if (shell) app.farvater.ui.components.LocalShellMotionDisabled.current else rememberReduceMotion()
+    val tabMotion = if (shell) 280 else 340
     FarvaterFrame(
         tab = tab,
         onTab = {
@@ -77,11 +79,11 @@ fun FarvaterRoot(vm: MainViewModel) {
             modifier = Modifier.padding(padding).consumeWindowInsets(padding),
             transitionSpec = {
                 if (still) {
-                    fadeIn(tween(160)) togetherWith fadeOut(tween(100))
+                    fadeIn(tween(if (shell) 0 else 160)) togetherWith fadeOut(tween(if (shell) 0 else 100))
                 } else {
                     val dir = if (targetState.ordinal > initialState.ordinal) 1 else -1
-                    (slideInHorizontally(tween(340, easing = EaseOutQuint)) { it * dir } + fadeIn(tween(200))) togetherWith
-                        (slideOutHorizontally(tween(340, easing = EaseOutQuint)) { -it * dir } + fadeOut(tween(200)))
+                    (slideInHorizontally(tween(tabMotion, easing = EaseOutQuint)) { it * dir } + fadeIn(tween(200))) togetherWith
+                        (slideOutHorizontally(tween(tabMotion, easing = EaseOutQuint)) { -it * dir } + fadeOut(tween(200)))
                 }
             },
             label = "tabs",

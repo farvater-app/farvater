@@ -211,11 +211,12 @@ fun SettingsScreen(
     var showChangelog by remember { mutableStateOf(false) }
     BackHandler(enabled = page != null) { openPage(null) }
 
+    val pageMotion = if (Ios.shell) app.farvater.ui.components.shellSpring<IntOffset>() else spring<IntOffset>(dampingRatio = 1f, stiffness = 420f)
     AnimatedContent(
         targetState = page,
         transitionSpec = {
             val forward = targetState != null
-            val motion = spring<IntOffset>(dampingRatio = 1f, stiffness = 420f)
+            val motion = pageMotion
             if (forward) {
                 (slideInHorizontally(motion) { it * slideDirection } togetherWith
                     slideOutHorizontally(motion) { -it * slideDirection / 3 } + fadeOut(targetAlpha = 0.6f)).apply { targetContentZIndex = 1f }
@@ -332,6 +333,7 @@ private fun SettingsRoot(
                         UiStyle.WITCH -> stringResource(R.string.style_witch)
                         UiStyle.WINTER -> stringResource(R.string.style_winter)
                         UiStyle.COLOROS -> stringResource(R.string.style_coloros)
+                        UiStyle.FLYME -> stringResource(R.string.style_flyme)
                     },
                     chevron = true,
                     onClick = { onOpen(SettingsPage.Appearance) },
@@ -659,6 +661,16 @@ private fun AppearancePage(
             selected = settings.uiStyle == UiStyle.COLOROS,
             leading = { StyleMark { IosIcon(Icons.Rounded.Palette, Ios.colors.blue) } },
             onClick = { onChange { it.copy(uiStyle = UiStyle.COLOROS) } },
+        )
+    }
+
+    IosSection {
+        IosChoiceRow(
+            title = stringResource(R.string.style_flyme),
+            subtitle = stringResource(R.string.style_flyme_description),
+            selected = settings.uiStyle == UiStyle.FLYME,
+            leading = { StyleMark { IosIcon(Icons.Rounded.Palette, Ios.colors.blue) } },
+            onClick = { onChange { it.copy(uiStyle = UiStyle.FLYME) } },
         )
     }
 

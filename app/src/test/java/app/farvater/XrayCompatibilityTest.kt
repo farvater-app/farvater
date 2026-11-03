@@ -15,11 +15,17 @@ class XrayCompatibilityTest {
     @Test
     fun generatedConfigurationsAreAcceptedByRealCore() {
         val binary = System.getenv("FARVATER_XRAY_BINARY")
+        if (System.getenv("CI") == "true") assertFalse("CI requires pinned Xray", binary.isNullOrBlank())
         assumeTrue("Requires locally verified Xray binary", !binary.isNullOrBlank())
+        val version = ProcessBuilder(binary!!, "version").redirectErrorStream(true).start()
+        assertTrue(version.waitFor(10, TimeUnit.SECONDS))
+        assertEquals(0, version.exitValue())
+        assertTrue(version.inputStream.bufferedReader().readText().startsWith("Xray 26.10.31 "))
         val directory = File(System.getenv("FARVATER_XRAY_CONFIG_DIR"))
         directory.mkdirs()
         val uuid = "00000000-0000-0000-0000-000000000001"
         val links = linkedMapOf(
+            "vless-encryption" to "vless://$uuid@node.example.test:443?encryption=mlkem768x25519plus.native.0rtt.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
             "vless-tls" to "vless://$uuid@node.example.test:443?security=tls",
             "vless-reality-empty-sid" to "vless://$uuid@node.example.test:443?security=reality&sni=example.test&pbk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
             "vless-xhttp" to "vless://$uuid@node.example.test:443?security=tls&type=xhttp&path=%2Ftest&mode=auto",

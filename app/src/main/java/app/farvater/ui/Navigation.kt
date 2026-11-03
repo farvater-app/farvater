@@ -141,7 +141,7 @@ internal fun FarvaterFrame(
         val inset = when {
             Ios.origin -> 52.dp
             !Ios.material -> 48.dp
-            Ios.colorOs -> 32.dp
+            Ios.shell -> 32.dp
             Ios.oneUi || Ios.harmony -> 24.dp
             else -> 16.dp
         }
@@ -154,7 +154,7 @@ internal fun FarvaterFrame(
             AccessibleFrame(tab, selectTab, snackbar, style, content)
         } else {
             when {
-                Ios.colorOs -> ScenicFrame(tab, selectTab, snackbar, floating = true, content = content)
+                Ios.shell -> ShellFrame(tab, selectTab, snackbar, content)
                 Ios.winter -> ScenicFrame(tab, selectTab, snackbar, floating = false, content = content)
                 Ios.witch -> WitchFrame(tab, selectTab, snackbar, content)
                 Ios.nothing -> NothingFrame(tab, selectTab, snackbar, content)
@@ -179,7 +179,7 @@ private fun navigationLabelStyle(): TextStyle = when {
     Ios.oxygen -> TextStyle(fontFamily = localizedFont(OxygenFont), fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 14.sp)
     Ios.harmony -> TextStyle(fontFamily = localizedFont(HarmonyFont), fontWeight = FontWeight.Medium, fontSize = 10.sp, lineHeight = 13.sp)
     Ios.witch -> TextStyle(fontFamily = localizedFont(OriginFont), fontSize = 11.sp, lineHeight = 14.sp)
-    Ios.winter || Ios.colorOs -> TextStyle(fontSize = 11.sp, lineHeight = 14.sp)
+    Ios.winter || Ios.shell -> TextStyle(fontSize = 11.sp, lineHeight = 14.sp)
     Ios.material -> MaterialTheme.typography.labelMedium
     else -> IosType.caption2.copy(fontWeight = FontWeight.SemiBold)
 }
@@ -195,7 +195,7 @@ private fun AccessibleFrame(
     val c = Ios.colors
     val density = LocalDensity.current
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val floating = !Ios.material || Ios.origin || Ios.colorOs
+    val floating = !Ios.material || Ios.origin || Ios.shell
     val gap = if (floating) 12.dp else 0.dp
     val textSize = labelStyle.fontSize.value.coerceAtLeast(12f)
     val style = labelStyle.copy(fontSize = textSize.sp, lineHeight = (textSize * 1.4f).sp)

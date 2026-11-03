@@ -40,7 +40,7 @@ class NewThemeLargeTextTest {
                     IosSegmented(labels, selected.value, { selected.value = it })
                 }
             } }
-            listOf(UiStyle.WINTER, UiStyle.COLOROS).forEach { current ->
+            listOf(UiStyle.WINTER, UiStyle.COLOROS, UiStyle.FLYME).forEach { current ->
                 rule.runOnIdle { style.value = current }
                 (labels + title).forEach { text ->
                     val layouts = mutableListOf<TextLayoutResult>()

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import hashlib
 import importlib.util
 import json
 import re
@@ -52,6 +53,9 @@ class BuildContractsTest(unittest.TestCase):
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(name.encode())
+            (root / "scripts").mkdir()
+            pin = {"aarSha256": hashlib.sha256((root / natives.FILES[0]).read_bytes()).hexdigest()}
+            (root / "scripts/native-versions.json").write_text(json.dumps(pin))
             natives.verify(root, record=True)
             natives.verify(root)
             for name in natives.FILES:
@@ -61,7 +65,19 @@ class BuildContractsTest(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     natives.verify(root)
                 path.write_bytes(data)
+            aar = root / natives.FILES[0]
+            original = aar.read_bytes()
             manifest = root / "app/libs/natives-sha256.json"
+            aar.write_bytes(b"old AAR with matching old manifest")
+            stale = json.loads(manifest.read_text())
+            stale[natives.FILES[0]] = hashlib.sha256(aar.read_bytes()).hexdigest()
+            manifest.write_text(json.dumps(stale))
+            with self.assertRaises(ValueError):
+                natives.verify(root)
+            with self.assertRaises(ValueError):
+                natives.verify(root, record=True)
+            aar.write_bytes(original)
+            natives.verify(root, record=True)
             manifest.write_text(json.dumps({"../../outside": "00" * 32}))
             with self.assertRaises(ValueError):
                 natives.verify(root)

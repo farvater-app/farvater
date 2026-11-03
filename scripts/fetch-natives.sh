@@ -3,12 +3,13 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ABIS="arm64-v8a armeabi-v7a x86_64 x86"
-XRAY_LIB_VERSION="${XRAY_LIB_VERSION:-v26.10.21}"
+XRAY_LIB_VERSION="$(python3 "$ROOT/scripts/check-natives.py" --xray-version)"
 HEV_VERSION="${HEV_VERSION:-2.18.0}"
 
 echo "Ядро Xray ($XRAY_LIB_VERSION)"
 mkdir -p "$ROOT/app/libs"
 gh release download "$XRAY_LIB_VERSION" -R 2dust/AndroidLibXrayLite -p 'libv2ray.aar' -D "$ROOT/app/libs" --clobber
+python3 "$ROOT/scripts/check-natives.py" --aar-only
 
 echo "TUN-мост (hev-socks5-tunnel $HEV_VERSION)"
 WORK="$(mktemp -d)"
