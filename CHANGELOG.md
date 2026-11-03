@@ -4,6 +4,8 @@
 
 ## [Не выпущено]
 
+## [1.0.31] — 2026-11-03
+
 ### Добавлено
 
 - Стиль Flyme: светлое и тёмное оформление в духе Flyme AIOS 2, собственная кнопка подключения, навигация и оформление вложенных разделов.
@@ -462,7 +464,8 @@
 - Интерфейс в стиле iOS, светлая и тёмная темы.
 - Импорт подписки по ссылке `farvater://import`.
 
-[Не выпущено]: https://github.com/lutzashl290788-cell/farvater/compare/v1.0.30...HEAD
+[Не выпущено]: https://github.com/lutzashl290788-cell/farvater/compare/v1.0.31...HEAD
+[1.0.31]: https://github.com/lutzashl290788-cell/farvater/compare/v1.0.30...v1.0.31
 [1.0.30]: https://github.com/lutzashl290788-cell/farvater/compare/v1.0.29...v1.0.30
 [1.0.29]: https://github.com/lutzashl290788-cell/farvater/compare/v1.0.28...v1.0.29
 [1.0.28]: https://github.com/lutzashl290788-cell/farvater/compare/v1.0.27...v1.0.28

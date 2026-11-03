@@ -1,0 +1,5 @@
+- Updated Xray-core to 26.10.31.
+- Added the Flyme style and refreshed ColorOS.
+- VLESS with supported built-in encryption is no longer marked unencrypted solely because TLS is absent.
+- Local SOCKS remains password-protected on 127.0.0.1.
+- Server Linux kernels still require their own security updates.
