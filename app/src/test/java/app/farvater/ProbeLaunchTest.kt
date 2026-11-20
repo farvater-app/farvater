@@ -1,6 +1,7 @@
 package app.farvater
 
 import app.farvater.engine.ProbeLaunch
+import app.farvater.engine.ProbeDeferredException
 import kotlinx.coroutines.*
 import org.junit.Assert.*
 import org.junit.Test
@@ -8,6 +9,27 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 class ProbeLaunchTest {
+    @Test
+    fun timedOutStartupIsDeferredAndItsLateResourceIsClosed() = runBlocking {
+        val started = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val closed = CountDownLatch(1)
+        val acquiring = async(Dispatchers.Default) {
+            runCatching {
+                ProbeLaunch.await({
+                    started.countDown()
+                    while (release.count > 0) runCatching { release.await() }
+                    Any()
+                }, { if (it != null) closed.countDown() }, timeoutMs = 100, deferOnTimeout = true)
+            }
+        }
+        try {
+            assertTrue(started.await(2, TimeUnit.SECONDS))
+            assertTrue(withTimeout(2_000) { acquiring.await() }.exceptionOrNull() is ProbeDeferredException)
+        } finally { release.countDown() }
+        assertTrue(closed.await(2, TimeUnit.SECONDS))
+    }
+
     @Test
     fun lateNativeStartupIsClosedAfterCallerTimeout() = runBlocking {
         val started = CountDownLatch(1)

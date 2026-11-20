@@ -10,6 +10,11 @@ import app.farvater.core.xray.XrayConfigBuilder
 import app.farvater.net.SafeHttp
 import app.farvater.net.SafeHttp.hardened
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
@@ -34,7 +39,9 @@ data class SourceSnapshot(
     val networkUnavailable: Boolean = false,
 )
 
-class SubscriptionRepository(context: Context) {
+class SubscriptionRepository(context: Context, private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO) {
+    val snapshots = MutableStateFlow<Map<String, SourceSnapshot>>(emptyMap())
+    private val fetchTokens = HashMap<String, Any>()
     private val preferences = context.getSharedPreferences("farvater", Context.MODE_PRIVATE)
     private val application = context.applicationContext as android.app.Application
     private val dir = File(context.filesDir, "subs").apply { mkdirs() }
@@ -59,13 +66,19 @@ class SubscriptionRepository(context: Context) {
         viaTunnel: Boolean,
         extraHeaders: Map<String, String> = emptyMap(),
         json: Boolean = false,
-    ): SourceSnapshot =
-        withContext(Dispatchers.IO) {
+        isCurrent: () -> Boolean,
+    ): SourceSnapshot {
+        currentCoroutineContext().ensureActive()
+        val empty = SourceSnapshot(sourceId, null, null, emptyList(), emptyList(), 0)
+        if (!isCurrent()) return empty
+        val token = synchronized(this) { Any().also { fetchTokens[sourceId] = it } }
+        return withContext(ioDispatcher) {
             val client = if (viaTunnel) tunnelClient else baseClient
             var lastError: String? = null
             var receivedContent = false
             for (url in urls) for (asJson in if (json) listOf(true, false) else listOf(false)) {
                 try {
+                    if (!requestCurrent(sourceId, token, isCurrent)) return@withContext empty
                     val base = SafeHttp.parse(url) ?: throw IOException(application.localizedString(R.string.error_subscription_address))
                     val target = if (asJson) base.jsonVariant() ?: continue else base
                     SafeHttp.execute(
@@ -91,29 +104,63 @@ class SubscriptionRepository(context: Context) {
                             }
                             return@use
                         }
-                        File(dir, "$sourceId.txt").writeText(body)
-                        File(dir, "$sourceId.headers").writeText(
-                            headers.filterKeys { it.lowercase() in KEPT_HEADERS }.entries.joinToString("\n") { "${it.key}: ${it.value}" },
-                        )
-                        val interval = File(dir, "$sourceId.interval")
-                        parsed.updateIntervalHours?.let { interval.writeText(it.toString()) } ?: interval.delete()
-                        return@withContext SourceSnapshot(
+                        val snapshot = SourceSnapshot(
                             sourceId, parsed.title, parsed.announce, parsed.notices, parsed.nodes,
                             updatedAt = System.currentTimeMillis(),
                             skipped = parsed.skipped,
                             intervalHours = parsed.updateIntervalHours,
                             usage = parsed.usage,
                         )
+                        val context = currentCoroutineContext()
+                        synchronized(this@SubscriptionRepository) {
+                            context.ensureActive()
+                            if (fetchTokens[sourceId] === token && isCurrent()) {
+                                File(dir, "$sourceId.txt").writeText(body)
+                                File(dir, "$sourceId.headers").writeText(
+                                    headers.filterKeys { it.lowercase() in KEPT_HEADERS }.entries.joinToString("\n") { "${it.key}: ${it.value}" },
+                                )
+                                val interval = File(dir, "$sourceId.interval")
+                                parsed.updateIntervalHours?.let { interval.writeText(it.toString()) } ?: interval.delete()
+                                publish(sourceId, snapshot)
+                            }
+                        }
+                        return@withContext snapshot
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     lastError = e.userMessage(application)
                 }
             }
-            val cached = loadCached(sourceId)
-            val unavailable = urls.isNotEmpty() && !receivedContent
-            cached?.copy(error = lastError, networkUnavailable = unavailable)
-                ?: SourceSnapshot(sourceId, null, null, emptyList(), emptyList(), 0, error = lastError, networkUnavailable = unavailable)
+            val context = currentCoroutineContext()
+            synchronized(this@SubscriptionRepository) {
+                context.ensureActive()
+                val cached = loadCached(sourceId)
+                val unavailable = urls.isNotEmpty() && !receivedContent
+                val snapshot = cached?.copy(error = lastError, networkUnavailable = unavailable)
+                    ?: SourceSnapshot(sourceId, null, null, emptyList(), emptyList(), 0, error = lastError, networkUnavailable = unavailable)
+                if (fetchTokens[sourceId] === token && isCurrent()) publish(sourceId, snapshot)
+                snapshot
+            }
         }
+    }
+
+    @Synchronized
+    private fun requestCurrent(id: String, token: Any, isCurrent: () -> Boolean): Boolean =
+        fetchTokens[id] === token && isCurrent()
+
+    private fun publish(id: String, snapshot: SourceSnapshot?): Unit = synchronized(Prefs.selectionLock) {
+        snapshots.value = if (snapshot == null) snapshots.value - id else snapshots.value + (id to snapshot)
+    }
+
+    @Synchronized
+    fun loadSnapshot(sourceId: String): SourceSnapshot? = loadCached(sourceId).also { publish(sourceId, it) }
+
+    @Synchronized
+    fun resetInventory() {
+        fetchTokens.clear()
+        synchronized(Prefs.selectionLock) { snapshots.value = emptyMap() }
+    }
 
     private fun readLimited(body: ResponseBody): String {
         if (body.contentLength() > MAX_BODY) throw IOException(application.localizedString(R.string.error_subscription_size, MAX_BODY / 1024 / 1024))
@@ -122,6 +169,7 @@ class SubscriptionRepository(context: Context) {
         return source.buffer.readUtf8()
     }
 
+    @Synchronized
     fun loadCached(sourceId: String): SourceSnapshot? {
         if (sourceId == ProxyNode.MANUAL_SOURCE && preferences.contains(Prefs.MANUAL_NODES_KEY)) {
             val parsed = SubscriptionParser.parse(preferences.getString(Prefs.MANUAL_NODES_KEY, "").orEmpty(), sourceId)
@@ -155,6 +203,7 @@ class SubscriptionRepository(context: Context) {
             if (previous == null) manualFile.appendText(addition)
             else writeRestoredManual(previous + addition)
         }
+        publish(ProxyNode.MANUAL_SOURCE, loadManual())
         return fresh.size
     }
 
@@ -164,6 +213,7 @@ class SubscriptionRepository(context: Context) {
         val raw = keep.joinToString("\n", postfix = "\n") { it.raw }
         if (!preferences.contains(Prefs.MANUAL_NODES_KEY)) manualFile.writeText(raw)
         else writeRestoredManual(raw)
+        publish(ProxyNode.MANUAL_SOURCE, loadManual())
     }
 
     private fun writeRestoredManual(raw: String): Unit = synchronized(Prefs.selectionLock) {
@@ -174,10 +224,13 @@ class SubscriptionRepository(context: Context) {
         }
     }
 
+    @Synchronized
     fun deleteCache(sourceId: String) {
+        fetchTokens.remove(sourceId)
         File(dir, "$sourceId.txt").delete()
         File(dir, "$sourceId.interval").delete()
         File(dir, "$sourceId.headers").delete()
+        publish(sourceId, null)
     }
 
     private fun HttpUrl.jsonVariant(): HttpUrl? {

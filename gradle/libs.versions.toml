@@ -16,6 +16,8 @@ roborazzi = "1.77.0"
 androidxTestJunit = "1.2.1"
 
 [libraries]
+zxing-core = { group = "com.google.zxing", name = "core", version = "3.5.4" }
+zxing-scanner = { group = "com.journeyapps", name = "zxing-android-embedded", version = "4.3.0" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }

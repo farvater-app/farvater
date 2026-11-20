@@ -23,6 +23,41 @@ import org.robolectric.annotation.Config
 class IosLargeTextTest {
     @get:Rule val rule = createComposeRule()
 
+    @Test
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    @Config(qualifiers = "ru-w320dp-h640dp")
+    fun narrowNodeFiltersAndSearchHintFitAtDoubleFont() {
+        val labels = listOf("Все", "Живые", "Reality", "XHTTP")
+        val hint = "Страна, город или протокол"
+        val selected = mutableStateOf(0)
+        rule.setContent {
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(density.density, 2f)
+            ) {
+                FarvaterTheme(style = UiStyle.IOS) {
+                    androidx.compose.foundation.layout.Column {
+                        app.farvater.ui.ios.IosSearchField("", {}, hint)
+                        app.farvater.ui.ios.IosSegmented(labels, selected.value, { selected.value = it })
+                    }
+                }
+            }
+        }
+        (labels + hint).forEach { label ->
+            val layouts = mutableListOf<TextLayoutResult>()
+            rule.onNodeWithText(label, useUnmergedTree = true)
+                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            val layout = layouts.single()
+            assertFalse("$label: size=${layout.size} lines=${layout.lineCount} max=${layout.layoutInput.maxLines} " +
+                "width=${layout.didOverflowWidth} height=${layout.didOverflowHeight} constraints=${layout.layoutInput.constraints}",
+                layout.hasVisualOverflow)
+        }
+        val buttons = labels.map { rule.onNodeWithText(it).fetchSemanticsNode().boundsInRoot }
+        assertTrue(buttons[2].top >= buttons[0].bottom)
+        rule.onNodeWithText("Reality").performClick()
+        assertEquals(2, selected.value)
+    }
+
     @Test fun doubleFontKeepsEveryTabCompleteAndAccessible() {
         RuntimeEnvironment.setFontScale(2f)
         val selected = mutableStateOf(Tab.Home)

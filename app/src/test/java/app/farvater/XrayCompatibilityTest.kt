@@ -13,6 +13,63 @@ import java.util.concurrent.TimeUnit
 
 class XrayCompatibilityTest {
     @Test
+    fun activeProbeCannotReportADirectResponseWhenTunnelFails() {
+        val binary = System.getenv("FARVATER_XRAY_BINARY")
+        assumeTrue("Requires locally verified Xray binary", !binary.isNullOrBlank())
+        val loopback = java.net.InetAddress.getByName("127.0.0.1")
+        val http = com.sun.net.httpserver.HttpServer.create(java.net.InetSocketAddress(loopback, 0), 1)
+        val hits = java.util.concurrent.atomic.AtomicInteger()
+        http.createContext("/") { exchange ->
+            hits.incrementAndGet()
+            exchange.sendResponseHeaders(204, -1)
+            exchange.close()
+        }
+        http.start()
+        val configFile = File.createTempFile("farvater-routing-", ".json")
+        try {
+            java.net.ServerSocket(0, 1, loopback).use { offlineNode ->
+                val attempted = java.util.concurrent.CountDownLatch(1)
+                kotlin.concurrent.thread(isDaemon = true) {
+                    runCatching { offlineNode.accept().use { attempted.countDown() } }
+                }
+                val node = LinkParser.parse("vless://00000000-0000-0000-0000-000000000001@127.0.0.1:${offlineNode.localPort}?encryption=none")!!
+                val auth = app.farvater.core.xray.LocalProxyAuth
+                val probeAddress = app.farvater.engine.NodeTester.tunnelClient.proxy!!.address() as java.net.InetSocketAddress
+                assertEquals(auth.probePort, probeAddress.port)
+                configFile.writeText(XrayConfigBuilder.build(node, true, encryptedDns = false, probePort = auth.probePort))
+                val xray = ProcessBuilder(binary!!, "run", "-config", configFile.absolutePath)
+                    .redirectErrorStream(true).redirectOutput(File("/dev/null")).start()
+                try {
+                    fun request(port: Int): Int {
+                        val curl = ProcessBuilder("curl", "--silent", "--noproxy", "", "--max-time", "3", "--output", "/dev/null",
+                            "--write-out", "%{http_code}", "--proxy", "socks5h://127.0.0.1:$port",
+                            "--proxy-user", "${auth.user}:${auth.pass}", "http://127.0.0.1:${http.address.port}/").start()
+                        try {
+                            assertTrue(curl.waitFor(5, TimeUnit.SECONDS))
+                            return curl.inputStream.bufferedReader().readText().toIntOrNull() ?: 0
+                        } finally { curl.destroyForcibly() }
+                    }
+                    val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+                    var status = request(auth.port)
+                    while (status == 0 && xray.isAlive && System.nanoTime() < deadline) {
+                        Thread.sleep(30)
+                        status = request(auth.port)
+                    }
+                    assertEquals(204, status)
+                    assertEquals(0, request(auth.probePort))
+                    assertTrue(attempted.await(2, TimeUnit.SECONDS))
+                    assertEquals(1, hits.get())
+                } finally {
+                    xray.destroyForcibly().waitFor(5, TimeUnit.SECONDS)
+                }
+            }
+        } finally {
+            http.stop(0)
+            configFile.delete()
+        }
+    }
+
+    @Test
     fun generatedConfigurationsAreAcceptedByRealCore() {
         val binary = System.getenv("FARVATER_XRAY_BINARY")
         if (System.getenv("CI") == "true") assertFalse("CI requires pinned Xray", binary.isNullOrBlank())
@@ -20,7 +77,7 @@ class XrayCompatibilityTest {
         val version = ProcessBuilder(binary!!, "version").redirectErrorStream(true).start()
         assertTrue(version.waitFor(10, TimeUnit.SECONDS))
         assertEquals(0, version.exitValue())
-        assertTrue(version.inputStream.bufferedReader().readText().startsWith("Xray 26.10.31 "))
+        assertTrue(version.inputStream.bufferedReader().readText().startsWith("Xray 26.11.9 "))
         val directory = File(System.getenv("FARVATER_XRAY_CONFIG_DIR"))
         directory.mkdirs()
         val uuid = "00000000-0000-0000-0000-000000000001"

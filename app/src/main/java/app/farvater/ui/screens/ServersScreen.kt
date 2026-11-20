@@ -122,6 +122,9 @@ fun ServersScreen(
     onTestNode: (ProxyNode) -> Unit = {},
     onToggleGroup: (String) -> Unit = {},
     onToggleFavorite: (String) -> Unit = {},
+    onTestSource: ((String) -> Unit)? = null,
+    onRename: (ProxyNode, String) -> Unit = { _, _ -> },
+    onTestForServices: () -> Unit = onTestAll,
 ) {
     val c = Ios.colors
     val winter = Ios.winter
@@ -141,6 +144,8 @@ fun ServersScreen(
     val serviceNow = remember(serviceTick, state.serviceChecks) { System.currentTimeMillis() }
     val serviceMode = state.netMode?.name ?: "ANY"
     var menuFor by remember { mutableStateOf<ProxyNode?>(null) }
+    var editing by remember { mutableStateOf<ProxyNode?>(null) }
+    var qr by remember { mutableStateOf<String?>(null) }
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val shareTitle = stringResource(R.string.share_node)
@@ -149,18 +154,18 @@ fun ServersScreen(
     val collapsed by remember { derivedStateOf { list.firstVisibleItemIndex > 0 || list.firstVisibleItemScrollOffset > 70 } }
 
     val visible = remember(state.nodes, state.results, filter, state.settings.hideDead, query, favoritesOnly, state.settings.favoriteNodeIds,
-        selectedService, state.serviceChecks, serviceNow, serviceMode) {
+        selectedService, state.serviceChecks, serviceNow, serviceMode, state.settings.nodeNames) {
         val needle = query.trim().lowercase()
         state.nodes.filter { node ->
             val r = state.results[node.id]
-            val passesDead = !state.settings.hideDead || r == null || r.alive
+            val passesDead = !state.settings.hideDead || r == null || !r.evaluated || r.alive
             val passesFilter = when (filter) {
                 1 -> r?.alive == true
                 2 -> node.security == "reality"
                 3 -> node.transport == "xhttp"
                 else -> true
             }
-            val passesQuery = needle.isEmpty() || node.name.lowercase().contains(needle) ||
+            val passesQuery = needle.isEmpty() || state.settings.nodeLabel(node).lowercase().contains(needle) ||
                 node.protocol.title.lowercase().contains(needle) || node.address.contains(needle)
             val serviceCheck = selectedService?.let { state.serviceChecks[app.farvater.data.ServiceChecks.key(serviceMode, node.id, it)] }
             val passesService = selectedService == null || app.farvater.data.ServiceChecks.fresh(serviceCheck, serviceNow) &&
@@ -169,7 +174,8 @@ fun ServersScreen(
         }
     }
     val alive = remember(state.nodes, state.results) { state.nodes.count { state.results[it.id]?.alive == true } }
-    val groups = remember(visible, state.sources, state.groupedDead) {
+    val groups = remember(visible, state.sources, state.groupedDead, state.settings.flatNodes) {
+        if (state.settings.flatNodes) return@remember listOf(FlatGroup to visible)
         val order = (state.sources.map { it.id } + ProxyNode.MANUAL_SOURCE).withIndex().associate { it.value to it.index }
         val (dead, rest) = visible.partition { it.id in state.groupedDead }
         val bySource = rest.groupBy { it.sourceId }.entries
@@ -228,7 +234,7 @@ fun ServersScreen(
                             Text(stringResource(R.string.services_filter), style = IosType.subheadline,
                                 color = c.label, modifier = Modifier.weight(1f, fill = false))
                             Text(selectedService?.let { serviceName(it.kind) } ?: stringResource(R.string.filter_all),
-                                style = IosType.subheadline, color = c.tint)
+                                style = IosType.subheadline, color = c.accentTextOn(c.fill))
                             Icon(Icons.Rounded.KeyboardArrowDown, null, tint = c.tint, modifier = Modifier.size(18.dp))
                         }
                         Text(stringResource(if (state.serviceChecking) R.string.services_running else R.string.services_results_hint),
@@ -311,7 +317,7 @@ fun ServersScreen(
                             Text(stringResource(R.string.services_no_results_hint), style = IosType.body, color = c.secondaryLabel)
                             if (!state.serviceChecking && state.progress == null) {
                                 Spacer(Modifier.height(12.dp))
-                                IosButton(stringResource(R.string.test_all_nodes), onClick = onTestAll, maxLines = 3)
+                                IosButton(stringResource(R.string.test_all_nodes), onClick = onTestForServices, maxLines = 3)
                             }
                         }
                     } else EmptyState(state.nodes.isEmpty())
@@ -328,16 +334,20 @@ fun ServersScreen(
             } else {
                 groups.forEach { (sourceId, nodes) ->
                     val isDead = sourceId == DeadGroup
-                    val collapsed = !searching && if (isDead) DeadGroupOpen !in state.collapsedGroups else sourceId in state.collapsedGroups
-                    item(key = "group:$sourceId", contentType = "group") {
-                        GroupHeader(
-                            title = if (isDead) stringResource(R.string.nodes_dead) else state.sourceTitle(sourceId, stringResource(R.string.interval_manual)),
-                            count = nodes.size,
-                            alive = nodes.count { state.results[it.id]?.alive == true },
-                            collapsed = collapsed,
-                            onClick = { onToggleGroup(if (isDead) DeadGroupOpen else sourceId) },
-                            modifier = Modifier.animateItem(),
-                        )
+                    val collapsed = sourceId != FlatGroup && !searching && if (isDead) DeadGroupOpen !in state.collapsedGroups else sourceId in state.collapsedGroups
+                    if (sourceId != FlatGroup) item(key = "group:$sourceId", contentType = "group") {
+                        val title = if (isDead) stringResource(R.string.nodes_dead)
+                            else state.sourceTitle(sourceId, stringResource(R.string.interval_manual))
+                        Row(Modifier.fillMaxWidth().animateItem(), verticalAlignment = Alignment.CenterVertically) {
+                            GroupHeader(title, nodes.size, nodes.count { state.results[it.id]?.alive == true }, collapsed,
+                                { onToggleGroup(if (isDead) DeadGroupOpen else sourceId) }, Modifier.weight(1f))
+                            if (!isDead && onTestSource != null && state.progress == null && !state.gals && !state.refining) {
+                                Box(Modifier.padding(end = 16.dp)) {
+                                    IosCircleButton(Icons.Rounded.Speed, stringResource(R.string.test_source_nodes, title),
+                                        { onTestSource(sourceId) })
+                                }
+                            }
+                        }
                     }
                     if (!collapsed) {
                         itemsIndexed(nodes, key = { _, n -> n.id }, contentType = { _, _ -> "node" }) { i, node ->
@@ -358,6 +368,7 @@ fun ServersScreen(
                             ) {
                                 NodeRow(
                                     node = node,
+                                    name = state.settings.nodeLabel(node),
                                     result = state.results[node.id],
                                     selected = node.id == state.selectedId,
                                     checking = node.id in state.checking,
@@ -386,9 +397,23 @@ fun ServersScreen(
         }
     }
 
+    editing?.let { node ->
+        var name by remember(node) { mutableStateOf(state.settings.nodeLabel(node)) }
+        val hint = stringResource(R.string.node_local_name)
+        app.farvater.ui.ios.IosAlert(hint, onDismiss = { editing = null },
+            content = {
+                app.farvater.ui.ios.IosTextField(name, { if (it.length <= 100 && it.none(Char::isISOControl)) name = it }, node.name)
+            },
+            actions = listOf(
+                app.farvater.ui.ios.AlertAction(stringResource(R.string.action_cancel)) { editing = null },
+                app.farvater.ui.ios.AlertAction(stringResource(R.string.action_save)) { onRename(node, name); editing = null },
+            ))
+    }
+    qr?.let { ProfileQrDialog(it) { qr = null } }
+
     menuFor?.let { node ->
         IosActionPanel(
-            title = splitFlag(node.name).second,
+            title = splitFlag(state.settings.nodeLabel(node)).second,
             subtitle = "${node.protocol.title}, ${node.address}:${node.port} · ${state.sourceTitle(node.sourceId, stringResource(R.string.interval_manual))}",
             onDismiss = { menuFor = null },
         ) { close ->
@@ -425,6 +450,12 @@ fun ServersScreen(
                     icon = Icons.Rounded.ContentCopy,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                IosButton(stringResource(R.string.qr_show), onClick = { close { qr = node.raw } },
+                    style = IosButtonStyle.Tinted, modifier = Modifier.fillMaxWidth())
+                if (node.sourceId == ProxyNode.MANUAL_SOURCE || state.sources.any { it.id == node.sourceId && !it.community }) {
+                    IosButton(stringResource(R.string.node_rename), onClick = { close { editing = node } },
+                        style = IosButtonStyle.Tinted, modifier = Modifier.fillMaxWidth())
+                }
                 if (node.sourceId == ProxyNode.MANUAL_SOURCE) {
                     IosButton(
                         stringResource(R.string.action_delete),
@@ -440,6 +471,7 @@ fun ServersScreen(
     }
 }
 
+private const val FlatGroup = "all:flat"
 private const val DeadGroup = "dead"
 private const val DeadGroupOpen = "dead:open"
 
@@ -485,6 +517,7 @@ private fun GroupHeader(title: String, count: Int, alive: Int, collapsed: Boolea
 @Composable
 private fun NodeRow(
     node: ProxyNode,
+    name: String,
     result: TestResult?,
     selected: Boolean,
     checking: Boolean,
@@ -493,7 +526,7 @@ private fun NodeRow(
 ) {
     val c = Ios.colors
     val selectedLabel = stringResource(R.string.node_selected)
-    val (flag, title) = remember(node.name) { splitFlag(node.name) }
+    val (flag, title) = remember(name) { splitFlag(name) }
     val subtitle = (securityLabel(node.securityIssue)?.let { "$it · " } ?: "") + nodeSummary(node)
     IosRow(
         title = title,
@@ -508,7 +541,7 @@ private fun NodeRow(
             ) {
                 Icon(
                     if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
-                    stringResource(if (favorite) R.string.favorite_remove else R.string.favorite_add, node.name),
+                    stringResource(if (favorite) R.string.favorite_remove else R.string.favorite_add, name),
                     tint = if (favorite) c.tint else c.secondaryLabel,
                     modifier = Modifier.size(22.dp),
                 )

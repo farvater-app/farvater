@@ -13,6 +13,13 @@ import app.farvater.core.model.SourceMode
 import app.farvater.core.parser.LinkParser
 import app.farvater.data.SourceSnapshot
 import app.farvater.data.UserSource
+import app.farvater.data.GalsGroup
+import app.farvater.data.GalsStrategy
+import app.farvater.data.ServiceCheck
+import app.farvater.data.ServiceReason
+import app.farvater.data.ServiceVerdict
+import app.farvater.engine.GalsProbe
+import app.farvater.data.ServiceKind
 import app.farvater.engine.NodeTester
 import app.farvater.engine.NodeCheckCoordinator
 import app.farvater.engine.NodeCheckWork
@@ -52,8 +59,8 @@ import kotlin.coroutines.Continuation
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class,
-    shadows = [GalsEligibilityTest.PathProbe::class, GalsEligibilityTest.DelayProbe::class],
-    instrumentedPackages = ["app.farvater.engine.Pathfinder", "app.farvater.engine.NodeTester"])
+    shadows = [GalsEligibilityTest.PathProbe::class, GalsEligibilityTest.DelayProbe::class, GalsEligibilityTest.ConfiguredProbe::class],
+    instrumentedPackages = ["app.farvater.engine.Pathfinder", "app.farvater.engine.NodeTester", "app.farvater.engine.GalsProbe"])
 class GalsEligibilityTest {
     private lateinit var app: Application
     private lateinit var vm: MainViewModel
@@ -84,8 +91,10 @@ class GalsEligibilityTest {
         App.prefs.enabledSources = setOf(source)
         ShadowVpnService.setPrepareResult(null)
         PathProbe.nodes.clear()
+        ConfiguredProbe.calls = 0
         DelayProbe.onResult = {}
-        PathProbe.onResult = { PathResult(NodeProfile(), speedBps = 100) }
+        PathProbe.onResult = { PathResult(NodeProfile(), speedBps = 100, delayMs = 100,
+            targetCheck = ServiceCheck(ServiceVerdict.RESPONDED, ServiceReason.PAGE, 1)) }
     }
 
     @After fun finish() {
@@ -103,8 +112,257 @@ class GalsEligibilityTest {
         VpnBus.state.value = VpnState.Idle
     }
 
+    @Test fun checkingOneSubscriptionFindsItsNodesEvenWhenTheUiCollapsesDuplicates() {
+        val allowed = node("same-address")
+        val duplicate = allowed.copy(sourceId = ProxyNode.MANUAL_SOURCE)
+        val unrelated = node("unrelated", sourceId = ProxyNode.MANUAL_SOURCE)
+        install(listOf(duplicate, unrelated, allowed))
+        state.value = state.value.copy(nodes = listOf(duplicate, unrelated), gals = false)
+        vm.testSource(source)
+        await { (field("testJob").get(vm) as? Job)?.isCompleted == true }
+        assertEquals(setOf(allowed.id), results.value.keys)
+        assertTrue(App.prefs.fullNodeChecks.isEmpty())
+    }
+
     @Test fun disabledSourceWhileProbeRunsCannotBeSelected() {
         rejectsResult { App.prefs.enabledSources = emptySet() }
+    }
+
+    @Test fun configuredTargetDoesNotRequireAnUnrelatedGenericLatencyCheck() {
+        configure()
+        val candidate = node("direct-target")
+        install(listOf(candidate))
+        DelayProbe.onResult = { fail("Configured Gals must check its target directly") }
+        search()
+        assertEquals(1, ConfiguredProbe.calls)
+        assertEquals(candidate, App.prefs.lastNode)
+    }
+
+    @Test fun configuredGroupFindsAnAllowedDuplicateMissingFromTheUiList() {
+        configure(sourceIds = setOf(source))
+        val allowed = node("duplicate")
+        val excluded = allowed.copy(sourceId = ProxyNode.MANUAL_SOURCE)
+        install(listOf(excluded, allowed))
+        state.value = state.value.copy(nodes = listOf(excluded))
+        search()
+        assertEquals(listOf(allowed), PathProbe.nodes)
+        assertEquals(allowed, App.prefs.lastNode)
+    }
+
+    @Test fun configuredTargetFailureCannotUseTheLegacyPartialFallback() {
+        configure()
+        install(listOf(node("target-rejected")))
+        PathProbe.onResult = { PathResult(null, telegramBlocked = true, partial = NodeProfile(), speedBps = 100,
+            targetCheck = ServiceCheck(ServiceVerdict.REJECTED, ServiceReason.REGION, 1)) }
+        search()
+        assertNull(App.prefs.lastNode)
+        assertNull(shadowOf(app).nextStartedService)
+    }
+
+    @Test fun configuredLatencyPrefersShorterDelayEvenWhenThroughputIsLower() {
+        configure()
+        val first = node("slow-latency")
+        val best = node("low-latency")
+        install(listOf(first, best))
+        PathProbe.onResult = { candidate ->
+            if (candidate == best) VpnBus.state.value = VpnState.Connected(first, 1)
+            PathResult(NodeProfile(), delayMs = if (candidate == best) 40 else 200,
+                speedBps = if (candidate == best) 100 else 1000, targetCheck = ServiceCheck(ServiceVerdict.RESPONDED, ServiceReason.PAGE, 1))
+        }
+        search()
+        assertEquals(best, App.prefs.lastNode)
+    }
+
+    @Test fun configuredThroughputPrefersSpeedWhenBothTargetsRespond() {
+        configure(strategy = GalsStrategy.THROUGHPUT)
+        val first = node("low-throughput")
+        val best = node("high-throughput")
+        install(listOf(first, best))
+        PathProbe.onResult = { candidate ->
+            if (candidate == best) VpnBus.state.value = VpnState.Connected(first, 1)
+            PathResult(NodeProfile(), delayMs = if (candidate == best) 200 else 40,
+                speedBps = if (candidate == best) 1000 else 100, targetCheck = ServiceCheck(ServiceVerdict.RESPONDED, ServiceReason.PAGE, 1))
+        }
+        search()
+        assertEquals(2, ConfiguredProbe.calls)
+        assertEquals(best, App.prefs.lastNode)
+    }
+
+    @Test fun changedSavedProfileRejectsAConfiguredResult() {
+        configure()
+        val candidate = node("profile-changed")
+        install(listOf(candidate))
+        val chosen = NodeProfile(fingerprint = "firefox")
+        PathProbe.onResult = {
+            App.prefs.rememberProfile(candidate.id, chosen)
+            PathResult(NodeProfile(), delayMs = 50, targetCheck = ServiceCheck(ServiceVerdict.RESPONDED, ServiceReason.PAGE, 1))
+        }
+        search()
+        assertEquals(chosen, App.prefs.profileFor(candidate.id))
+        assertNull(App.prefs.lastNode)
+    }
+
+    @Test fun repeatedConfiguredSearchReachesNodesOutsideTheFirstBatch() {
+        configure()
+        val nodes = (1..10).map { node("batch-$it") }
+        install(nodes)
+        PathProbe.onResult = { candidate ->
+            if (candidate == nodes.last()) PathResult(NodeProfile(), delayMs = 50,
+                targetCheck = ServiceCheck(ServiceVerdict.RESPONDED, ServiceReason.PAGE, 1)) else PathResult(null)
+        }
+        search()
+        assertNull(App.prefs.lastNode)
+        search()
+        assertTrue(PathProbe.nodes.contains(nodes.last()))
+        assertEquals(nodes.last(), App.prefs.lastNode)
+    }
+
+    @Test fun emptyConfiguredGroupFinishesTheSearchState() {
+        configure(sourceIds = emptySet())
+        install(listOf(node("outside-empty-scope")))
+        search()
+        assertFalse(state.value.gals)
+        assertFalse(state.value.refining)
+        assertNull(state.value.pathfinding)
+        assertNull(App.prefs.lastNode)
+    }
+
+    private fun configure(strategy: GalsStrategy = GalsStrategy.LATENCY, sourceIds: Set<String>? = null) {
+        val group = GalsGroup("configured", "Configured", allSources = sourceIds == null,
+            sourceIds = sourceIds.orEmpty(), strategy = strategy, target = ServiceKind.YOUTUBE)
+        App.prefs.settings = App.prefs.settings.copy(galsGroups = listOf(group), activeGalsGroupId = group.id)
+    }
+
+    @Test fun selectedGroupRestrictsAutomaticCandidatesWithoutChangingTheNodeList() {
+        val included = node("included")
+        val excluded = node("excluded", sourceId = ProxyNode.MANUAL_SOURCE)
+        val group = GalsGroup("selected", "Selected", allSources = false, sourceIds = setOf(source))
+        App.prefs.settings = App.prefs.settings.copy(galsGroups = listOf(group), activeGalsGroupId = group.id)
+        install(listOf(included, excluded))
+        search()
+        assertEquals(listOf(included), PathProbe.nodes)
+        assertEquals(included, App.prefs.lastNode)
+        assertEquals(listOf(included, excluded), state.value.nodes)
+    }
+
+    @Test fun changedTargetRejectsAResultEvenWhenTheNodeRemainsInTheGroup() {
+        val group = GalsGroup("selected", "Selected")
+        App.prefs.settings = App.prefs.settings.copy(galsGroups = listOf(group), activeGalsGroupId = group.id)
+        rejectsResult {
+            App.prefs.settings = App.prefs.settings.copy(galsGroups = listOf(group.copy(target = ServiceKind.YOUTUBE)))
+        }
+    }
+
+    @Test fun manualSelectionCancelsLateAutomaticSelection() {
+        val candidate = node("automatic")
+        val manual = node("manual", sourceId = ProxyNode.MANUAL_SOURCE)
+        install(listOf(candidate, manual))
+        PathProbe.onResult = {
+            vm.select(manual)
+            PathResult(NodeProfile(), speedBps = 100)
+        }
+        search()
+        assertEquals(manual, App.prefs.lastNode)
+        assertNull(App.prefs.profileFor(candidate.id))
+        assertNull(shadowOf(app).nextStartedService)
+    }
+
+    @Test fun manualSelectionReplacesAConnectionStillStarting() {
+        val automatic = node("starting")
+        val manual = node("selected", sourceId = ProxyNode.MANUAL_SOURCE)
+        install(listOf(automatic, manual))
+        VpnBus.state.value = VpnState.Connecting(automatic)
+        vm.select(manual)
+        assertEquals(manual, App.prefs.lastNode)
+        assertEquals(FarvaterVpnService.ACTION_START, shadowOf(app).nextStartedService?.action)
+    }
+
+    @Test fun manualSelectionRevokesAnOlderPendingPermissionRequest() {
+        val previous = node("pending")
+        val selected = node("selected", sourceId = ProxyNode.MANUAL_SOURCE)
+        install(listOf(previous, selected))
+        state.value = state.value.copy(gals = false)
+        ShadowVpnService.setPrepareResult(Intent("dummy.permission"))
+        vm.select(previous)
+        vm.toggleConnection()
+        assertNull(shadowOf(app).nextStartedService)
+        vm.select(selected)
+        vm.onVpnPermissionResult(true)
+        assertEquals(selected, App.prefs.lastNode)
+        assertNull(shadowOf(app).nextStartedService)
+    }
+
+    @Test fun manualSelectionCancelsAnOlderPreflightProbe() {
+        val previous = node("preflight")
+        val selected = node("selected", sourceId = ProxyNode.MANUAL_SOURCE)
+        install(listOf(previous, selected))
+        DelayProbe.onResult = { vm.select(selected) }
+        MainViewModel::class.java.getDeclaredMethod("preflight", ProxyNode::class.java)
+            .apply { isAccessible = true }.invoke(vm, previous)
+        await { (field("preflightJob").get(vm) as? Job)?.isCompleted == true }
+        assertEquals(selected, App.prefs.lastNode)
+        assertNull(shadowOf(app).nextStartedService)
+        assertNull(state.value.deadPrompt)
+    }
+
+    @Test fun changedGroupBeforePermissionGrantCannotStartAnOldTargetResult() {
+        val group = GalsGroup("selected", "Selected")
+        App.prefs.settings = App.prefs.settings.copy(galsGroups = listOf(group), activeGalsGroupId = group.id)
+        val candidate = node("permission-policy")
+        install(listOf(candidate))
+        ShadowVpnService.setPrepareResult(Intent("dummy.permission"))
+        search()
+        assertNull(shadowOf(app).nextStartedService)
+        vm.updateSettings { it.copy(galsGroups = listOf(group.copy(target = ServiceKind.CUSTOM,
+            customUrl = "https://probe.example.test/"))) }
+        vm.onVpnPermissionResult(true)
+        assertNull(shadowOf(app).nextStartedService)
+    }
+
+    @Test fun changedProfileBeforePermissionGrantCannotStartAnUnverifiedProfile() {
+        configure()
+        val candidate = node("permission-profile")
+        install(listOf(candidate))
+        ShadowVpnService.setPrepareResult(Intent("dummy.permission"))
+        search()
+        assertNull(shadowOf(app).nextStartedService)
+        App.prefs.rememberProfile(candidate.id, NodeProfile(fingerprint = "firefox"))
+        vm.onVpnPermissionResult(true)
+        assertNull(shadowOf(app).nextStartedService)
+    }
+
+    @Test fun removingASourceKeepsAnEmptySelectedScopeInsteadOfUsingEverySource() {
+        val own = "user-dummy"
+        App.prefs.userSources = listOf(UserSource(own, "https://source.example.test/sub", "Dummy"))
+        val group = GalsGroup("selected", "Selected", allSources = false, sourceIds = setOf(own))
+        App.prefs.settings = App.prefs.settings.copy(galsGroups = listOf(group), activeGalsGroupId = group.id)
+        vm.removeUserSource(own)
+        val saved = App.prefs.settings.galsGroups.single()
+        assertFalse(saved.allSources)
+        assertTrue(saved.sourceIds.isEmpty())
+        assertEquals(group.id, App.prefs.settings.activeGalsGroupId)
+    }
+
+    @Test fun deferredCandidateIsRetriedAfterScanningInsteadOfPenalized() {
+        val candidate = node("deferred")
+        install(listOf(candidate))
+        var calls = 0
+        PathProbe.onResult = {
+            if (++calls == 1) PathResult(null, deferred = true) else PathResult(NodeProfile(), speedBps = 100)
+        }
+        search()
+        assertEquals(listOf(candidate, candidate), PathProbe.nodes)
+        assertEquals(candidate.id, App.prefs.lastNode?.id)
+    }
+
+    @Test fun persistentLocalContentionDoesNotSelectAnUnverifiedFallback() {
+        val candidate = node("busy")
+        install(listOf(candidate))
+        PathProbe.onResult = { PathResult(null, deferred = true) }
+        search()
+        assertEquals(listOf(candidate, candidate), PathProbe.nodes)
+        assertNull(App.prefs.lastNode)
+        assertNull(shadowOf(app).nextStartedService)
     }
 
     @Test fun enablingSafeModeWhileProbeRunsRejectsInsecurePublicNode() {
@@ -303,6 +561,8 @@ class GalsEligibilityTest {
 
     @Implements(value = NodeTester::class, isInAndroidSdk = false)
     class DelayProbe {
+        @Implementation fun testAll(nodes: List<ProxyNode>, url: String, concurrency: Int, profiles: Map<String, NodeProfile>): Flow<TestResult> =
+            testAll(nodes, url, concurrency)
         @Implementation fun testAll(nodes: List<ProxyNode>, url: String, concurrency: Int): Flow<TestResult> = flow {
             kotlinx.coroutines.delay(1)
             nodes.forEachIndexed { index, node ->
@@ -326,5 +586,17 @@ class GalsEligibilityTest {
             val nodes = mutableListOf<ProxyNode>()
             var onResult: (ProxyNode) -> PathResult = { PathResult(null) }
         }
+    }
+
+    @Implements(value = GalsProbe::class, isInAndroidSdk = false)
+    class ConfiguredProbe {
+        @Implementation fun find(node: ProxyNode, saved: NodeProfile?, ordinaryBlocking: Boolean,
+            checkDns: Boolean, group: GalsGroup, probeUrl: String, limit: Int, onTry: (NodeProfile) -> Unit,
+            continuation: Continuation<PathResult>): Any {
+            calls++
+            PathProbe.nodes += node
+            return PathProbe.onResult(node)
+        }
+        companion object { var calls = 0 }
     }
 }

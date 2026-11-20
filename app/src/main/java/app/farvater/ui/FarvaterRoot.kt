@@ -40,6 +40,7 @@ import app.farvater.vpn.VpnBus
 
 @Composable
 fun FarvaterRoot(vm: MainViewModel) {
+    val qrInvalid = stringResource(R.string.qr_invalid)
     val linkCopied = stringResource(R.string.link_copied)
     val hwidCopied = stringResource(R.string.hwid_copied)
     val state by vm.state.collectAsStateWithLifecycle()
@@ -114,9 +115,12 @@ fun FarvaterRoot(vm: MainViewModel) {
                     onTestAll = { vm.testAll() },
                     onTestNode = vm::testNode,
                     onToggleGroup = vm::toggleGroup,
+                    onTestSource = vm::testSource,
+                    onTestForServices = vm::testForServices,
                     onToggleFavorite = vm::toggleFavorite,
                     onCancelTest = vm::cancelTest,
                     onDeleteManual = vm::deleteManualNode,
+                    onRename = vm::renameNode,
                     onCopied = { vm.showMessage(linkCopied) },
                     onDuplicates = { remove -> vm.updateSettings { it.copy(dropDuplicates = remove, duplicatesAsked = true) } },
                 )
@@ -126,6 +130,8 @@ fun FarvaterRoot(vm: MainViewModel) {
                     onToggle = vm::setSourceEnabled,
                     onAddSubscription = vm::addSubscription,
                     onPaste = vm::importText,
+                    onQr = vm::requestImport,
+                    onQrInvalid = { vm.showMessage(qrInvalid) },
                     onRemoveUserSource = vm::removeUserSource,
                     onEnableCommunity = { reopenOnboarding = true },
                     onRefreshSource = vm::refreshSource,
@@ -134,6 +140,7 @@ fun FarvaterRoot(vm: MainViewModel) {
                     onSourceInterval = vm::setSourceInterval,
                 )
                 Tab.Settings -> SettingsScreen(
+                    sources = state.sources,
                     settings = state.settings,
                     onChange = vm::updateSettings,
                     onOpenDocument = { openDocument = it },
@@ -191,7 +198,7 @@ fun FarvaterRoot(vm: MainViewModel) {
 
     state.deadPrompt?.let { node ->
         IosAlert(
-            title = stringResource(R.string.dead_node_title, splitFlag(node.name).second),
+            title = stringResource(R.string.dead_node_title, splitFlag(state.settings.nodeLabel(node)).second),
             message = stringResource(R.string.dead_node_hint),
             onDismiss = vm::dismissDeadPrompt,
             actions = listOf(

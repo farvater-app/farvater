@@ -26,10 +26,13 @@ data class PathResult(
     val dnsBlocked: Boolean = false,
     val speedBps: Long = 0,
     val partial: NodeProfile? = null,
+    val deferred: Boolean = false,
+    val delayMs: Long = -1,
+    val targetCheck: app.farvater.data.ServiceCheck? = null,
 )
 
 object Pathfinder {
-    private enum class Verdict { OK, NO_DATA, NO_TELEGRAM, NO_DNS }
+    private enum class Verdict { OK, NO_DATA, NO_TELEGRAM, NO_DNS, DEFERRED }
 
     private class Check(val verdict: Verdict, val dns: String? = null, val speedBps: Long = 0)
 
@@ -78,6 +81,7 @@ object Pathfinder {
                 Verdict.NO_TELEGRAM -> return PathResult(null, telegramBlocked = true, speedBps = result.speedBps, partial = profile)
                 Verdict.NO_DNS -> return PathResult(null, dnsBlocked = true, speedBps = result.speedBps, partial = profile)
                 Verdict.NO_DATA -> Unit
+                Verdict.DEFERRED -> return PathResult(null, deferred = true)
             }
         }
         return PathResult(null)
@@ -86,7 +90,11 @@ object Pathfinder {
     private suspend fun check(node: ProxyNode, profile: NodeProfile, dns: List<String>?): Check = withContext(Dispatchers.IO) {
         val port = freePort() ?: return@withContext Check(Verdict.NO_DATA)
         val config = XrayConfigBuilder.build(node, directRuServices = false, encryptedDns = false, profile = profile, socksPort = port)
-        val probe = XrayEngine.startProbe(config) ?: return@withContext Check(Verdict.NO_DATA)
+        val probe = try {
+            ProbeLaunch.await({ XrayEngine.startProbe(config) }, XrayEngine::stopProbe, deferOnTimeout = true)
+        } catch (_: ProbeDeferredException) {
+            return@withContext Check(Verdict.DEFERRED)
+        } ?: return@withContext Check(Verdict.NO_DATA)
         LocalProxyAuth.open(port)
         try {
             val client = base.newBuilder().proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port))).build()

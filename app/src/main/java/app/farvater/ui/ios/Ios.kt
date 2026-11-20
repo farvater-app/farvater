@@ -407,7 +407,7 @@ fun IosDivider(start: Dp = 16.dp) {
     } else if (Ios.material) {
         Box(Modifier.fillMaxWidth().height(2.dp).background(c.background))
     } else {
-        HorizontalDivider(Modifier.padding(start = start), thickness = 0.5.dp, color = c.separator)
+        HorizontalDivider(Modifier.padding(start = start, end = 16.dp), thickness = with(LocalDensity.current) { 1.toDp() }, color = c.separator)
     }
 }
 
@@ -467,7 +467,7 @@ fun IosRow(
     val subtitleStyle = if (material) MaterialTheme.typography.bodyMedium else IosType.footnote
     val valueStyle = if (material) MaterialTheme.typography.bodyMedium else IosType.body
     val vertical = if (Ios.flyme) 15.dp else if (Ios.colorOs) 13.dp else if (material) 10.dp else 9.dp
-    if ((Ios.winter || Ios.shell) && LocalDensity.current.fontScale > 1.3f) {
+    if ((Ios.winter || Ios.shell || !material) && LocalDensity.current.fontScale > 1.3f) {
         Column(
             modifier.fillMaxWidth().then(
                 when {
@@ -771,7 +771,7 @@ fun IosSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, 
         }
         return
     }
-    if ((Ios.winter || Ios.shell) && LocalDensity.current.fontScale > 1.3f) {
+    if (LocalDensity.current.fontScale > 1.3f) {
         Column(modifier.fillMaxWidth().selectableGroup(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             options.indices.chunked(2).forEach { indices ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -784,7 +784,8 @@ fun IosSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, 
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(options[i], modifier = Modifier.fillMaxWidth(), color = c.label,
-                                style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+                                style = if (Ios.material || Ios.shell) MaterialTheme.typography.bodyLarge else IosType.body,
+                                textAlign = TextAlign.Center)
                         }
                     }
                 }
@@ -870,11 +871,12 @@ fun IosSearchField(value: String, onValueChange: (String) -> Unit, placeholder: 
     val c = Ios.colors
     val material = Ios.material
     val textStyle = if (material) MaterialTheme.typography.bodyLarge else IosType.body
+    val largeText = LocalDensity.current.fontScale > 1.3f
     Row(
         modifier
             .fillMaxWidth()
-            .height(if (Ios.shell) 48.dp else if (material) 56.dp else 44.dp)
-            .clip(CircleShape)
+            .heightIn(min = if (material) 56.dp else if (Ios.shell || largeText) 48.dp else 44.dp)
+            .clip(if (largeText) RoundedCornerShape(22.dp) else CircleShape)
             .background(
                 if (Ios.shell) c.cell else if (material) MaterialTheme.colorScheme.surfaceContainerHigh else c.fill.copy(alpha = if (c.dark) 0.7f else 1f),
             )
@@ -888,17 +890,21 @@ fun IosSearchField(value: String, onValueChange: (String) -> Unit, placeholder: 
             modifier = Modifier.size(if (material) 24.dp else 20.dp),
         )
         Spacer(Modifier.width(if (material) 12.dp else 8.dp))
-        Box(Modifier.weight(1f)) {
-            if (value.isEmpty()) Text(placeholder, style = textStyle, color = c.secondaryLabel, maxLines = 1)
-            BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
-                singleLine = true,
-                textStyle = textStyle.copy(color = c.label),
-                cursorBrush = SolidColor(c.tint),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle = textStyle.copy(color = c.label),
+            cursorBrush = SolidColor(c.tint),
+            modifier = Modifier.weight(1f),
+            decorationBox = { input ->
+                Box(Modifier.fillMaxWidth().padding(vertical = if (largeText) 6.dp else 0.dp)) {
+                    if (value.isEmpty()) Text(placeholder, style = textStyle, color = c.secondaryLabel,
+                        maxLines = if (largeText) Int.MAX_VALUE else 1)
+                    input()
+                }
+            },
+        )
         if (value.isNotEmpty()) {
             Icon(
                 Icons.Rounded.Cancel,

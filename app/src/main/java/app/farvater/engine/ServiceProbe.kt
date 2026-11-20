@@ -42,7 +42,8 @@ object ServiceProbe {
         .readTimeout(4, TimeUnit.SECONDS).callTimeout(6, TimeUnit.SECONDS)
         .followRedirects(false).followSslRedirects(false).build()
     private val titles = mapOf(ServiceKind.GEMINI to setOf("Gemini", "Google Gemini"), ServiceKind.CHATGPT to setOf("ChatGPT"),
-        ServiceKind.CLAUDE to setOf("Claude", "Claude / Login"), ServiceKind.YOUTUBE to setOf("YouTube"))
+        ServiceKind.CLAUDE to setOf("Claude", "Claude / Login"), ServiceKind.YOUTUBE to setOf("YouTube"),
+        ServiceKind.TELEGRAM to setOf("Telegram Web"), ServiceKind.TIKTOK to setOf("TikTok", "TikTok - Make Your Day"))
 
     suspend fun check(node: ProxyNode, profile: NodeProfile?, targets: List<ServiceTarget>, onResult: suspend (ServiceTarget, ServiceCheck) -> Unit): Unit = gate.withPermit {
         checkWithEngine(node, profile, targets, onResult, XrayEngine::startProbe, XrayEngine::stopProbe)
@@ -55,7 +56,7 @@ object ServiceProbe {
             var probe: Any? = null
             try {
                 val config = configuration(node, profile, port)
-                probe = ProbeLaunch.await({ start(config) }, stop)
+                probe = ProbeLaunch.await({ start(config) }, stop, deferOnTimeout = true)
                 coroutineContext.ensureActive()
                 if (probe == null) {
                     checkTargets(targets, { result(ServiceVerdict.UNKNOWN, ServiceReason.CORE) }, onResult)
@@ -64,6 +65,8 @@ object ServiceProbe {
                 LocalProxyAuth.open(port)
                 val client = base.newBuilder().proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port))).build()
                 checkTargets(targets, { request(client, it) }, onResult)
+            } catch (_: ProbeDeferredException) {
+                checkTargets(targets, { result(ServiceVerdict.UNKNOWN, ServiceReason.BUSY) }, onResult)
             } finally {
                 LocalProxyAuth.close(port)
                 stop(probe)
@@ -93,7 +96,10 @@ object ServiceProbe {
     }
 
     internal suspend fun request(client: OkHttpClient, target: ServiceTarget): ServiceCheck = try {
-        requestPage(client, target)
+        val bounded = client.newBuilder().connectTimeout(4, TimeUnit.SECONDS)
+            .readTimeout(4, TimeUnit.SECONDS).callTimeout(6, TimeUnit.SECONDS)
+            .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false).build()
+        requestPage(bounded, target)
     } catch (e: CancellationException) {
         throw e
     } catch (_: SSLException) {
@@ -137,6 +143,8 @@ object ServiceProbe {
             ServiceKind.CHATGPT -> setOf("chatgpt.com", "www.chatgpt.com")
             ServiceKind.CLAUDE -> setOf("claude.ai")
             ServiceKind.YOUTUBE -> setOf("www.youtube.com")
+            ServiceKind.TELEGRAM -> setOf("web.telegram.org")
+            ServiceKind.TIKTOK -> setOf("www.tiktok.com")
             ServiceKind.CUSTOM -> emptySet()
         }
         return url.isHttps && url.port == 443 && url.username.isEmpty() && url.password.isEmpty() && url.host in hosts

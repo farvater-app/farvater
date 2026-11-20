@@ -23,6 +23,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToKey
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
@@ -684,6 +685,19 @@ class ScreenshotTest {
     @Test fun servicesSettingsPersian() = shot("C3_services_settings_fa_large", dark = true, language = "fa", fontScale = 1.3f) { Settings(serviceSettings(), page = "Testing") }
     @Test fun servicesNodesLight() = shot("C4_services_nodes_light", dark = false) { Servers(serviceState()) }
     @Test fun servicesNodesDark() = shot("C4_services_nodes_dark", dark = true) { Servers(serviceState()) }
+
+    @Test
+    @Config(qualifiers = "ru-w320dp-h700dp-xxhdpi")
+    fun servicesNarrowLarge() = shot("services_narrow_large", dark = true, fontScale = 2f, act = {
+        rule.onNode(androidx.compose.ui.test.SemanticsMatcher.keyIsDefined(
+            androidx.compose.ui.semantics.SemanticsActions.ScrollToIndex)).performScrollToKey("b22")
+    }) { Servers(serviceState()) }
+
+    @Test
+    @Config(qualifiers = "ru-w320dp-h700dp-xxhdpi")
+    fun sourcesQrNarrowLarge() = shot("sources_qr_narrow_large", dark = false, fontScale = 2f, act = {
+        rule.onNodeWithText("Прочитать QR-код с изображения").performScrollTo()
+    }) { Sources() }
 
     private fun serviceSettings() = Fake.state.settings.copy(serviceChecksEnabled = true,
         checkedServices = app.farvater.data.ServiceKind.entries.filter { it != app.farvater.data.ServiceKind.CUSTOM }.toSet())

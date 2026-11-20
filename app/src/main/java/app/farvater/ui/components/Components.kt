@@ -45,12 +45,12 @@ import app.farvater.ui.theme.Numeric
 fun delayColor(result: TestResult?): Color {
     val c = Ios.colors
     if (Ios.nothing) return when {
-        result == null -> c.tertiaryLabel
+        result == null || !result.evaluated -> c.tertiaryLabel
         !result.alive -> c.red
         else -> c.label
     }
     return when {
-        result == null -> c.tertiaryLabel
+        result == null || !result.evaluated -> c.tertiaryLabel
         !result.alive -> c.red
         result.delayMs <= 350 -> c.green
         result.delayMs <= 900 -> c.tint
@@ -62,11 +62,13 @@ fun delayColor(result: TestResult?): Color {
 fun delayText(result: TestResult?): String = when {
     result == null -> "—"
     !result.alive -> stringResource(when (result.reason) {
+        TestFailure.UNSUPPORTED -> R.string.probe_unsupported
         TestFailure.UNKNOWN -> R.string.no_response
         TestFailure.TIMEOUT -> R.string.node_test_timeout
         TestFailure.REFUSED -> R.string.node_test_refused
         TestFailure.TLS -> R.string.node_test_tls
         TestFailure.CONNECTION -> R.string.node_test_connection
+        TestFailure.BUSY, TestFailure.STALE -> R.string.node_test_incomplete
     })
     result.method == TestMethod.TCP -> stringResource(R.string.latency_tcp, result.delayMs)
     else -> stringResource(R.string.latency_ms, result.delayMs)

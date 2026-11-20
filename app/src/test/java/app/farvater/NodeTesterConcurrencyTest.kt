@@ -3,6 +3,8 @@ package app.farvater
 import android.app.Application
 import app.farvater.core.model.Protocol
 import app.farvater.core.model.ProxyNode
+import app.farvater.core.model.NodeProfile
+import app.farvater.core.parser.LinkParser
 import app.farvater.engine.NodeTester
 import app.farvater.engine.XrayEngine
 import app.farvater.engine.DelayMeasurement
@@ -26,6 +28,50 @@ import java.util.concurrent.atomic.AtomicInteger
 @Config(sdk = [35], application = Application::class, shadows = [NodeTesterConcurrencyTest.Core::class],
     instrumentedPackages = ["app.farvater.engine.XrayEngine"] , qualifiers = "ru")
 class NodeTesterConcurrencyTest {
+    @Test
+    fun savedProfileIsAppliedToTheConfigurationMeasuredByTheCore() {
+        Core.reset(1)
+        Core.release.countDown()
+        val node = LinkParser.parse("vless://test@profile.example.test:443?security=tls")!!
+        val result = NodeTester.test(node, "https://probe.example.test/", NodeProfile(fingerprint = "firefox"))
+        assertTrue(result.alive)
+        assertTrue(Core.configurations.single().contains("\"fingerprint\":\"firefox\""))
+    }
+
+    @Test
+    fun explicitTcpTestsTheEndpointWithoutLaunchingXray() = runBlocking {
+        Core.reset(1)
+        java.net.ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress()).use { listener ->
+            val node = LinkParser.parse("vless://test@127.0.0.1:${listener.localPort}?security=tls")!!
+            val result = NodeTester.userCheck(listOf(node), "https://unused.example.test/", 1, emptyMap(),
+                app.farvater.data.ProbeMethod.TCP).toList().single()
+            assertEquals(app.farvater.engine.TestMethod.TCP, result.method)
+            assertTrue(result.alive)
+        }
+        assertTrue(Core.configurations.isEmpty())
+    }
+
+    @Test
+    fun udpNodeDoesNotGetATcpVerdictOrLoseHealth() = runBlocking {
+        Core.reset(1)
+        val result = NodeTester.userCheck(nodes(false, false).take(1), "https://unused.example.test/", 1,
+            emptyMap(), app.farvater.data.ProbeMethod.TCP).toList().single()
+        assertFalse(result.evaluated)
+        assertFalse(result.alive)
+        assertTrue(Core.configurations.isEmpty())
+    }
+
+    @Test
+    fun explicitHttpsUsesSavedProfileEvenWhenEndpointTcpIsUnreachable() = runBlocking {
+        Core.reset(1)
+        Core.release.countDown()
+        val node = LinkParser.parse("vless://test@unresolved.invalid:443?security=tls")!!
+        val result = NodeTester.userCheck(listOf(node), "https://probe.example.test/", 1,
+            mapOf(node.id to NodeProfile(fingerprint = "firefox")), app.farvater.data.ProbeMethod.HTTPS).toList().single()
+        assertEquals(app.farvater.engine.TestMethod.REAL, result.method)
+        assertTrue(Core.configurations.single().contains("firefox"))
+    }
+
     @Test
     fun configuredConcurrencyIsClampedToOneThroughThirtyTwo() {
         exercise(concurrency = 0, sameSni = false, sameHost = false, expected = 1)
@@ -94,7 +140,10 @@ class NodeTesterConcurrencyTest {
         fun isAvailable() = true
 
         @Implementation
-        fun measureDelayDetailed(config: String, url: String): DelayMeasurement = DelayMeasurement(measureDelay(config, url))
+        fun measureDelayDetailed(config: String, url: String): DelayMeasurement {
+            configurations += config
+            return DelayMeasurement(measureDelay(config, url))
+        }
 
         @Implementation
         fun measureDelay(config: String, url: String): Long {
@@ -111,6 +160,7 @@ class NodeTesterConcurrencyTest {
         }
 
         companion object {
+            val configurations = java.util.concurrent.CopyOnWriteArrayList<String>()
             val active = AtomicInteger()
             val peak = AtomicInteger()
             lateinit var entered: CountDownLatch
@@ -119,6 +169,7 @@ class NodeTesterConcurrencyTest {
             var limit = 0
 
             fun reset(count: Int) {
+                configurations.clear()
                 active.set(0)
                 peak.set(0)
                 entered = CountDownLatch(count)

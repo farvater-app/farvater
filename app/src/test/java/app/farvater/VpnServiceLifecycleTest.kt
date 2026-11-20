@@ -5,6 +5,12 @@ import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
 import app.farvater.core.parser.LinkParser
 import app.farvater.core.model.ProxyNode
+import app.farvater.core.model.NetMode
+import app.farvater.core.model.NodeProfile
+import app.farvater.data.GalsPolicy
+import app.farvater.data.SourceSnapshot
+import app.farvater.engine.ProbeNetwork
+import app.farvater.engine.AutomaticContext
 import app.farvater.engine.NodeTester
 import app.farvater.engine.TestResult
 import app.farvater.vpn.VpnBus
@@ -71,6 +77,7 @@ class VpnServiceLifecycleTest {
         Core.onStart = null
         Core.onStop = null
         Selection.beforeEligibility = null
+        Probe.tested.clear()
     }
 
     @After
@@ -88,6 +95,103 @@ class VpnServiceLifecycleTest {
     @Test fun revokedVpnPermissionStopsCleanly() = failedInterface(SecurityException("permission revoked"))
 
     @Test fun unavailableVpnInterfaceStopsCleanly() = failedInterface(IllegalStateException("Cannot create interface"))
+
+    @Test fun queuedAutomaticStartRejectsADeletedSourceInventory() {
+        queuedAutomaticStart { App.repo.snapshots.value = emptyMap() }
+    }
+
+    @Test fun queuedAutomaticStartRejectsAChangedProfile() {
+        queuedAutomaticStart { App.prefs.rememberProfile(App.prefs.lastNode!!.id, NodeProfile(fingerprint = "firefox")) }
+    }
+
+    @Test fun queuedAutomaticStartRejectsChangedProbeSettings() {
+        queuedAutomaticStart { App.prefs.settings = App.prefs.settings.copy(encryptedDns = false) }
+    }
+
+    @Test fun queuedAutomaticStartRejectsExplicitCancellation() {
+        queuedAutomaticStart { VpnBus.automaticEpoch.incrementAndGet() }
+    }
+
+    @Test fun automaticIntentWithoutItsInMemoryContextCannotBecomeAManualStart() {
+        val intent = automaticIntent()
+        VpnBus.request.value = null
+        service.onStartCommand(intent, 0, 1)
+        queue.drain()
+        assertEquals(0, Core.starts)
+        assertEquals(VpnState.Idle, VpnBus.state.value)
+        assertTrue(org.robolectric.Shadows.shadowOf(service).isStoppedBySelf)
+    }
+
+    @Test fun validAutomaticRequestStillReachesTheCore() {
+        service.onStartCommand(automaticIntent(), 0, 1)
+        queue.drain()
+        assertEquals(1, Core.starts)
+    }
+
+    @Test fun automaticRequestInvalidatedDuringNativeStartupCannotEstablishTheInterface() {
+        Core.succeeds = true
+        Core.onStart = { App.repo.snapshots.value = emptyMap() }
+        InterfaceBuilder.beforeEstablish = { fail("A stale automatic request must not establish VPN") }
+        service.onStartCommand(automaticIntent(), 0, 1)
+        queue.drain()
+        assertEquals(1, Core.starts)
+        assertEquals(VpnState.Idle, VpnBus.state.value)
+        assertNull(VpnBus.request.value)
+        assertFalse(App.prefs.vpnWasOn)
+    }
+
+    @Test fun rejectedAutomaticRequestPreservesAnExistingConnection() {
+        val previous = App.prefs.lastNode!!.copy(name = "Existing", id = "existing")
+        val connected = VpnState.Connected(previous, 123)
+        VpnBus.state.value = connected
+        val intent = automaticIntent()
+        service.onStartCommand(intent, 0, 1)
+        App.repo.snapshots.value = emptyMap()
+        queue.drain()
+        assertEquals(connected, VpnBus.state.value)
+        assertEquals(0, Core.starts)
+        assertEquals(0, Core.stops)
+    }
+
+    private fun queuedAutomaticStart(mutate: () -> Unit) {
+        service.onStartCommand(automaticIntent(), 0, 1)
+        mutate()
+        queue.drain()
+        assertEquals(0, Core.starts)
+        assertEquals(VpnState.Idle, VpnBus.state.value)
+        assertNull(VpnBus.request.value)
+    }
+
+    @Test fun tilePreferencesResolveToFarvater() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val launch = Intent(android.service.quicksettings.TileService.ACTION_QS_TILE_PREFERENCES).setPackage(app.packageName)
+        val match = app.packageManager.resolveActivity(launch, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+        assertEquals(FarvaterActivity::class.java.name, match?.activityInfo?.name)
+    }
+
+    @Test fun automaticStartCannotReplaceAPendingStop() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        FarvaterVpnService.stop(app)
+        val pending = VpnBus.request.value
+        val node = App.prefs.lastNode!!
+        App.repo.snapshots.value = mapOf(node.sourceId to SourceSnapshot(node.sourceId, null, null, emptyList(), listOf(node), 1))
+        val checked = AutomaticContext.capture(ProbeNetwork(ApplicationProvider.getApplicationContext<Application>()), node, App.prefs, App.repo, NetMode.BLACK, GalsPolicy.from(App.prefs.settings))!!
+        FarvaterVpnService.startAutomatic(app, checked, restart = true)
+        assertNotNull(pending)
+        assertSame(pending, VpnBus.request.value)
+        val platform = org.robolectric.Shadows.shadowOf(app)
+        assertEquals(FarvaterVpnService.ACTION_STOP, platform.nextStartedService.action)
+        assertNull(platform.nextStartedService)
+    }
+
+    private fun automaticIntent(): Intent {
+        val node = App.prefs.lastNode!!
+        App.repo.snapshots.value = mapOf(node.sourceId to SourceSnapshot(node.sourceId, null, null, emptyList(), listOf(node), 1))
+        val context = AutomaticContext.capture(ProbeNetwork(ApplicationProvider.getApplicationContext<Application>()), node, App.prefs, App.repo, NetMode.BLACK, GalsPolicy.from(App.prefs.settings))!!
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        FarvaterVpnService.startAutomatic(app, context, restart = true)
+        return org.robolectric.Shadows.shadowOf(app).nextStartedService!!
+    }
 
     private fun failedInterface(error: RuntimeException?) {
         Core.succeeds = true
@@ -125,7 +229,7 @@ class VpnServiceLifecycleTest {
     }
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    @Test fun screenOffTrafficStaysOnItsDayWithoutNetworkProbes() = kotlinx.coroutines.test.runTest {
+    @Test fun screenOffKeepsMonitoringAndTrafficStaysOnItsDay() = kotlinx.coroutines.test.runTest {
         var date = java.time.LocalDate.now().toEpochDay()
         val firstDay = date
         App.prefs.dayTraffic = app.farvater.data.DayTraffic(date, 10)
@@ -155,7 +259,7 @@ class VpnServiceLifecycleTest {
             testScheduler.runCurrent()
             assertEquals(510L, App.prefs.trafficForDay(firstDay).bytes)
             assertEquals(0L, App.prefs.trafficForDay(date).bytes)
-            assertEquals(1L, Probe.entered.count)
+            assertEquals(0L, Probe.entered.count)
             screen.value = true
             testScheduler.advanceTimeBy(1_001)
             testScheduler.runCurrent()
@@ -165,6 +269,27 @@ class VpnServiceLifecycleTest {
             monitor.cancel()
             testScheduler.runCurrent()
             Bridge.reading = null
+        }
+    }
+
+    @Test
+    fun stalledConnectionChecksBackupBeforeModeDetectionCompletes() {
+        val current = App.prefs.lastNode!!
+        val backup = LinkParser.parse("vless://test@backup.example.test:443?security=tls")!!
+        App.prefs.backupNodes = app.farvater.data.BackupNodes("ANY", listOf(backup))
+        VpnBus.state.value = VpnState.Connected(current, 1)
+        VpnBus.failedChecks.value = VpnBus.STALL_CHECKS
+        val mode = Job()
+        FarvaterVpnService::class.java.getDeclaredField("modeJob").apply { isAccessible = true }.set(service, mode)
+        val failover = FarvaterVpnService::class.java.getDeclaredMethod("failover", ProxyNode::class.java)
+            .apply { isAccessible = true }
+        try {
+            failover.invoke(service, current)
+            queue.drain()
+            assertTrue(mode.isActive)
+            assertEquals(listOf(backup.id), Probe.tested)
+        } finally {
+            mode.cancel()
         }
     }
 
@@ -181,11 +306,13 @@ class VpnServiceLifecycleTest {
         org.robolectric.shadows.ShadowVpnService.setPrepareResult(null)
         val tile = Robolectric.buildService(app.farvater.vpn.QsTileService::class.java).create().get()
         val connected = VpnState.Connected(App.prefs.lastNode!!, 123)
+        App.prefs.settings = App.prefs.settings.rename(connected.node, "Home")
         VpnBus.state.value = connected
         tile.onStartListening()
         try {
             org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
             assertEquals(android.service.quicksettings.Tile.STATE_ACTIVE, tile.qsTile.state)
+            if (android.os.Build.VERSION.SDK_INT >= 29) assertEquals("Home", tile.qsTile.subtitle)
             command(FarvaterVpnService.ACTION_STOP, 1)
             org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
             assertEquals(android.service.quicksettings.Tile.STATE_INACTIVE, tile.qsTile.state)
@@ -636,6 +763,15 @@ class VpnServiceLifecycleTest {
     @Implements(value = NodeTester::class, isInAndroidSdk = false)
     class Probe {
         @Implementation
+        fun testRecovery(node: ProxyNode, url: String, profile: app.farvater.core.model.NodeProfile?): TestResult = test(node, url)
+
+        @Implementation
+        fun test(node: ProxyNode, url: String): TestResult {
+            tested += node.id
+            return TestResult(node.id, -1, app.farvater.engine.TestMethod.REAL)
+        }
+
+        @Implementation
         fun throughTunnel(node: ProxyNode, url: String, continuation: Continuation<TestResult?>): Any? {
             val suspended: suspend () -> TestResult? = {
                 entered.countDown()
@@ -649,6 +785,7 @@ class VpnServiceLifecycleTest {
         }
 
         companion object {
+            val tested = mutableListOf<String>()
             lateinit var entered: CountDownLatch
             lateinit var cancelled: CountDownLatch
         }

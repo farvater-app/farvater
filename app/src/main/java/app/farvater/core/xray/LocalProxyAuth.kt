@@ -12,6 +12,7 @@ object LocalProxyAuth {
     val user: String = token(12)
     val pass: String = token(24)
     val port: Int = freePort()
+    val probePort: Int = generateSequence { freePort() }.first { it != port }
 
     fun open(port: Int) {
         live += port

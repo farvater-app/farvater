@@ -27,6 +27,25 @@ class SocksBindingTest {
         verify(XrayConfigBuilder.build(node, true), XrayConfigBuilder.SOCKS_PORT)
     }
 
+    @Test fun activeMeasurementsCannotTakeLocalOrDomainBypassRules() {
+        val node = LinkParser.parse("vless://id@node.example.test:443?security=tls")!!
+        val config = Json.parseToJsonElement(XrayConfigBuilder.build(node, true, probePort = 19530)).jsonObject
+        val inbounds = config.getValue("inbounds").jsonArray.map { it.jsonObject }
+        assertEquals(listOf("socks", "probe"), inbounds.map { it.getValue("tag").jsonPrimitive.content })
+        val probe = inbounds.last()
+        assertEquals(19530, probe.getValue("port").jsonPrimitive.int)
+        assertEquals("127.0.0.1", probe.getValue("listen").jsonPrimitive.content)
+        val settings = probe.getValue("settings").jsonObject
+        assertEquals("password", settings.getValue("auth").jsonPrimitive.content)
+        assertFalse(settings.getValue("udp").jsonPrimitive.boolean)
+        val rules = config.getValue("routing").jsonObject.getValue("rules").jsonArray
+        assertTrue(rules.any { it.jsonObject["domain"] != null })
+        for (rule in rules) {
+            assertEquals("socks", rule.jsonObject.getValue("inboundTag").jsonArray.single().jsonPrimitive.content)
+        }
+        assertEquals("vless", config.getValue("outbounds").jsonArray.first().jsonObject.getValue("protocol").jsonPrimitive.content)
+    }
+
     private fun verify(config: String, port: Int) {
         val inbound = Json.parseToJsonElement(config).jsonObject.getValue("inbounds").jsonArray.single().jsonObject
         assertEquals("127.0.0.1", inbound.getValue("listen").jsonPrimitive.content)

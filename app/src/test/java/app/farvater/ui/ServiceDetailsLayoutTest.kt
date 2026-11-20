@@ -46,6 +46,30 @@ import org.robolectric.annotation.GraphicsMode
 class ServiceDetailsLayoutTest {
     @get:Rule val rule = createComposeRule()
 
+    @Test fun atDoubleFontDifferentVerdictsKeepTheirColumnsOnANarrowScreen() {
+        val now = System.currentTimeMillis()
+        val targets = ServiceChecks.builtIn
+        val success = mutableStateOf(true)
+        rule.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
+                FarvaterTheme {
+                    val verdict = if (success.value) ServiceVerdict.RESPONDED else ServiceVerdict.UNKNOWN
+                    val checks = targets.associate { ServiceChecks.key("ANY", "node", it) to ServiceCheck(verdict, ServiceReason.NETWORK, now) }
+                    app.farvater.ui.components.ServiceBadges("node", "ANY", targets, checks, now)
+                }
+            }
+        }
+        fun boxes() = listOf("Gemini", "ChatGPT", "Claude", "YouTube", "Telegram", "TikTok").map {
+            rule.onNode(hasContentDescription(it, substring = true), useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        }
+        val before = boxes()
+        org.junit.Assert.assertTrue(before.all { it.width > 0 && it.height > 0 })
+        org.junit.Assert.assertTrue(before.map { it.top }.distinct().size > 1)
+        rule.runOnIdle { success.value = false }
+        org.junit.Assert.assertEquals(before, boxes())
+    }
+
     @Test fun reasonsRemainReadableInEveryStyleThemeAndLanguageAtLargeFont() {
         val app = ApplicationProvider.getApplicationContext<Application>()
         val contexts = listOf("ru", "en", "fa").associateWith { language ->
@@ -58,7 +82,8 @@ class ServiceDetailsLayoutTest {
         val language = mutableStateOf("ru")
         val scale = mutableStateOf(1f)
         val now = System.currentTimeMillis()
-        val reasons = listOf(ServiceReason.CORE, ServiceReason.TIMEOUT, ServiceReason.CHALLENGE, ServiceReason.UNEXPECTED)
+        val reasons = listOf(ServiceReason.CORE, ServiceReason.TIMEOUT, ServiceReason.CHALLENGE, ServiceReason.UNEXPECTED,
+            ServiceReason.NETWORK, ServiceReason.INCOMPLETE)
         val checks = ServiceChecks.builtIn.zip(reasons).associate { (target, reason) ->
             ServiceChecks.key("ANY", "node", target) to ServiceCheck(ServiceVerdict.UNKNOWN, reason, now)
         }
@@ -92,7 +117,10 @@ class ServiceDetailsLayoutTest {
                         ServiceKind.GEMINI -> "Gemini"
                         ServiceKind.CHATGPT -> "ChatGPT"
                         ServiceKind.CLAUDE -> "Claude"
-                        else -> "YouTube"
+                        ServiceKind.YOUTUBE -> "YouTube"
+                        ServiceKind.TELEGRAM -> "Telegram"
+                        ServiceKind.TIKTOK -> "TikTok"
+                        ServiceKind.CUSTOM -> error("Expected a built-in service")
                     }
                     val node = rule.onNode(hasText(name, substring = true))
                     node.performScrollTo().assertIsDisplayed()

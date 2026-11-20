@@ -109,6 +109,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp)
+    implementation(libs.zxing.core)
+    implementation(libs.zxing.scanner)
     implementation(libs.androidx.work.runtime)
     implementation(libs.androidx.profileinstaller)
     debugImplementation(libs.compose.ui.tooling)

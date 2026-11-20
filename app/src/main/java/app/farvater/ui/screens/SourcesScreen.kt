@@ -78,6 +78,8 @@ fun SourcesScreen(
     onNetMode: (NetModeChoice) -> Unit = {},
     onSourceMode: (String, SourceMode) -> Unit = { _, _ -> },
     onSourceInterval: (String, Int?) -> Unit = { _, _ -> },
+    onQr: (String) -> Unit = {},
+    onQrInvalid: () -> Unit = {},
 ) {
     val c = Ios.colors
     val winter = Ios.winter
@@ -119,7 +121,7 @@ fun SourcesScreen(
                 IosSection {
                     IosRow(
                         title = stringResource(R.string.subscription_add),
-                        titleColor = c.tint,
+                        titleColor = c.accentTextOn(c.cell),
                         icon = Icons.Rounded.Add,
                         iconTint = c.tint,
                         onClick = { showAdd = true },
@@ -127,11 +129,12 @@ fun SourcesScreen(
                     IosDivider(start = 59.dp)
                     IosRow(
                         title = stringResource(R.string.paste_clipboard),
-                        titleColor = c.tint,
+                        titleColor = c.accentTextOn(c.cell),
                         icon = Icons.Rounded.ContentPaste,
                         iconTint = c.blue,
                         onClick = { onPaste(clipboard.getText()?.text.orEmpty()) },
                     )
+                    QrImportRows(onQr, onQrInvalid)
                 }
             }
 
@@ -187,7 +190,7 @@ fun SourcesScreen(
                     ) {
                         IosRow(
                             title = stringResource(R.string.public_enable),
-                            titleColor = c.tint,
+                            titleColor = c.accentTextOn(c.cell),
                             icon = Icons.Rounded.Public,
                             iconTint = c.tint,
                             onClick = onEnableCommunity,

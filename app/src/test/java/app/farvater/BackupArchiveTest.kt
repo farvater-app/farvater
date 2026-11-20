@@ -8,11 +8,16 @@ import androidx.test.core.app.ApplicationProvider
 import app.farvater.core.model.ProxyNode
 import app.farvater.core.parser.LinkParser
 import app.farvater.data.AppSettings
+import app.farvater.data.ProbeMethod
+import app.farvater.data.AppFont
+import app.farvater.data.Accent
 import app.farvater.data.BackupArchive
 import app.farvater.data.ProbeUrls
 import app.farvater.data.Prefs
 import app.farvater.data.SubscriptionRepository
 import app.farvater.data.UserSource
+import app.farvater.data.GalsGroup
+import app.farvater.data.ServiceKind
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.*
@@ -40,6 +45,53 @@ class BackupArchiveTest {
         File(app.filesDir, "subs/manual.txt").delete()
         prefs = Prefs(app)
         repo = SubscriptionRepository(app)
+    }
+
+    @Test
+    fun nameAndAppearanceSurviveBackupWithoutRewritingProfileOrSharingAliasesBetweenSources() {
+        val node = LinkParser.parse("vless://test@alias.example.test:443?security=tls#Original")!!
+        val original = AppSettings(accent = Accent.BERRY, font = AppFont.SERIF,
+            neutralNotification = true, flatNodes = true, probeMethod = ProbeMethod.TCP)
+        prefs.settings = original.rename(node, "  Узел  ")
+        val archive = BackupArchive.create(prefs, listOf(node), "ru")
+        assertEquals(listOf(node.raw), archive.manualNodes)
+        prefs.restoreBackup(archive)
+        val restored = Prefs(app).settings
+        assertEquals("Узел", restored.nodeLabel(node))
+        assertEquals("Original", restored.nodeLabel(node.copy(sourceId = "another")))
+        assertEquals(original.accent, restored.accent)
+        assertEquals(original.font, restored.font)
+        assertEquals(original.probeMethod, restored.probeMethod)
+        assertTrue(restored.neutralNotification && restored.flatNodes)
+        assertEquals("Original", restored.rename(node, "").nodeLabel(node))
+    }
+
+    @Test
+    fun restoredGalsDefinitionsDoNotActivateBackgroundRequests() {
+        val group = GalsGroup("custom", "Custom", sourceIds = setOf(ProxyNode.MANUAL_SOURCE), allSources = false,
+            target = ServiceKind.CUSTOM, customUrl = "https://probe.example.test/", periodicOptimization = true)
+        prefs.settings = AppSettings(galsGroups = listOf(group), activeGalsGroupId = group.id)
+        val archive = BackupArchive.create(prefs, emptyList(), "fa")
+        prefs.settings = AppSettings()
+        prefs.restoreBackup(archive)
+        val reopened = Prefs(app)
+        assertEquals(listOf(group), reopened.settings.galsGroups)
+        assertNull(reopened.settings.activeGalsGroupId)
+    }
+
+    @Test
+    fun backupRejectsInvalidGalsConfigurationAndUnknownSourceReferences() {
+        val valid = GalsGroup("group", "Group")
+        val cases = listOf(
+            AppSettings(galsGroups = listOf(valid), activeGalsGroupId = "missing"),
+            AppSettings(galsGroups = listOf(valid.copy(sourceIds = setOf("missing-source")))),
+            AppSettings(galsGroups = listOf(valid.copy(intervalSeconds = 0))),
+            AppSettings(galsGroups = listOf(valid, valid)),
+        )
+        cases.forEach { settings ->
+            prefs.settings = settings
+            assertThrows(IllegalArgumentException::class.java) { BackupArchive.create(prefs, emptyList(), "fa") }
+        }
     }
 
     @Test

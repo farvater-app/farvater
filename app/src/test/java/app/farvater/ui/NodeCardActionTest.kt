@@ -24,6 +24,28 @@ import org.robolectric.annotation.GraphicsMode
 class NodeCardActionTest {
     @get:Rule val rule = createComposeRule()
 
+    @Test fun unsupportedTcpDoesNotHideAnUntestedNode() {
+        val node = LinkParser.parse("hysteria2://test@udp.example.test:443#UDP")!!
+        val result = app.farvater.engine.TestResult(node.id, -1, app.farvater.engine.TestMethod.TCP,
+            reason = app.farvater.engine.TestFailure.UNSUPPORTED, endpointOnly = true)
+        val state = UiState(nodes = listOf(node), results = mapOf(node.id to result), settings = AppSettings(flatNodes = true, hideDead = true))
+        rule.setContent { FarvaterTheme { ServersScreen(state, {}, {}, {}, {}, {}) } }
+        rule.onNodeWithText("UDP").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun flatListDisplaysRenamedNodeInsideItsOriginalSelection() {
+        val node = LinkParser.parse("vless://test@alias.example.test:443?security=tls#Original")!!
+        val state = UiState(nodes = listOf(node), settings = AppSettings(flatNodes = true).rename(node, "Мой узел"),
+            collapsedGroups = setOf(node.sourceId))
+        var selected = ""
+        rule.setContent { FarvaterTheme {
+            ServersScreen(state, { selected = it.raw }, {}, {}, {}, {})
+        } }
+        rule.onNodeWithText("Мой узел").performScrollTo().performTouchInput { click(center) }
+        assertEquals(node.raw, selected)
+        rule.onNodeWithText("Original").assertDoesNotExist()
+    }
+
     @Test fun serviceBadgesSelectTheNodeAndFavoriteRemainsIndependent() {
         val node = LinkParser.parse("vless://test@badge.example.test:443?security=tls#Test")!!
         val target = ServiceChecks.builtIn.first { it.kind == ServiceKind.YOUTUBE }

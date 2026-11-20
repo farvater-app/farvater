@@ -20,13 +20,15 @@ data class Traffic(
     val today: Long = 0,
 )
 
-data class VpnRequest(val id: Long, val active: Boolean)
+data class VpnRequest(val id: Long, val active: Boolean, val automatic: app.farvater.engine.AutomaticContext? = null)
 
 object VpnBus {
     const val STALL_CHECKS = 3
     val state = MutableStateFlow<VpnState>(VpnState.Idle)
     val request = MutableStateFlow<VpnRequest?>(null)
     val stopEpoch = java.util.concurrent.atomic.AtomicLong()
+    val automaticEpoch = java.util.concurrent.atomic.AtomicLong()
+    val networkEpoch = java.util.concurrent.atomic.AtomicLong()
     val traffic = MutableStateFlow(Traffic())
     val speedHistory = MutableStateFlow<List<Long>>(emptyList())
     val failedChecks = MutableStateFlow(0)

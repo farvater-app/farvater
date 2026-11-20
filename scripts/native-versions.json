@@ -1,6 +1,17 @@
 {
-  "xrayLibrary": "v26.10.31",
-  "xrayCore": "26.10.31",
-  "aarSha256": "2efdf731b1ed624eb1cb0d5a4d0aa95c0672e89f9702226d1ba2dc90308630b6",
-  "testCoreSha256": "e4bd9119f50ae7c41658b1abd0679ae06f98bd864a2907ff33f2f2cf7081b214"
+  "xrayLibrary": "v26.11.9",
+  "xrayCore": "26.11.9",
+  "xrayModuleVersion": "v1.260327.1-0.20261109052709-676eaf66f8f0",
+  "xrayLibraryCommit": "b5a377087e74eaa34e86718710b04c50f4b767f5",
+  "xrayCoreCommit": "676eaf66f8f05d4d558ee7a74b4736623d3feeb9",
+  "aarSha256": "cdfef146218233a31a8b52c8b1016557730d3b63fc121d4c84cacea50e669155",
+  "testCoreSha256": "b651f7e1d9966ee2c1b1ee1bf8b52c72771824d3065dce96bbc8bcc19ed95f82",
+  "hevVersion": "2.20.0",
+  "hevCommit": "75dbc1e9ace6c70d3d1b94df7c283efe1de7effc",
+  "hevSubmodules": {
+    "src/core": "b43fa857fb39c854da01d13bc55eded66b4f4a3b",
+    "third-part/hev-task-system": "ded55c412b3951bc7decb5cb3b9135701e762998",
+    "third-part/lwip": "8115cd6150ab32500db3d4d8bd8ad7ec6648534c",
+    "third-part/yaml": "0c82efd10dc67b9e7f159d2c7f5d1dc3c1b5bc11"
+  }
 }

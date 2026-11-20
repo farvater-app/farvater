@@ -37,6 +37,8 @@ fun serviceName(kind: ServiceKind): String = stringResource(when (kind) {
     ServiceKind.CHATGPT -> R.string.service_chatgpt
     ServiceKind.CLAUDE -> R.string.service_claude
     ServiceKind.YOUTUBE -> R.string.service_youtube
+    ServiceKind.TELEGRAM -> R.string.service_telegram
+    ServiceKind.TIKTOK -> R.string.service_tiktok
     ServiceKind.CUSTOM -> R.string.service_custom
 })
 
@@ -100,6 +102,15 @@ fun ServiceSettings(settings: AppSettings, onChange: ((AppSettings) -> AppSettin
                         editing = false
                     }
                 })
+                if (settings.serviceCustomUrl.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    IosButton(stringResource(R.string.action_delete), modifier = Modifier.fillMaxWidth(),
+                        style = IosButtonStyle.Tinted, color = Ios.colors.red, maxLines = 3, onClick = {
+                            onChange { it.copy(serviceCustomUrl = "", serviceExpectedCode = 200,
+                                checkedServices = it.checkedServices - ServiceKind.CUSTOM) }
+                            editing = false
+                        })
+                }
                 Spacer(Modifier.height(8.dp))
                 IosButton(cancelText, { editing = false }, Modifier.fillMaxWidth(),
                     style = IosButtonStyle.Tinted, color = Ios.colors.label, maxLines = 3)

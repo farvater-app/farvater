@@ -26,15 +26,19 @@ class ServiceUiTest {
         val node = LinkParser.parse("vless://test@untested.example.test:443?security=tls#Untested")!!
         val target = ServiceChecks.builtIn.first { it.kind == ServiceKind.YOUTUBE }
         val state = mutableStateOf(UiState(nodes = listOf(node), settings = AppSettings(serviceChecksEnabled = true,
-            checkedServices = setOf(ServiceKind.YOUTUBE))))
-        var started = 0
-        rule.setContent { FarvaterTheme(dynamicColor = false) { ServersScreen(state.value, {}, { started++ }, {}, {}, {}) } }
+            probeMethod = ProbeMethod.TCP, checkedServices = setOf(ServiceKind.YOUTUBE))))
+        var serviceChecks = 0
+        var ordinaryChecks = 0
+        rule.setContent { FarvaterTheme(dynamicColor = false) {
+            ServersScreen(state.value, {}, { ordinaryChecks++ }, {}, {}, {}, onTestForServices = { serviceChecks++ })
+        } }
         rule.onNodeWithText("Подходит для…").performClick()
         rule.onNodeWithText("YouTube").performClick()
         rule.onNodeWithText("Нет результатов проверки").assertExists()
         rule.onNodeWithText("Ничего не нашлось").assertDoesNotExist()
         rule.onNodeWithText("Проверить все узлы").performScrollTo().performClick()
-        assertEquals(1, started)
+        assertEquals(1, serviceChecks)
+        assertEquals(0, ordinaryChecks)
         rule.runOnIdle {
             state.value = state.value.copy(serviceChecks = mapOf(ServiceChecks.key("ANY", node.id, target) to
                 ServiceCheck(ServiceVerdict.RESPONDED, ServiceReason.PAGE, System.currentTimeMillis() - ServiceChecks.TTL_MS)))
@@ -56,7 +60,7 @@ class ServiceUiTest {
         rule.onNodeWithText("Проверять страницы сервисов").performClick()
         assertTrue(settings.value.serviceChecksEnabled)
         rule.onNodeWithText("ChatGPT").performClick()
-        assertEquals(setOf(ServiceKind.CHATGPT), settings.value.checkedServices)
+        assertEquals(setOf(ServiceKind.TELEGRAM, ServiceKind.CHATGPT), settings.value.checkedServices)
         rule.onNodeWithText("Добавить или изменить адрес").performClick()
         rule.onAllNodes(hasSetTextAction())[0].performTextInput("https://router.lan/")
         rule.onNodeWithText("Сохранить").performClick()
@@ -66,6 +70,32 @@ class ServiceUiTest {
         rule.onNodeWithText("Сохранить").performClick()
         assertEquals("https://service.example.test/status", settings.value.serviceCustomUrl)
         assertTrue(ServiceKind.CUSTOM in settings.value.checkedServices)
+    }
+
+    @Test
+    fun deletingCustomAddressPreservesOtherServicesAndSurvivesReload() {
+        val app = androidx.test.core.app.ApplicationProvider.getApplicationContext<Application>()
+        val prefs = Prefs(app)
+        prefs.settings = AppSettings(serviceChecksEnabled = true,
+            serviceCustomUrl = "https://service.example.test/status", serviceExpectedCode = 204,
+            checkedServices = setOf(ServiceKind.CUSTOM, ServiceKind.YOUTUBE))
+        val settings = mutableStateOf(prefs.settings)
+        rule.setContent { FarvaterTheme(dynamicColor = false) {
+            ServiceSettings(settings.value) { update ->
+                prefs.settings = update(settings.value)
+                settings.value = prefs.settings
+            }
+        } }
+        rule.onNodeWithText("Добавить или изменить адрес").performClick()
+        rule.onNodeWithText("Удалить").performClick()
+        val restored = Prefs(app).settings
+        assertEquals("", restored.serviceCustomUrl)
+        assertEquals(200, restored.serviceExpectedCode)
+        assertEquals(setOf(ServiceKind.YOUTUBE), restored.checkedServices)
+        assertEquals(listOf(ServiceKind.YOUTUBE), ServiceChecks.targets(restored).map { it.kind })
+        rule.onNodeWithText("Добавить или изменить адрес").performClick()
+        rule.onNode(hasSetTextAction() and hasContentDescription("HTTPS-адрес")).assertTextContains("")
+        rule.onNodeWithText("Удалить").assertDoesNotExist()
     }
 
     @Test
@@ -96,7 +126,7 @@ class ServiceUiTest {
         rule.onNodeWithText("Сохранить").performClick()
         assertEquals("https://service.example.test/status", Prefs(app).settings.serviceCustomUrl)
         assertEquals(200, Prefs(app).settings.serviceExpectedCode)
-        val firstKey = ServiceChecks.targets(Prefs(app).settings).single().key
+        val firstKey = ServiceChecks.targets(Prefs(app).settings).single { it.kind == ServiceKind.CUSTOM }.key
         rule.onNodeWithText("Добавить или изменить адрес").performClick()
         rule.onNode(hasSetTextAction() and hasContentDescription("HTTPS-адрес"))
             .assertTextContains("https://service.example.test/status")
@@ -113,8 +143,8 @@ class ServiceUiTest {
         val restored = Prefs(app).settings
         assertEquals("https://service.example.test/status", restored.serviceCustomUrl)
         assertEquals(204, restored.serviceExpectedCode)
-        assertEquals(setOf(ServiceKind.CUSTOM), restored.checkedServices)
-        assertNotEquals(firstKey, ServiceChecks.targets(restored).single().key)
+        assertEquals(setOf(ServiceKind.TELEGRAM, ServiceKind.CUSTOM), restored.checkedServices)
+        assertNotEquals(firstKey, ServiceChecks.targets(restored).single { it.kind == ServiceKind.CUSTOM }.key)
         rule.onNodeWithText("Добавить или изменить адрес").performClick()
         rule.onNode(hasSetTextAction() and hasContentDescription("Код ответа: 200–599"))
             .assertTextContains("204")

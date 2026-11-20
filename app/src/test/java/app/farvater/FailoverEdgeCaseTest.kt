@@ -3,12 +3,40 @@ package app.farvater
 import app.farvater.core.model.Protocol
 import app.farvater.core.model.ProxyNode
 import app.farvater.engine.Failover
+import app.farvater.engine.BackupCooldowns
 import app.farvater.engine.TestMethod
 import app.farvater.engine.TestResult
 import org.junit.Assert.*
 import org.junit.Test
 
 class FailoverEdgeCaseTest {
+    @Test
+    fun failedBackupsBecomeEligibleAgainWithBoundedBackoff() {
+        val cooldowns = BackupCooldowns()
+        cooldowns.failed("a", 1_000)
+        assertEquals(setOf("a"), cooldowns.excluded(30_999))
+        assertTrue(cooldowns.excluded(31_000).isEmpty())
+        cooldowns.failed("a", 31_000)
+        assertEquals(setOf("a"), cooldowns.excluded(90_999))
+        assertTrue(cooldowns.excluded(91_000).isEmpty())
+        cooldowns.failed("a", 91_000)
+        assertTrue(cooldowns.excluded(211_000).isEmpty())
+        cooldowns.failed("a", 211_000)
+        assertTrue(cooldowns.excluded(331_000).isEmpty())
+    }
+
+    @Test
+    fun backupFailuresAreIndependentAndResetAfterRecovery() {
+        val cooldowns = BackupCooldowns()
+        cooldowns.failed("a", 1_000)
+        cooldowns.failed("b", 20_000)
+        assertEquals(setOf("b"), cooldowns.excluded(31_000))
+        cooldowns.clear()
+        assertTrue(cooldowns.excluded(31_000).isEmpty())
+        cooldowns.failed("a", 31_000)
+        assertTrue(cooldowns.excluded(61_000).isEmpty())
+    }
+
     @Test
     fun emptyCandidatesAndZeroLimitReturnNothing() {
         assertTrue(Failover.order(emptyList(), node("current")).isEmpty())

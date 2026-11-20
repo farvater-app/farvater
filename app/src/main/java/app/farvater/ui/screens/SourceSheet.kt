@@ -1,5 +1,7 @@
 package app.farvater.ui.screens
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import app.farvater.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Column
@@ -77,6 +79,8 @@ fun SourceSheet(
     onClose: () -> Unit,
 ) {
     val c = Ios.colors
+    var qr by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    if (qr) ProfileQrDialog(source.homepage) { qr = false }
     val uri = LocalUriHandler.current
     IosSheet(title = source.title, onClose = onClose) {
         Column(
@@ -126,6 +130,10 @@ fun SourceSheet(
                     iconTint = c.tint,
                     onClick = onRefresh,
                 )
+                if (!source.community) {
+                    IosDivider()
+                    IosRow(stringResource(R.string.qr_show), onClick = { qr = true })
+                }
                 if (source.community) {
                     IosDivider(start = 59.dp)
                     IosRow(

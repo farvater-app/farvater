@@ -157,7 +157,7 @@ fun HomeScreen(
         animationSpec = tween(700),
         label = "glow",
     )
-    val connectedNode = remember(vpn) { (vpn as? VpnState.Connected)?.node?.name?.let { splitFlag(it).second } }
+    val connectedNode = remember(vpn, state.settings.nodeNames) { (vpn as? VpnState.Connected)?.node?.let { splitFlag(state.settings.nodeLabel(it)).second } }
 
     val status: @Composable () -> Unit = {
         val m = mode
@@ -329,7 +329,7 @@ fun HomeScreen(
             ) {
                 val node = state.selectedNode
                 if (node != null) {
-                    val (flag, title) = remember(node.name) { splitFlag(node.name) }
+                    val (flag, title) = splitFlag(state.settings.nodeLabel(node))
                     val listed = remember(node.id, state.nodes) { state.nodes.any { it.id == node.id } }
                     IosRow(
                         title = title,
@@ -431,7 +431,7 @@ private fun supporting(mode: ConnectMode, vpn: VpnState, state: UiState, sumie: 
             }
         }.orEmpty()
     }
-    ConnectMode.Connecting -> ((vpn as? VpnState.Connecting)?.node ?: state.preflight)?.let { splitFlag(it.name).second }.orEmpty()
+    ConnectMode.Connecting -> ((vpn as? VpnState.Connecting)?.node ?: state.preflight)?.let { splitFlag(state.settings.nodeLabel(it)).second }.orEmpty()
     ConnectMode.Connected -> if (state.refining) stringResource(R.string.gals_refining) else stringResource(R.string.traffic_selected_node)
     ConnectMode.Error -> (vpn as? VpnState.Failed)?.message ?: stringResource(R.string.try_another_node)
 }

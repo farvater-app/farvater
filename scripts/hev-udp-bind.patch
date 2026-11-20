@@ -1,16 +1,8 @@
 --- a/src/core/src/hev-socks5-client-udp.c
 +++ b/src/core/src/hev-socks5-client-udp.c
-@@ -8,6 +8,7 @@
-  */
- 
- #include <string.h>
-+#include <sys/socket.h>
- #include <unistd.h>
- 
- #include <hev-task.h>
-@@ -44,11 +45,57 @@
+@@ -44,10 +44,56 @@
  }
- 
+
  static HevSocks5Addr *
 +hev_socks5_client_udp_bind_local (HevSocks5ClientUDP *self)
 +{
@@ -36,14 +28,14 @@
 +    if (bind (fd, (struct sockaddr *)&saddr, sizeof (saddr)) < 0 ||
 +        getsockname (fd, (struct sockaddr *)&saddr, &len) < 0) {
 +        hev_task_del_fd (hev_task_self (), fd);
-+        close (fd);
++        hev_task_io_close (fd);
 +        return NULL;
 +    }
 +
 +    addr = hev_malloc0 (19);
 +    if (!addr) {
 +        hev_task_del_fd (hev_task_self (), fd);
-+        close (fd);
++        hev_task_io_close (fd);
 +        return NULL;
 +    }
 +
@@ -58,18 +50,17 @@
  {
      HevSocks5AddrFamily family;
      HevSocks5Addr *addr;
- 
++
 +    addr = hev_socks5_client_udp_bind_local (HEV_SOCKS5_CLIENT_UDP (base));
 +    if (addr)
 +        return addr;
-+
+
      family = hev_socks5_get_addr_family (HEV_SOCKS5 (base));
- 
-     switch (family) {
-@@ -92,7 +139,10 @@
+
+@@ -92,7 +138,10 @@
          return -1;
      }
- 
+
 -    fd = hev_socks5_socket (SOCK_DGRAM);
 +    fd = self->fd;
 +    self->fd = -1;

@@ -30,6 +30,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -39,6 +40,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.farvater.R
+import app.farvater.data.Accent
+import app.farvater.data.AppFont
 import app.farvater.data.UiStyle
 
 @Immutable
@@ -66,7 +69,14 @@ data class IosColors(
     val gray: Color,
     val yellow: Color,
     val pink: Color,
-)
+) {
+    fun accentTextOn(surface: Color): Color {
+        val light = surface.compositeOver(background).luminance()
+        val accent = tint.luminance()
+        val contrast = (maxOf(light, accent) + 0.05f) / (minOf(light, accent) + 0.05f)
+        return if (contrast >= 4.5f) tint else label
+    }
+}
 
 val IosDark = IosColors(
     dark = true,
@@ -148,29 +158,38 @@ private object BaseIosType {
     val caption2 = TextStyle(fontSize = 11.sp, lineHeight = 13.sp, letterSpacing = 0.05.sp)
 }
 
+private val LocalAppFont = staticCompositionLocalOf<FontFamily?> { null }
+
+@Composable
+@ReadOnlyComposable
+private fun TextStyle.appStyle(witchFont: FontFamily): TextStyle {
+    val family = LocalAppFont.current ?: if (LocalUiStyle.current == UiStyle.WITCH) localizedFont(witchFont) else return this
+    return copy(fontFamily = family)
+}
+
 object IosType {
     val largeTitle: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.largeTitle.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(WitchFont)) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.largeTitle.appStyle(WitchFont)
     val title1: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.title1.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(WitchFont)) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.title1.appStyle(WitchFont)
     val title2: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.title2.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(WitchFont)) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.title2.appStyle(WitchFont)
     val title3: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.title3.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(WitchFont)) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.title3.appStyle(WitchFont)
     val headline: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.headline.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(OriginFont)) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.headline.appStyle(OriginFont)
     val body: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.body.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(OriginFont)) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.body.appStyle(OriginFont)
     val callout: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.callout.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(OriginFont)) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.callout.appStyle(OriginFont)
     val subheadline: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.subheadline.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(OriginFont)) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.subheadline.appStyle(OriginFont)
     val footnote: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.footnote.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(OriginFont)) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.footnote.appStyle(OriginFont)
     val caption1: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.caption1.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(OriginFont)) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.caption1.appStyle(OriginFont)
     val caption2: TextStyle
-        @Composable @ReadOnlyComposable get() = BaseIosType.caption2.let { if (LocalUiStyle.current == UiStyle.WITCH) it.copy(fontFamily = localizedFont(OriginFont)) else it }
+        @Composable @ReadOnlyComposable get() = BaseIosType.caption2.appStyle(OriginFont)
 }
 
 object Ios {
@@ -1056,12 +1075,26 @@ fun FarvaterTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     style: UiStyle = UiStyle.IOS,
     dynamicColor: Boolean = true,
+    accent: Accent = Accent.THEME,
+    font: AppFont = AppFont.THEME,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
     val material = style != UiStyle.IOS
     val dark = darkTheme || style in setOf(UiStyle.ROSKOMPOZOR, UiStyle.WITCH)
-    val targetScheme = remember(dark, style, dynamicColor) {
+    val family = when (font) {
+        AppFont.THEME -> null
+        AppFont.SANS -> FontFamily.SansSerif
+        AppFont.SERIF -> FontFamily.Serif
+        AppFont.MONO -> FontFamily.Monospace
+    }
+    val tint = when (accent) {
+        Accent.THEME -> null
+        Accent.OCEAN -> if (dark) Color(0xFF99CCFF) else Color(0xFF005B91)
+        Accent.FOREST -> if (dark) Color(0xFF8ADAB4) else Color(0xFF006545)
+        Accent.BERRY -> if (dark) Color(0xFFFFAECC) else Color(0xFF963057)
+    }
+    val baseScheme = remember(dark, style, dynamicColor) {
         if (style in setOf(UiStyle.WINTER, UiStyle.COLOROS, UiStyle.FLYME)) {
             val colors = when (style) { UiStyle.COLOROS -> colorOsColors(dark); UiStyle.FLYME -> flymeColors(dark); else -> winterColors(dark) }
             scheme(colors).copy(onPrimary = if (dark) colors.background else Color.White,
@@ -1102,7 +1135,10 @@ fun FarvaterTheme(
             OrangeLight
         }
     }
-    val targetIos = remember(targetScheme, dark, style) {
+    val targetScheme = remember(baseScheme, tint, dark) {
+        if (tint == null) baseScheme else baseScheme.copy(primary = tint, onPrimary = if (dark) Color.Black else Color.White)
+    }
+    val baseIos = remember(targetScheme, dark, style) {
         when {
             style == UiStyle.FLYME -> flymeColors(dark)
             style == UiStyle.COLOROS -> colorOsColors(dark)
@@ -1120,10 +1156,11 @@ fun FarvaterTheme(
             else -> IosLight
         }
     }
+    val targetIos = remember(baseIos, tint) { if (tint == null) baseIos else baseIos.copy(tint = tint) }
     val colorScheme = if (style == UiStyle.WITCH) targetScheme else fadeTo(targetScheme) { a, b, t -> a.lerpTo(b, t) }
     val ios = if (style == UiStyle.WITCH) targetIos else fadeTo(targetIos) { a, b, t -> a.lerpTo(b, t) }
     val shellStill = if (style == UiStyle.COLOROS || style == UiStyle.FLYME) app.farvater.ui.components.rememberWinterStill() else false
-    CompositionLocalProvider(LocalIos provides ios, LocalUiStyle provides style, app.farvater.ui.components.LocalShellMotionDisabled provides shellStill) {
+    CompositionLocalProvider(LocalAppFont provides family, LocalIos provides ios, LocalUiStyle provides style, app.farvater.ui.components.LocalShellMotionDisabled provides shellStill) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = when {
@@ -1139,7 +1176,13 @@ fun FarvaterTheme(
                 style == UiStyle.OXYGEN -> OxygenType
                 material -> MaterialType
                 else -> Type
-            }.let { if (LocalConfiguration.current.locales[0].language == "fa") it.systemFont() else it },
+            }.let {
+                when {
+                    family != null -> it.systemFont(family)
+                    LocalConfiguration.current.locales[0].language == "fa" -> it.systemFont()
+                    else -> it
+                }
+            },
             shapes = when {
                 style == UiStyle.FLYME -> Shapes(small = RoundedCornerShape(6.dp), medium = RoundedCornerShape(10.dp), large = RoundedCornerShape(16.dp))
                 style == UiStyle.COLOROS -> Shapes(small = RoundedCornerShape(16.dp), medium = RoundedCornerShape(24.dp), large = RoundedCornerShape(32.dp))
@@ -1168,22 +1211,22 @@ fun FarvaterTheme(
 @Composable
 @ReadOnlyComposable
 fun localizedFont(font: FontFamily): FontFamily =
-    if (LocalConfiguration.current.locales[0].language == "fa") FontFamily.Default else font
+    LocalAppFont.current ?: if (LocalConfiguration.current.locales[0].language == "fa") FontFamily.Default else font
 
-private fun Typography.systemFont(): Typography = copy(
-    displayLarge = displayLarge.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
-    displayMedium = displayMedium.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
-    displaySmall = displaySmall.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
-    headlineLarge = headlineLarge.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
-    headlineMedium = headlineMedium.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
-    headlineSmall = headlineSmall.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
-    titleLarge = titleLarge.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
-    titleMedium = titleMedium.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
-    titleSmall = titleSmall.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
-    bodyLarge = bodyLarge.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
-    bodyMedium = bodyMedium.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
-    bodySmall = bodySmall.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
-    labelLarge = labelLarge.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
-    labelMedium = labelMedium.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
-    labelSmall = labelSmall.copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp),
+private fun Typography.systemFont(family: FontFamily = FontFamily.Default): Typography = copy(
+    displayLarge = displayLarge.copy(fontFamily = family, letterSpacing = 0.sp),
+    displayMedium = displayMedium.copy(fontFamily = family, letterSpacing = 0.sp),
+    displaySmall = displaySmall.copy(fontFamily = family, letterSpacing = 0.sp),
+    headlineLarge = headlineLarge.copy(fontFamily = family, letterSpacing = 0.sp),
+    headlineMedium = headlineMedium.copy(fontFamily = family, letterSpacing = 0.sp),
+    headlineSmall = headlineSmall.copy(fontFamily = family, letterSpacing = 0.sp),
+    titleLarge = titleLarge.copy(fontFamily = family, letterSpacing = 0.sp),
+    titleMedium = titleMedium.copy(fontFamily = family, letterSpacing = 0.sp),
+    titleSmall = titleSmall.copy(fontFamily = family, letterSpacing = 0.sp),
+    bodyLarge = bodyLarge.copy(fontFamily = family, letterSpacing = 0.sp),
+    bodyMedium = bodyMedium.copy(fontFamily = family, letterSpacing = 0.sp),
+    bodySmall = bodySmall.copy(fontFamily = family, letterSpacing = 0.sp),
+    labelLarge = labelLarge.copy(fontFamily = family, letterSpacing = 0.sp),
+    labelMedium = labelMedium.copy(fontFamily = family, letterSpacing = 0.sp),
+    labelSmall = labelSmall.copy(fontFamily = family, letterSpacing = 0.sp),
 )

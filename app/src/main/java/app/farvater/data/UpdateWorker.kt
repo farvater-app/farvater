@@ -62,7 +62,7 @@ class UpdateWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             )
             val text = info.notes.take(3).joinToString("\n").ifBlank { context.localizedString(R.string.notification_update_hint) }
             val notification = NotificationCompat.Builder(context, CHANNEL)
-                .setSmallIcon(R.drawable.ic_logo)
+                .setSmallIcon(App.prefs.settings.notificationIcon)
                 .setContentTitle(if (info.critical) context.localizedString(R.string.notification_critical_update, info.versionName) else context.localizedString(R.string.update_available, info.versionName))
                 .setContentText(text.lineSequence().first())
                 .setStyle(NotificationCompat.BigTextStyle().bigText(text))

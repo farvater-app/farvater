@@ -4,7 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ABIS="arm64-v8a armeabi-v7a x86_64 x86"
 XRAY_LIB_VERSION="$(python3 "$ROOT/scripts/check-natives.py" --xray-version)"
-HEV_VERSION="${HEV_VERSION:-2.18.0}"
+PINNED_HEV_VERSION="$(python3 "$ROOT/scripts/check-natives.py" --hev-version)"
+HEV_VERSION="${HEV_VERSION:-$PINNED_HEV_VERSION}"
 
 echo "Ядро Xray ($XRAY_LIB_VERSION)"
 mkdir -p "$ROOT/app/libs"
@@ -16,7 +17,12 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 git clone --depth 1 --branch "$HEV_VERSION" --recursive --shallow-submodules \
   https://github.com/heiher/hev-socks5-tunnel "$WORK/jni"
-patch -p1 -d "$WORK/jni" < "$ROOT/scripts/hev-udp-bind.patch"
+if [ "$HEV_VERSION" = "$PINNED_HEV_VERSION" ]; then
+    python3 "$ROOT/scripts/check-natives.py" --verify-hev-source "$WORK/jni"
+else
+    echo "Custom HEV_VERSION requires independent source and compatibility verification" >&2
+fi
+patch --fuzz=0 -p1 -d "$WORK/jni" < "$ROOT/scripts/hev-udp-bind.patch"
 (
   cd "$WORK"
   "$ANDROID_NDK_HOME/ndk-build" \

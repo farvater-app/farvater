@@ -10,6 +10,7 @@ import app.farvater.data.ServiceReason
 import app.farvater.data.ServiceTarget
 import app.farvater.data.ServiceVerdict
 import app.farvater.engine.ServiceProbe
+import app.farvater.engine.ProbeDeferredException
 import kotlinx.coroutines.runBlocking
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -21,6 +22,49 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ServiceProbeTest {
+    @Test
+    fun requestDoesNotInheritAutomaticRedirectsFromTheCaller() = runBlocking {
+        val server = com.sun.net.httpserver.HttpServer.create(java.net.InetSocketAddress("127.0.0.1", 0), 0)
+        val followed = java.util.concurrent.atomic.AtomicInteger()
+        server.createContext("/target") { response ->
+            response.responseHeaders.add("Location", "http://127.0.0.1:${server.address.port}/followed")
+            response.sendResponseHeaders(302, -1)
+            response.close()
+        }
+        server.createContext("/followed") { response ->
+            followed.incrementAndGet()
+            response.sendResponseHeaders(204, -1)
+            response.close()
+        }
+        server.start()
+        val client = OkHttpClient()
+        try {
+            val checked = ServiceProbe.request(client,
+                ServiceTarget(ServiceKind.CUSTOM, "http://127.0.0.1:${server.address.port}/target", 204))
+            assertEquals(ServiceVerdict.REJECTED, checked.verdict)
+            assertEquals(0, followed.get())
+        } finally {
+            server.stop(0)
+            client.connectionPool.evictAll()
+            client.dispatcher.executorService.shutdownNow()
+        }
+    }
+
+    @Test
+    fun localContentionReportsIncompleteAndBecomesRetryableAfterOneMinute() = runBlocking {
+        val node = LinkParser.parse("vless://test@probe.example.test:443?security=tls")!!
+        val results = mutableMapOf<ServiceTarget, ServiceCheck>()
+        ServiceProbe.checkWithEngine(node, null, ServiceChecks.builtIn, { target, result -> results[target] = result },
+            { throw ProbeDeferredException() }, {})
+        assertEquals(ServiceChecks.builtIn.toSet(), results.keys)
+        for (result in results.values) {
+            assertEquals(ServiceVerdict.UNKNOWN, result.verdict)
+            assertEquals(ServiceReason.BUSY, result.reason)
+            assertFalse(ServiceChecks.due(result, result.at + 59_999))
+            assertTrue(ServiceChecks.due(result, result.at + 60_000))
+        }
+    }
+
     @Test
     fun unavailableEngineReportsLaunchFailureForEveryTarget() = runBlocking {
         val node = LinkParser.parse("vless://test@probe.example.test:443?security=tls")!!
@@ -58,6 +102,8 @@ class ServiceProbeTest {
                 ServiceKind.CHATGPT -> "ChatGPT"
                 ServiceKind.CLAUDE -> "Claude / Login"
                 ServiceKind.YOUTUBE -> "YouTube"
+                ServiceKind.TELEGRAM -> "Telegram Web"
+                ServiceKind.TIKTOK -> "TikTok - Make Your Day"
                 else -> error("Not built in")
             }
             val prefix = if (target.kind == ServiceKind.GEMINI) " ".repeat(780_000) else ""

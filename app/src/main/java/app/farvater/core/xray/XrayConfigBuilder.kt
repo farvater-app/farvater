@@ -46,6 +46,7 @@ object XrayConfigBuilder {
         encryptedDns: Boolean = true,
         profile: NodeProfile? = null,
         socksPort: Int = SOCKS_PORT,
+        probePort: Int? = null,
     ): String {
         val provider = if (node.isJson) Json.parseToJsonElement(node.raw).jsonObject else null
         val tuned = profile?.takeIf { provider == null }
@@ -56,27 +57,8 @@ object XrayConfigBuilder {
             putJsonObject("log") { put("loglevel", "warning") }
             if (!forTest) {
                 putJsonArray("inbounds") {
-                    addJsonObject {
-                        put("tag", "socks")
-                        put("listen", "127.0.0.1")
-                        put("port", socksPort)
-                        put("protocol", "socks")
-                        putJsonObject("settings") {
-                            put("auth", "password")
-                            putJsonArray("accounts") {
-                                addJsonObject {
-                                    put("user", LocalProxyAuth.user)
-                                    put("pass", LocalProxyAuth.pass)
-                                }
-                            }
-                            put("udp", socksPort == SOCKS_PORT)
-                        }
-                        putJsonObject("sniffing") {
-                            put("enabled", true)
-                            putJsonArray("destOverride") { add("http"); add("tls"); add("quic") }
-                            put("routeOnly", true)
-                        }
-                    }
+                    add(socksInbound("socks", socksPort, udp = socksPort == SOCKS_PORT))
+                    probePort?.let { add(socksInbound("probe", it, udp = false)) }
                 }
                 putJsonObject("dns") {
                     putJsonArray("servers") {
@@ -121,11 +103,13 @@ object XrayConfigBuilder {
                         }
                         addJsonObject {
                             put("type", "field")
+                            putJsonArray("inboundTag") { add("socks") }
                             putJsonArray("ip") { PRIVATE_CIDRS.forEach { add(it) } }
                             put("outboundTag", "direct")
                         }
                         if (directRuServices) addJsonObject {
                             put("type", "field")
+                            putJsonArray("inboundTag") { add("socks") }
                             putJsonArray("domain") { DIRECT_DOMAINS.forEach { add("domain:$it") } }
                             put("outboundTag", "direct")
                         }
@@ -157,6 +141,28 @@ object XrayConfigBuilder {
             ))))
         } else config
         return XrayJsonParser.withoutInsecure(safeConfig).toString()
+    }
+
+    private fun socksInbound(tag: String, port: Int, udp: Boolean) = buildJsonObject {
+        put("tag", tag)
+        put("listen", "127.0.0.1")
+        put("port", port)
+        put("protocol", "socks")
+        putJsonObject("settings") {
+            put("auth", "password")
+            putJsonArray("accounts") {
+                addJsonObject {
+                    put("user", LocalProxyAuth.user)
+                    put("pass", LocalProxyAuth.pass)
+                }
+            }
+            put("udp", udp)
+        }
+        putJsonObject("sniffing") {
+            put("enabled", true)
+            putJsonArray("destOverride") { add("http"); add("tls"); add("quic") }
+            put("routeOnly", true)
+        }
     }
 
     private const val FRAGMENT_TAG = "fragment"

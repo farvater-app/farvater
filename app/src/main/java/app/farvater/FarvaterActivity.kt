@@ -81,7 +81,8 @@ class FarvaterActivity : ComponentActivity() {
                 ThemeMode.DARK -> true
             }
             LaunchedEffect(dark) { applySystemBars(dark) }
-            FarvaterTheme(darkTheme = dark, style = settings.uiStyle, dynamicColor = settings.dynamicColor) {
+            FarvaterTheme(darkTheme = dark, style = settings.uiStyle, dynamicColor = settings.dynamicColor,
+                accent = settings.accent, font = settings.font) {
                 FarvaterRoot(vm)
             }
         }

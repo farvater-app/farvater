@@ -15,10 +15,11 @@ object DohProbe {
 
     val query: String = Base64.getUrlEncoder().withoutPadding().encodeToString(wire(NAME))
 
-    suspend fun answers(client: OkHttpClient, server: String): Boolean = orDefault(false) {
+    suspend fun answers(client: OkHttpClient, server: String, name: String = NAME): Boolean = orDefault(false) {
+        val question = if (name == NAME) query else Base64.getUrlEncoder().withoutPadding().encodeToString(wire(name))
         val quick = client.newBuilder().callTimeout(5, TimeUnit.SECONDS).followRedirects(false).build()
         val request = Request.Builder()
-            .url("${XrayConfigBuilder.dohUrl(server)}?dns=$query")
+            .url("${XrayConfigBuilder.dohUrl(server)}?dns=$question")
             .header("Accept", "application/dns-message")
             .build()
         quick.newCall(request).await { response ->
@@ -28,7 +29,8 @@ object DohProbe {
         }
     }
 
-    suspend fun firstAnswering(client: OkHttpClient, servers: List<String>): String? = servers.firstOrNull { answers(client, it) }
+    suspend fun firstAnswering(client: OkHttpClient, servers: List<String>, name: String = NAME): String? =
+        servers.firstOrNull { answers(client, it, name) }
 
     fun answered(body: ByteArray): Boolean {
         if (body.size < 12) return false
@@ -39,9 +41,13 @@ object DohProbe {
     }
 
     fun wire(name: String): ByteArray {
+        val normalized = name.removeSuffix(".")
+        require(normalized.length in 1..253 && normalized.all { it.code in 33..126 })
+        val labels = normalized.split('.')
+        require(labels.all { it.length in 1..63 })
         val out = ByteArrayOutputStream()
         out.write(byteArrayOf(0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0))
-        name.split('.').filter { it.isNotEmpty() }.forEach { label ->
+        labels.forEach { label ->
             val bytes = label.toByteArray(Charsets.US_ASCII)
             out.write(bytes.size)
             out.write(bytes)

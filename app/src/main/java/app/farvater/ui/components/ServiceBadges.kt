@@ -1,7 +1,12 @@
 package app.farvater.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -28,17 +33,30 @@ fun ServiceBadges(nodeId: String, mode: String, targets: List<ServiceTarget>, ch
         checks[ServiceChecks.key(mode, nodeId, target)]?.takeIf { ServiceChecks.fresh(it, now) }?.let { target to it }
     }
     if (fresh.isEmpty()) return
-    FlowRow(Modifier.padding(start = 68.dp, end = 16.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        fresh.forEach { (target, check) ->
-            val name = serviceName(target.kind)
-            val symbol = when (check.verdict) {
-                ServiceVerdict.RESPONDED -> "✓"
-                ServiceVerdict.REJECTED -> "✗"
-                ServiceVerdict.UNKNOWN -> "?"
+    val style = IosType.caption1
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val names = targets.map { serviceName(it.kind) }
+    val cell = androidx.compose.runtime.remember(names, style, measurer) {
+        val sizes = names.flatMap { name ->
+            listOf("✓", "✗", "?").map { mark -> measurer.measure("$name $mark", style, softWrap = false).size }
+        }
+        androidx.compose.ui.unit.IntSize(sizes.maxOf { it.width }, sizes.maxOf { it.height })
+    }
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 10.dp)) {
+        val width = with(density) { cell.width.toDp() }.coerceAtMost(maxWidth)
+        val minHeight = with(density) { cell.height.toDp() }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            fresh.forEach { (target, check) ->
+                val symbol = when (check.verdict) {
+                    ServiceVerdict.RESPONDED -> "✓"
+                    ServiceVerdict.REJECTED -> "✗"
+                    ServiceVerdict.UNKNOWN -> "?"
+                }
+                val description = serviceDescription(target, check)
+                Text("${serviceName(target.kind)} $symbol", style = style, color = Ios.colors.label,
+                    modifier = Modifier.width(width).heightIn(min = minHeight).clearAndSetSemantics { contentDescription = description })
             }
-            val description = serviceDescription(target, check)
-            Text("$name $symbol", style = IosType.caption1, color = Ios.colors.label,
-                modifier = Modifier.clearAndSetSemantics { contentDescription = description })
         }
     }
 }
@@ -65,7 +83,7 @@ private fun serviceDescription(target: ServiceTarget, check: ServiceCheck): Stri
         ServiceReason.HTTP_ERROR -> R.string.service_reason_http
         ServiceReason.UNEXPECTED -> R.string.service_reason_unexpected
         ServiceReason.NETWORK -> R.string.service_reason_network
-        ServiceReason.INCOMPLETE -> R.string.service_reason_incomplete
+        ServiceReason.INCOMPLETE, ServiceReason.BUSY -> R.string.service_reason_incomplete
         ServiceReason.CORE -> R.string.service_reason_core
         ServiceReason.TIMEOUT -> R.string.service_reason_timeout
         ServiceReason.TLS -> R.string.service_reason_tls

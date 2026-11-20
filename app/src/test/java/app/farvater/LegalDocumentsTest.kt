@@ -17,7 +17,7 @@ class LegalDocumentsTest {
 
     @Test fun packagedPolicyMatchesConsentRevisionAndReleaseDate() {
         val policy = app.assets.open("privacy.txt").bufferedReader().use { it.readText() }
-        assertTrue(policy.contains("Редакция $LEGAL_VERSION. Действует с 2 ноября 2026 года."))
+        assertTrue(policy.contains("Редакция $LEGAL_VERSION. Применяется после принятия в приложении."))
         assertTrue(policy.contains("не больше 60 суточных записей"))
         assertTrue(policy.contains("избранные узлы"))
         assertTrue(policy.contains("Поделиться приложением"))
@@ -28,11 +28,13 @@ class LegalDocumentsTest {
     }
 
     @Test fun oneNewRevisionCoversBackgroundChecksAndLocalDiagnostics() {
-        assertEquals(4 + 1, LEGAL_VERSION)
+        assertEquals(6, LEGAL_VERSION)
         val policy = app.assets.open("privacy.txt").bufferedReader().use { it.readText() }
         val terms = app.assets.open("terms.txt").bufferedReader().use { it.readText() }
         assertTrue(terms.contains("Редакция 3. Действует с 2 ноября 2026 года."))
         listOf(
+            "web.telegram.org", "www.tiktok.com", "При восстановлении группа требует повторного выбора",
+            "при погашенном экране",
             "www.gstatic.com/generate_204",
             "cp.cloudflare.com/generate_204",
             "www.apple.com/library/test/success.html",

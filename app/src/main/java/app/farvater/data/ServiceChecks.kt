@@ -7,13 +7,13 @@ import java.net.InetAddress
 import java.security.MessageDigest
 
 @Serializable
-enum class ServiceKind { GEMINI, CHATGPT, CLAUDE, YOUTUBE, CUSTOM }
+enum class ServiceKind { GEMINI, CHATGPT, CLAUDE, YOUTUBE, CUSTOM, TELEGRAM, TIKTOK }
 
 @Serializable
 enum class ServiceVerdict { RESPONDED, REJECTED, UNKNOWN }
 
 @Serializable
-enum class ServiceReason { PAGE, STATUS, REGION, CHALLENGE, HTTP_ERROR, UNEXPECTED, NETWORK, INCOMPLETE, CORE, TIMEOUT, TLS }
+enum class ServiceReason { PAGE, STATUS, REGION, CHALLENGE, HTTP_ERROR, UNEXPECTED, NETWORK, INCOMPLETE, CORE, TIMEOUT, TLS, BUSY }
 
 @Serializable
 data class ServiceCheck(val verdict: ServiceVerdict, val reason: ServiceReason, val at: Long)
@@ -33,6 +33,8 @@ object ServiceChecks {
         ServiceTarget(ServiceKind.CHATGPT, "https://chatgpt.com/"),
         ServiceTarget(ServiceKind.CLAUDE, "https://claude.ai/login"),
         ServiceTarget(ServiceKind.YOUTUBE, "https://www.youtube.com/?hl=en"),
+        ServiceTarget(ServiceKind.TELEGRAM, "https://web.telegram.org/k/"),
+        ServiceTarget(ServiceKind.TIKTOK, "https://www.tiktok.com/"),
     )
 
     fun customUrl(value: String): HttpUrl? {
@@ -74,7 +76,7 @@ object ServiceChecks {
         check != null && now - check.at in 0 until TTL_MS
 
     fun due(check: ServiceCheck?, now: Long = System.currentTimeMillis()): Boolean =
-        check == null || now - check.at !in 0 until RETRY_MS
+        check == null || now - check.at !in 0 until (if (check.reason == ServiceReason.BUSY) 60_000L else RETRY_MS)
 
     fun prune(history: Map<String, ServiceCheck>, now: Long = System.currentTimeMillis()): Map<String, ServiceCheck> =
         history.filterValues { fresh(it, now) }.entries.sortedBy { it.value.at }.takeLast(3000).associate { it.key to it.value }

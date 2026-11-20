@@ -12,7 +12,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
 
-const val LEGAL_VERSION = 5
+const val LEGAL_VERSION = 6
 
 @Serializable
 enum class UiStyle { IOS, MATERIAL, ROSKOMPOZOR, SUMIE, NOTHING, ORIGIN, HYPER, HARMONY, ONEUI, OXYGEN, WITCH, WINTER, COLOROS, FLYME }
@@ -21,10 +21,24 @@ enum class UiStyle { IOS, MATERIAL, ROSKOMPOZOR, SUMIE, NOTHING, ORIGIN, HYPER, 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 @Serializable
+enum class ProbeMethod { AUTO, TCP, HTTPS }
+
+@Serializable
+enum class Accent { THEME, OCEAN, FOREST, BERRY }
+
+@Serializable
+enum class AppFont { THEME, SANS, SERIF, MONO }
+
+@Serializable
 data class AppSettings(
     val directRuServices: Boolean = true,
     val hideDead: Boolean = false,
     val liveSort: Boolean = false,
+    val probeMethod: ProbeMethod = ProbeMethod.AUTO,
+    val flatNodes: Boolean = false,
+    val neutralNotification: Boolean = false,
+    val accent: Accent = Accent.THEME,
+    val font: AppFont = AppFont.THEME,
     val dropDuplicates: Boolean = false,
     val duplicatesAsked: Boolean = false,
     val testUrl: String = ProbeUrls.GOOGLE,
@@ -49,10 +63,27 @@ data class AppSettings(
     val witchSeen: Boolean = false,
     val favoriteNodeIds: Set<String> = emptySet(),
     val serviceChecksEnabled: Boolean = false,
-    val checkedServices: Set<ServiceKind> = emptySet(),
+    val checkedServices: Set<ServiceKind> = setOf(ServiceKind.TELEGRAM),
     val serviceCustomUrl: String = "",
     val serviceExpectedCode: Int = 200,
-)
+    val galsGroups: List<GalsGroup> = emptyList(),
+    val activeGalsGroupId: String? = null,
+    val nodeNames: Map<String, String> = emptyMap(),
+) {
+    fun nodeLabel(node: ProxyNode): String = nodeNames["${node.sourceId}/${node.id}"] ?: node.name
+
+    fun rename(node: ProxyNode, name: String): AppSettings {
+        val key = "${node.sourceId}/${node.id}"
+        val label = name.trim()
+        if (label.length > 100 || label.any(Char::isISOControl)) return this
+        if (label.isEmpty() || label == node.name) return copy(nodeNames = nodeNames - key)
+        if (key !in nodeNames && nodeNames.size >= 5000) return this
+        return copy(nodeNames = nodeNames + (key to label))
+    }
+}
+
+internal val AppSettings.notificationIcon: Int get() =
+    if (neutralNotification) app.farvater.R.drawable.ic_notification_arrow else app.farvater.R.drawable.ic_logo
 
 @Serializable
 data class SourceConfig(val mode: SourceMode? = null, val intervalHours: Int? = null)
@@ -169,7 +200,7 @@ class Prefs(context: Context) {
 
     var modeNodes: Map<String, ProxyNode>
         get() = cachedModeNodes ?: (read<Map<String, ProxyNode>>("mode_nodes") ?: emptyMap()).also { cachedModeNodes = it }
-        set(value) {
+        set(value) = synchronized(selectionLock) {
             cachedModeNodes = value
             write("mode_nodes", value)
         }
@@ -180,11 +211,11 @@ class Prefs(context: Context) {
 
     fun nodeForMode(mode: NetMode): ProxyNode? = modeNodes[mode.name]
 
-    fun rememberForMode(mode: NetMode, node: ProxyNode) {
+    fun rememberForMode(mode: NetMode, node: ProxyNode): Unit = synchronized(selectionLock) {
         if (modeNodes[mode.name] != node) modeNodes = modeNodes + (mode.name to node)
     }
 
-    fun forgetModeNodes(predicate: (ProxyNode) -> Boolean) {
+    fun forgetModeNodes(predicate: (ProxyNode) -> Boolean): Unit = synchronized(selectionLock) {
         val kept = modeNodes.filterValues { !predicate(it) }
         if (kept.size != modeNodes.size) modeNodes = kept
     }
@@ -208,7 +239,7 @@ class Prefs(context: Context) {
 
     var nodeProfiles: Map<String, NodeProfile>
         get() = cachedProfiles ?: (read<Map<String, NodeProfile>>("node_profiles") ?: emptyMap()).also { cachedProfiles = it }
-        set(value) {
+        set(value) = synchronized(selectionLock) {
             val trimmed = if (value.size > MAX_PROFILES) value.entries.toList().takeLast(MAX_PROFILES).associate { it.key to it.value } else value
             cachedProfiles = trimmed
             write("node_profiles", trimmed)
@@ -216,7 +247,7 @@ class Prefs(context: Context) {
 
     fun profileFor(nodeId: String): NodeProfile? = nodeProfiles[nodeId]
 
-    fun rememberProfile(nodeId: String, profile: NodeProfile) {
+    fun rememberProfile(nodeId: String, profile: NodeProfile): Unit = synchronized(selectionLock) {
         nodeProfiles = (nodeProfiles - nodeId) + (nodeId to profile)
     }
 
@@ -315,6 +346,7 @@ class Prefs(context: Context) {
             directRuServices = if (includeSecuritySettings) incoming.directRuServices else old.directRuServices,
             acceptedLegalVersion = old.acceptedLegalVersion,
             onboardingDone = old.onboardingDone,
+            activeGalsGroupId = null,
         )
         val manual = archive.manualNodes.map {
             app.farvater.core.parser.SubscriptionParser.parse(it, ProxyNode.MANUAL_SOURCE).nodes.single().raw

@@ -19,7 +19,7 @@ internal fun prepareRuntime(app: Application) {
         App::class.java.getDeclaredField(name).apply { isAccessible = true }.set(null, value)
     }
     MainViewModel::class.java.getDeclaredField("cachedState").apply { isAccessible = true }.set(null, null)
-    for (name in listOf("cachedSnapshots", "cachedResults")) {
+    for (name in listOf("cachedResults")) {
         @Suppress("UNCHECKED_CAST")
         val flow = MainViewModel::class.java.getDeclaredField(name).apply { isAccessible = true }.get(null) as MutableStateFlow<Any>
         flow.value = emptyMap<String, Any>()

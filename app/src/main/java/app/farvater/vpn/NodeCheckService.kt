@@ -11,6 +11,8 @@ import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import app.farvater.FarvaterActivity
+import app.farvater.App
+import app.farvater.data.notificationIcon
 import app.farvater.R
 import app.farvater.data.localizedString
 import app.farvater.engine.NodeCheckCoordinator
@@ -109,7 +111,7 @@ class NodeCheckService : Service() {
         val done = progress?.done ?: work.serviceDone
         val total = progress?.total ?: work.serviceTotal
         return Notification.Builder(this, CHANNEL)
-            .setSmallIcon(R.drawable.ic_logo)
+            .setSmallIcon(App.prefs.settings.notificationIcon)
             .setContentTitle(localizedString(if (work.services) R.string.services_running else R.string.state_testing))
             .setContentText(localizedString(R.string.checked_progress, done, total))
             .setContentIntent(open)

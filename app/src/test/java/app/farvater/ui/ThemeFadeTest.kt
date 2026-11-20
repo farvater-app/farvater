@@ -25,6 +25,34 @@ import org.robolectric.annotation.Config
 class ThemeFadeTest {
     @get:Rule val rule = createComposeRule()
 
+    @Test fun lightOrangeActionTextUsesAReadableColorOnBothSurfaces() {
+        assertEquals(IosLight.label, IosLight.accentTextOn(IosLight.cell))
+        assertEquals(IosLight.label, IosLight.accentTextOn(IosLight.fill))
+        assertEquals(IosDark.tint, IosDark.accentTextOn(IosDark.cell))
+    }
+
+    @Test fun customAccentAndFontReachBothIosAndMaterialControls() {
+        var iosColor = Color.Unspecified
+        var materialColor = Color.Unspecified
+        var iosFont: androidx.compose.ui.text.font.FontFamily? = null
+        var materialFont: androidx.compose.ui.text.font.FontFamily? = null
+        rule.setContent {
+            FarvaterTheme(darkTheme = false, style = UiStyle.IOS, accent = app.farvater.data.Accent.FOREST,
+                font = app.farvater.data.AppFont.SERIF) {
+                iosColor = Ios.colors.tint
+                materialColor = androidx.compose.material3.MaterialTheme.colorScheme.primary
+                iosFont = app.farvater.ui.theme.IosType.body.fontFamily
+                materialFont = androidx.compose.material3.MaterialTheme.typography.bodyLarge.fontFamily
+            }
+        }
+        rule.runOnIdle {
+            assertNotEquals(IosLight.tint, iosColor)
+            assertEquals(iosColor, materialColor)
+            assertEquals(androidx.compose.ui.text.font.FontFamily.Serif, iosFont)
+            assertEquals(iosFont, materialFont)
+        }
+    }
+
     @Test
     fun colorsFadeBetweenThemes() {
         var dark by mutableStateOf(false)

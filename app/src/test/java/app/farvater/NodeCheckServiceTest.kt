@@ -16,7 +16,6 @@ import app.farvater.core.model.NodeProfile
 import app.farvater.core.model.ProxyNode
 import app.farvater.core.parser.LinkParser
 import app.farvater.data.NodeHealth
-import app.farvater.data.FullNodeCheck
 import app.farvater.data.ServiceCheck
 import app.farvater.data.ServiceChecks
 import app.farvater.data.ServiceKind
@@ -30,9 +29,13 @@ import app.farvater.engine.NodeTester
 import app.farvater.engine.ServiceProbe
 import app.farvater.engine.TestMethod
 import app.farvater.engine.TestResult
+import app.farvater.engine.TestFailure
+import app.farvater.data.FullNodeCheck
 import app.farvater.ui.MainViewModel
 import app.farvater.ui.UiState
 import app.farvater.vpn.NodeCheckService
+import app.farvater.vpn.VpnBus
+import app.farvater.vpn.VpnState
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -78,6 +81,12 @@ class NodeCheckServiceTest {
         Nodes.permits = Channel(Channel.UNLIMITED)
         Nodes.method = TestMethod.TCP
         Nodes.delayMs = 25
+        Nodes.delays = emptyMap()
+        Nodes.nativeIds.clear()
+        Nodes.liveResult = null
+        Nodes.reason = TestFailure.UNKNOWN
+        Nodes.onLive = {}
+        Nodes.seenProfiles = emptyMap()
         Nodes.cancelled = 0
         Services.permits = Channel(Channel.UNLIMITED)
         Services.entered = 0
@@ -102,6 +111,151 @@ class NodeCheckServiceTest {
         @Suppress("UNCHECKED_CAST")
         val state = NodeCheckCoordinator::class.java.getDeclaredField("_state").apply { isAccessible = true }.get(null) as MutableStateFlow<NodeCheckWork>
         state.value = NodeCheckWork()
+    }
+
+    @Test
+    fun completedCheckSortsOnceWhenLiveSortingIsDisabled() {
+        App.prefs.settings = App.prefs.settings.copy(liveSort = false)
+        Nodes.delays = mapOf(nodes.first().id to 250L, nodes.last().id to 25L)
+        App.repo.appendManual(nodes)
+        val vm = MainViewModel(app).also(models::add)
+        await { vm.state.value.nodes.map { it.id } == nodes.map { it.id } }
+        vm.testAll()
+        startService()
+        Nodes.permits.trySend(Unit)
+        await { vm.state.value.progress?.done == 1 }
+        assertEquals(nodes.map { it.id }, vm.state.value.nodes.map { it.id })
+        Nodes.permits.trySend(Unit)
+        await { !NodeCheckCoordinator.state.value.active && vm.state.value.progress == null }
+        assertEquals(nodes.reversed().map { it.id }, vm.state.value.nodes.map { it.id })
+    }
+
+    @Test
+    fun failedLiveTunnelDoesNotFallBackToAnotherCoreDuringSingleCheck() {
+        val node = nodes.first()
+        VpnBus.state.value = VpnState.Connected(node, 1)
+        val vm = model()
+        vm.testNode(node)
+        startService()
+        Nodes.permits.trySend(Unit)
+        await { vm.state.value.results[node.id] != null && !NodeCheckCoordinator.state.value.active }
+        assertFalse(vm.state.value.results.getValue(node.id).alive)
+        assertFalse(node.id in Nodes.nativeIds)
+    }
+
+    @Test
+    fun failedLiveTunnelDoesNotFallBackToAnotherCoreDuringFullCheck() {
+        val node = nodes.first()
+        VpnBus.state.value = VpnState.Connected(node, 1)
+        val vm = model()
+        vm.testAll()
+        startService()
+        repeat(2) { Nodes.permits.trySend(Unit) }
+        await { vm.state.value.results.size == 2 && !NodeCheckCoordinator.state.value.active }
+        assertFalse(vm.state.value.results.getValue(node.id).alive)
+        assertEquals(listOf(nodes.last().id), Nodes.nativeIds)
+    }
+
+    @Test
+    fun busyCheckIsVisibleWithoutReplacingHealthOrCompleteSnapshot() {
+        val node = nodes.first()
+        val before = TestResult(node.id, 40, TestMethod.REAL)
+        App.prefs.nodeHealth = NodeHealth.record(emptyMap(), "BLACK", listOf(before))
+        val savedHealth = App.prefs.nodeHealth
+        val savedFull = FullNodeCheck(setOf(nodes.last().id), before.at)
+        App.prefs.fullNodeChecks = mapOf("BLACK" to savedFull)
+        Nodes.reason = TestFailure.BUSY
+        Nodes.delayMs = -1
+        App.repo.appendManual(listOf(node))
+        val vm = MainViewModel(app).also(models::add)
+        await { vm.state.value.nodes.singleOrNull()?.id == node.id }
+        vm.testAll()
+        startService()
+        Nodes.permits.trySend(Unit)
+        await { !NodeCheckCoordinator.state.value.active }
+        assertEquals(TestFailure.BUSY, vm.state.value.results[node.id]?.reason)
+        val best = MainViewModel::class.java.getDeclaredMethod("bestNode").apply { isAccessible = true }
+        assertEquals(node.id, (best.invoke(vm) as ProxyNode).id)
+        assertEquals(savedHealth, App.prefs.nodeHealth)
+        assertEquals(savedFull, App.prefs.fullNodeChecks["BLACK"])
+    }
+
+    @Test
+    fun singleBusyCheckReportsIncompleteInsteadOfADeadNode() {
+        val node = nodes.first()
+        Nodes.reason = TestFailure.BUSY
+        Nodes.delayMs = -1
+        val vm = model()
+        vm.testNode(node)
+        startService()
+        Nodes.permits.trySend(Unit)
+        await { !NodeCheckCoordinator.state.value.active && vm.state.value.message != null }
+        assertEquals(app.getString(R.string.node_test_incomplete), vm.state.value.message)
+    }
+
+    @Test
+    fun liveFailureIsPublishedForExemptAccountWithoutMarkingItDead() {
+        val node = nodes.first()
+        VpnBus.state.value = VpnState.Connected(node, 1)
+        App.prefs.nodeHealth = NodeHealth.record(emptyMap(), "BLACK", listOf(TestResult(node.id, 40, TestMethod.REAL)))
+        val vm = model()
+        NodeCheckCoordinator.testAll(app, nodes, App.prefs.settings, "BLACK", node, setOf(node.id), false)
+        startService()
+        Nodes.permits.trySend(Unit)
+        await { !NodeCheckCoordinator.state.value.active }
+        assertEquals(-1L, vm.state.value.results[node.id]?.delayMs)
+        assertEquals(0, App.prefs.nodeHealth["BLACK/${node.id}"]?.fails)
+        assertFalse(node.id in NodeHealth.dead(App.prefs.nodeHealth, "BLACK"))
+    }
+
+    @Test
+    fun changedLiveSessionCannotOverwriteStoredHealth() {
+        val node = nodes.first()
+        val before = TestResult(node.id, 40, TestMethod.REAL)
+        App.prefs.nodeHealth = NodeHealth.record(emptyMap(), "BLACK", listOf(before))
+        val health = App.prefs.nodeHealth
+        VpnBus.state.value = VpnState.Connected(node, 1)
+        Nodes.liveResult = TestResult(node.id, 10, TestMethod.REAL)
+        Nodes.onLive = { VpnBus.state.value = VpnState.Connected(node, 2) }
+        val vm = model()
+        vm.testNode(node)
+        startService()
+        await { !NodeCheckCoordinator.state.value.active }
+        assertEquals(TestFailure.STALE, vm.state.value.results[node.id]?.reason)
+        assertEquals(health, App.prefs.nodeHealth)
+        assertTrue(Nodes.nativeIds.isEmpty())
+        await { vm.state.value.message != null }
+        assertEquals(app.getString(R.string.node_test_incomplete), vm.state.value.message)
+    }
+
+    @Test
+    fun partialCheckPreservesOtherNodesAndTheFullSnapshotTimestamp() {
+        val before = TestResult(nodes.last().id, 40, TestMethod.REAL)
+        App.prefs.nodeHealth = NodeHealth.record(emptyMap(), "BLACK", listOf(before))
+        val oldHealth = App.prefs.nodeHealth.getValue("BLACK/${nodes.last().id}")
+        val full = FullNodeCheck(setOf(nodes.first().id), before.at)
+        App.prefs.fullNodeChecks = mapOf("BLACK" to full)
+        NodeCheckCoordinator.testAll(app, nodes.take(1), App.prefs.settings, "BLACK", null, emptySet(), false, fullScope = false)
+        startService()
+        Nodes.permits.trySend(Unit)
+        await { !NodeCheckCoordinator.state.value.active }
+        assertEquals(full, App.prefs.fullNodeChecks["BLACK"])
+        assertEquals(oldHealth, App.prefs.nodeHealth["BLACK/${nodes.last().id}"])
+        assertTrue(App.prefs.nodeHealth.containsKey("BLACK/${nodes.first().id}"))
+    }
+
+    @Test
+    fun queuedCheckKeepsTheProfileSnapshotFromItsRequest() {
+        val node = nodes.first()
+        val saved = NodeProfile(fingerprint = "firefox")
+        App.prefs.nodeProfiles = mapOf(node.id to saved)
+        val vm = model()
+        vm.testNode(node)
+        App.prefs.nodeProfiles = mapOf(node.id to NodeProfile(fingerprint = "chrome"))
+        startService()
+        Nodes.permits.trySend(Unit)
+        await { !NodeCheckCoordinator.state.value.active }
+        assertEquals(saved, Nodes.seenProfiles[node.id])
     }
 
     @Test
@@ -202,7 +356,7 @@ class NodeCheckServiceTest {
         await { !NodeCheckCoordinator.state.value.active }
         assertEquals(1, NodeCheckCoordinator.state.value.serviceDone)
         assertEquals(1, NodeCheckCoordinator.state.value.serviceTotal)
-        assertEquals(4, App.prefs.serviceChecks.size)
+        assertEquals(ServiceChecks.builtIn.map { ServiceChecks.key("BLACK", node.id, it) }.toSet(), App.prefs.serviceChecks.keys)
         ServiceChecks.builtIn.drop(1).forEach {
             assertEquals(cached, App.prefs.serviceChecks[ServiceChecks.key("BLACK", node.id, it)])
         }
@@ -497,22 +651,44 @@ class NodeCheckServiceTest {
     @Implements(value = NodeTester::class, isInAndroidSdk = false)
     class Nodes {
         @Implementation
+        fun testAll(nodes: List<ProxyNode>, url: String, concurrency: Int, profiles: Map<String, NodeProfile>): Flow<TestResult> {
+            seenProfiles = profiles
+            return testAll(nodes, url, concurrency)
+        }
+
+        @Implementation
         fun testAll(nodes: List<ProxyNode>, url: String, concurrency: Int): Flow<TestResult> = flow {
             try {
                 nodes.forEach {
+                    nativeIds += it.id
                     permits.receive()
-                    emit(TestResult(it.id, delayMs, method))
+                    emit(TestResult(it.id, delays[it.id] ?: delayMs, method, reason = reason))
                 }
             } finally {
                 cancelled++
             }
         }
 
+        @Implementation
+        fun throughTunnel(node: ProxyNode, url: String, continuation: Continuation<TestResult?>): Any? = liveResult
+
+        @Implementation
+        fun measureLiveLatency(node: ProxyNode, url: String, continuation: Continuation<TestResult>): Any {
+            onLive()
+            return liveResult ?: TestResult(node.id, -1, TestMethod.REAL)
+        }
+
         companion object {
             lateinit var permits: Channel<Unit>
             var method = TestMethod.TCP
             var delayMs = 25L
+            var delays = emptyMap<String, Long>()
             var cancelled = 0
+            val nativeIds = mutableListOf<String>()
+            var liveResult: TestResult? = null
+            var reason = TestFailure.UNKNOWN
+            var onLive: () -> Unit = {}
+            var seenProfiles: Map<String, NodeProfile> = emptyMap()
         }
     }
 

@@ -60,7 +60,14 @@ data class BackupArchive(
                 it.url.none(Char::isISOControl) && it.url == it.url.trim() &&
                 it.id == "user-" + LinkParser.nodeId(it.url).take(10)
         })
+        val editableSources = subscriptions.mapTo(mutableSetOf(ProxyNode.MANUAL_SOURCE)) { it.id }
+        require(decoded.nodeNames.size <= 5000 && decoded.nodeNames.all { (key, value) ->
+            key.substringBefore('/') in editableSources && nodeId.matches(key.substringAfter('/', "")) &&
+                value.isNotBlank() && value == value.trim() && value.length <= 100 && value.none(Char::isISOControl)
+        })
         val catalog = BuiltInCatalog.sources.map { it.id }.toSet()
+        GalsGroups.validate(decoded.galsGroups, decoded.activeGalsGroupId,
+            catalog + subscriptions.map { it.id } + ProxyNode.MANUAL_SOURCE)
         require(enabledSources.all { it in catalog })
         require(sourceConfigs.size <= 200 && sourceConfigs.keys.all { it in catalog || it in subscriptions.map { s -> s.id } })
         require(sourceConfigs.values.all { it.intervalHours == null || it.intervalHours in setOf(0, 1, 3, 6, 12, 24) })

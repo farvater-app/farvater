@@ -7,6 +7,13 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ServiceChecksTest {
+    @Test fun telegramIsPreselectedOnlyForEnabledChecksAndExplicitEmptySelectionIsRespected() {
+        assertTrue(ServiceChecks.targets(AppSettings()).isEmpty())
+        assertEquals(listOf(ServiceKind.TELEGRAM),
+            ServiceChecks.targets(AppSettings(serviceChecksEnabled = true)).map { it.kind })
+        assertTrue(ServiceChecks.targets(AppSettings(serviceChecksEnabled = true, checkedServices = emptySet())).isEmpty())
+    }
+
     @Test
     fun customAddressWithoutSchemeUsesHttpsAndPreservesPathAndQuery() {
         for ((input, expected) in listOf(

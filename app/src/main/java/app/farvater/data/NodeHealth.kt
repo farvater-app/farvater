@@ -25,7 +25,7 @@ object NodeHealth {
         exempt: Set<String> = emptySet(),
     ): Map<String, NodeCheck> {
         val out = prune(history, now).toMutableMap()
-        results.forEach { r ->
+        results.filter { it.evaluated }.forEach { r ->
             val key = key(mode, r.nodeId)
             val before = out[key]?.fails ?: 0
             val fails = when {
@@ -55,7 +55,7 @@ object NodeHealth {
         now: Long = System.currentTimeMillis(),
     ): FullNodeCheck? {
         val checked = results.associateBy { it.nodeId }
-        if (expected.isEmpty() || checked.keys != expected) return null
+        if (expected.isEmpty() || checked.keys != expected || checked.values.any { !it.evaluated }) return null
         return FullNodeCheck(checked.values.filter { !it.alive && it.nodeId !in exempt }
             .take(LIMIT).mapTo(LinkedHashSet()) { it.nodeId }, now)
     }

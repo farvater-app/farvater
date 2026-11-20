@@ -10,7 +10,7 @@ import javax.net.ssl.SSLException
 
 @Serializable
 enum class TestFailure {
-    UNKNOWN, TIMEOUT, REFUSED, TLS, CONNECTION;
+    UNKNOWN, TIMEOUT, REFUSED, TLS, CONNECTION, BUSY, STALE, UNSUPPORTED;
 
     companion object {
         fun from(error: Throwable): TestFailure {

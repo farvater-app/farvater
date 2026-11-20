@@ -139,6 +139,8 @@ import app.farvater.ui.ios.IosSection
 import app.farvater.ui.ios.IosSegmented
 import app.farvater.ui.ios.IosSpinner
 import app.farvater.ui.ios.SheetCorner
+import app.farvater.data.Accent
+import app.farvater.data.AppFont
 import app.farvater.R
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.IosType
@@ -172,6 +174,7 @@ private enum class SettingsPage(val title: Int) {
     Traffic(R.string.traffic_title),
     ShareApp(R.string.share_app),
     Backup(R.string.backup_title),
+    Gals(R.string.gals_settings),
 }
 
 @Composable
@@ -197,6 +200,7 @@ fun SettingsScreen(
     onRestoreBackup: (Boolean) -> Unit = {},
     backupSecurityChanges: app.farvater.data.BackupSecurityChanges = app.farvater.data.BackupSecurityChanges(),
     onDismissBackup: () -> Unit = {},
+    sources: List<app.farvater.ui.SourceUi> = emptyList(),
 ) {
     var localPage by rememberSaveable { mutableStateOf<String?>(null) }
     val page = (if (onPageName != null) pageName else localPage)?.let { name -> SettingsPage.entries.firstOrNull { it.name == name } }
@@ -244,6 +248,7 @@ fun SettingsScreen(
                     SettingsPage.Connection -> ConnectionPage(settings, onChange) { showApps = true }
                     SettingsPage.Security -> SecurityPage(settings, onChange)
                     SettingsPage.Subscriptions -> SubscriptionsPage(settings, onChange, hwid, onCopied)
+                    SettingsPage.Gals -> GalsSettingsPage(settings, sources, onChange)
                     SettingsPage.Testing -> TestingPage(settings, onChange, duplicates)
                     SettingsPage.Background -> BackgroundPage()
                     SettingsPage.Updates -> UpdatesPage(settings, onChange, updateVersion, checkingUpdates, onCheckUpdates) { showChangelog = true }
@@ -392,6 +397,14 @@ private fun SettingsRoot(
                     value = ConcurrencyOptions.minBy { kotlin.math.abs(it.first - settings.concurrency) }.second,
                     chevron = true,
                     onClick = { onOpen(SettingsPage.Testing) },
+                )
+                IosDivider(start = divider)
+                IosRow(
+                    title = stringResource(R.string.gals_settings),
+                    icon = Icons.Rounded.Speed,
+                    iconTint = c.teal,
+                    chevron = true,
+                    onClick = { onOpen(SettingsPage.Gals) },
                 )
                 IosDivider(start = divider)
                 IosRow(
@@ -699,6 +712,26 @@ private fun AppearancePage(
         }
     }
 
+    IosSection(header = stringResource(R.string.accent_title)) {
+        val choices = listOf(Accent.THEME to R.string.theme_default, Accent.OCEAN to R.string.accent_ocean,
+            Accent.FOREST to R.string.accent_forest, Accent.BERRY to R.string.accent_berry)
+        choices.forEachIndexed { index, (accent, label) ->
+            if (index > 0) IosDivider()
+            IosChoiceRow(stringResource(label), selected = settings.accent == accent, onClick = { onChange { it.copy(accent = accent) } })
+        }
+    }
+    IosSection(header = stringResource(R.string.font_title)) {
+        val choices = listOf(AppFont.THEME to R.string.theme_default, AppFont.SANS to R.string.font_sans,
+            AppFont.SERIF to R.string.font_serif, AppFont.MONO to R.string.font_mono)
+        choices.forEachIndexed { index, (font, label) ->
+            if (index > 0) IosDivider()
+            IosChoiceRow(stringResource(label), selected = settings.font == font, onClick = { onChange { it.copy(font = font) } })
+        }
+    }
+    IosSection {
+        IosRow(stringResource(R.string.neutral_notification), checked = settings.neutralNotification,
+            onCheckedChange = { value -> onChange { it.copy(neutralNotification = value) } })
+    }
     AppIconSection(appIcon, onIcon)
 }
 
@@ -911,6 +944,12 @@ private fun TestingPage(settings: AppSettings, onChange: ((AppSettings) -> AppSe
         )
         IosDivider(start = Divider.dp)
         IosRow(
+            title = stringResource(R.string.flat_nodes),
+            checked = settings.flatNodes,
+            onCheckedChange = { value -> onChange { it.copy(flatNodes = value) } },
+        )
+        IosDivider()
+        IosRow(
             title = stringResource(R.string.remove_duplicates),
             subtitle = when {
                 duplicates == 0 -> stringResource(R.string.duplicates_none)
@@ -922,6 +961,17 @@ private fun TestingPage(settings: AppSettings, onChange: ((AppSettings) -> AppSe
             checked = settings.dropDuplicates,
             onCheckedChange = { v -> onChange { it.copy(dropDuplicates = v) } },
         )
+    }
+    IosSection(header = stringResource(R.string.probe_method), footer = stringResource(R.string.probe_method_hint)) {
+        app.farvater.data.ProbeMethod.entries.forEachIndexed { i, method ->
+            if (i > 0) IosDivider()
+            val title = when (method) {
+                app.farvater.data.ProbeMethod.AUTO -> stringResource(R.string.automatic)
+                app.farvater.data.ProbeMethod.TCP -> "TCP"
+                app.farvater.data.ProbeMethod.HTTPS -> "HTTPS"
+            }
+            IosChoiceRow(title, selected = settings.probeMethod == method, onClick = { onChange { it.copy(probeMethod = method) } })
+        }
     }
     IosSection(
         header = stringResource(R.string.probe_url),

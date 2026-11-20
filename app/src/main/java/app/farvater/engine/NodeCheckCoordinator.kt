@@ -74,11 +74,13 @@ object NodeCheckCoordinator {
     private val singleJobs = mutableMapOf<String, Job>()
 
     fun testAll(context: Context, nodes: List<ProxyNode>, settings: AppSettings, mode: String,
-        connected: ProxyNode?, exempt: Set<String>, allowServices: Boolean): Job? {
+        connected: ProxyNode?, exempt: Set<String>, allowServices: Boolean, fullScope: Boolean = true): Job? {
         if (jobs.isNotEmpty() && _state.value.mode != mode) return null
         if (allJob?.isActive == true || nodes.isEmpty()) return allJob
         cancelServices()
         val generation = serviceGeneration
+        val profiles = App.prefs.nodeProfiles
+        val tcpOnly = settings.probeMethod == app.farvater.data.ProbeMethod.TCP
         val job = launch(context, mode) {
             var done = 0
             var alive = 0
@@ -90,18 +92,18 @@ object NodeCheckCoordinator {
                 if (pending.isNotEmpty()) {
                     val batch = pending.values.toList()
                     pending.clear()
-                    record(mode, nodes, batch, exempt)
+                    if (!tcpOnly) record(mode, nodes, batch, exempt)
                     _state.update { it.copy(results = it.results + batch.associateBy(TestResult::nodeId), revision = it.revision + 1) }
                 }
                 _state.update { it.copy(progress = NodeCheckProgress(done, nodes.size, alive).takeIf { _ -> it.active }) }
             }
             suspend fun take(result: TestResult) {
-                observed[result.nodeId] = result
+                if (result.evaluated) observed[result.nodeId] = result
                 done++
                 if (result.alive) alive++
-                if (result.alive || result.nodeId !in exempt) {
+                if (!result.evaluated || result.alive || result.nodeId !in exempt || result.nodeId == connected?.id) {
                     pending[result.nodeId] = result
-                    finished[result.nodeId] = result
+                    if (result.evaluated) finished[result.nodeId] = result
                 }
                 if (done == 1 || SystemClock.elapsedRealtime() - lastFlush >= 300) {
                     lastFlush = SystemClock.elapsedRealtime()
@@ -110,17 +112,17 @@ object NodeCheckCoordinator {
             }
             _state.update { it.copy(progress = NodeCheckProgress(0, nodes.size, 0)) }
             try {
-                val tunnel = connected?.let { NodeTester.throughTunnel(it, settings.testUrl) }
+                val tunnel = connected?.takeUnless { tcpOnly }?.let { LiveNodeCheck.measure(it, settings.testUrl) }
                 if (tunnel != null) take(tunnel)
-                val remaining = if (tunnel == null) nodes else nodes.filter { it.id != tunnel.nodeId }
-                NodeTester.testAll(remaining, settings.testUrl, settings.concurrency).collect { take(it) }
+                val remaining = nodes.filter { it.id != tunnel?.nodeId }
+                NodeTester.userCheck(remaining, settings.testUrl, settings.concurrency, profiles, settings.probeMethod).collect { take(it) }
             } finally {
                 withContext(NonCancellable) { flush() }
                 _state.update { it.copy(progress = null) }
             }
             healthLock.withLock {
                 currentCoroutineContext().ensureActive()
-                if (currentMode() == mode) {
+                if (!tcpOnly && fullScope && currentMode() == mode) {
                     val current = when (val vpn = VpnBus.state.value) {
                         is VpnState.Connected -> vpn.node
                         is VpnState.Connecting -> vpn.node
@@ -149,12 +151,14 @@ object NodeCheckCoordinator {
         connected: Boolean, exempt: Set<String>): Job? {
         if (singleJobs[node.id]?.isActive == true) return null
         val generation = serviceGeneration
+        val profiles = App.prefs.nodeProfiles
+        val tcpOnly = settings.probeMethod == app.farvater.data.ProbeMethod.TCP
         val job = launch(context, mode) {
             _state.update { it.copy(checking = it.checking + node.id) }
             try {
-                val tunnel = if (connected) NodeTester.throughTunnel(node, settings.testUrl) else null
-                val result = tunnel ?: NodeTester.testAll(listOf(node), settings.testUrl, 1).first()
-                record(mode, listOf(node), listOf(result), exempt)
+                val result = if (connected && !tcpOnly) LiveNodeCheck.measure(node, settings.testUrl)
+                    else NodeTester.userCheck(listOf(node), settings.testUrl, 1, profiles, settings.probeMethod).first()
+                if (!tcpOnly && result.evaluated) record(mode, listOf(node), listOf(result), exempt)
                 _state.update { it.copy(results = it.results + (node.id to result), revision = it.revision + 1) }
                 if (result.alive && result.method == TestMethod.REAL) checkServices(context, listOf(node), mode, generation)
             } finally {

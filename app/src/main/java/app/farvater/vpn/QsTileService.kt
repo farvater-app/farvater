@@ -45,7 +45,7 @@ class QsTileService : TileService() {
             tile.subtitle = when {
                 requested?.active == true -> localizedString(app.farvater.R.string.settings_connection)
                 requested?.active == false -> localizedString(app.farvater.R.string.vpn_state_off)
-                state is VpnState.Connected -> state.node.name
+                state is VpnState.Connected -> App.prefs.settings.nodeLabel(state.node)
                 state is VpnState.Connecting -> localizedString(app.farvater.R.string.settings_connection)
                 else -> localizedString(app.farvater.R.string.vpn_state_off)
             }

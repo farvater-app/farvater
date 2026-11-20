@@ -29,7 +29,7 @@ class CatalogAvailabilityTest {
             if (url.contains("primary")) throw IOException("Unavailable")
             200 to valid
         }
-        val result = repo.fetch("catalog-mirrors", listOf("https://primary.example.test/", "https://mirror.example.test/"), false)
+        val result = repo.fetch("catalog-mirrors", listOf("https://primary.example.test/", "https://mirror.example.test/"), false, isCurrent = { true })
         assertEquals(2, calls.size)
         assertEquals(1, result.nodes.size)
         assertNull(result.error)
@@ -40,9 +40,9 @@ class CatalogAvailabilityTest {
         var fail = false
         val repo = repository { if (fail) throw IOException("Unavailable") else 200 to valid }
         val urls = listOf("https://primary.example.test/", "https://mirror.example.test/")
-        repo.fetch("catalog-cached", urls, false)
+        repo.fetch("catalog-cached", urls, false, isCurrent = { true })
         fail = true
-        val result = repo.fetch("catalog-cached", urls, false)
+        val result = repo.fetch("catalog-cached", urls, false, isCurrent = { true })
         assertEquals(1, result.nodes.size)
         assertNotNull(result.error)
         assertTrue(result.networkUnavailable)
@@ -50,7 +50,7 @@ class CatalogAvailabilityTest {
 
     @Test fun invalidContentIsNotMisreportedAsNetworkFailure() = runBlocking {
         val repo = repository { 200 to "<html>Not a subscription</html>" }
-        val result = repo.fetch("catalog-html", listOf("https://primary.example.test/"), false)
+        val result = repo.fetch("catalog-html", listOf("https://primary.example.test/"), false, isCurrent = { true })
         assertFalse(result.networkUnavailable)
         assertTrue(result.nodes.isEmpty())
         assertNotNull(result.error)
