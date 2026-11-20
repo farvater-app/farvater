@@ -109,7 +109,8 @@ jobs:
             files="$(unzip -l "$apk")"
             grep -qE "META-INF/[^/]+\.(RSA|EC|DSA)$" <<<"$files" || { echo "::error::$apk без файлов подписи v1"; exit 1; }
             schemes="$("$APKSIGNER" verify --verbose --print-certs --min-sdk-version 23 "$apk")"
-            signer=$(awk '/^Signer #[0-9]+ certificate SHA-256 digest:/ {print tolower($NF)}' <<<"$schemes")
+            grep -Fxq 'Number of signers: 1' <<<"$schemes" || { echo "::error::Expected one APK signer"; exit 1; }
+            signer=$(awk '/^(Signer #[1-9][0-9]*|V[1-4](\.[0-9]+)? Signer:) certificate SHA-256 digest: [[:xdigit:]]+$/ {print tolower($NF)}' <<<"$schemes")
             [[ "$signer" == "$expected_cert" ]] || { echo "::error::Unexpected APK signer"; exit 1; }
             for v in v1 v2 v3; do
               grep -q "Verified using $v scheme.*: true" <<<"$schemes" || { echo "::error::$apk не подписан схемой $v"; exit 1; }

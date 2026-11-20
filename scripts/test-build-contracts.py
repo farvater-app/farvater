@@ -130,6 +130,18 @@ class BuildContractsTest(unittest.TestCase):
         self.assertIn("run: python3 scripts/check-natives.py", signed)
         self.assertIn('[[ "$signer" == "$expected_cert" ]]', signed)
 
+    def test_android_signer_formats_check_the_same_single_certificate(self):
+        lines = (ROOT / ".github/workflows/release.yml").read_text().splitlines()
+        start = next(i for i, line in enumerate(lines) if "'Number of signers: 1'" in line)
+        script = "\n".join(line.strip() for line in lines[start:start + 3])
+        digest = "ab" * 32
+        for label in ("Signer #1", "V3.0 Signer:"):
+            for count, actual, expected_status in ((1, digest, 0), (1, "00" * 32, 1), (2, digest, 1)):
+                schemes = f"Number of signers: {count}\n{label} certificate SHA-256 digest: {actual}"
+                status = subprocess.run(["bash", "-c", script],
+                    env={"expected_cert": digest, "schemes": schemes}, stdout=subprocess.DEVNULL).returncode
+                self.assertEqual(expected_status, status)
+
     def test_cache_corruption_or_manifest_substitution_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
