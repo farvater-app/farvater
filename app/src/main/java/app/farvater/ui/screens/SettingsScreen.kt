@@ -110,7 +110,8 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.farvater.BuildConfig
-import app.farvater.core.catalog.RuApps
+import app.farvater.data.automaticBypassApps
+import app.farvater.data.effectiveBypassApps
 import app.farvater.data.AppIcon
 import app.farvater.data.AppIcons
 import app.farvater.data.AppSettings
@@ -271,7 +272,7 @@ fun SettingsScreen(
     if (showApps) {
         BypassAppsSheet(
             selected = settings.bypassApps,
-            ruApps = if (settings.directRuServices) RuApps.packages else emptySet(),
+            ruApps = settings.automaticBypassApps,
             onChange = { apps -> onChange { it.copy(bypassApps = apps) } },
             onClose = { showApps = false },
         )
@@ -762,7 +763,7 @@ private fun ConnectionPage(settings: AppSettings, onChange: ((AppSettings) -> Ap
     val c = Ios.colors
     val context = LocalContext.current
     val bypassCount by produceState<Int?>(null, settings.bypassApps, settings.directRuServices, settings.automaticRoutes, settings.routeRules) {
-        val packages = if (settings.directRuServices && settings.automaticRoutes && settings.routeRules.isEmpty()) settings.bypassApps + RuApps.packages else settings.bypassApps
+        val packages = settings.effectiveBypassApps
         value = withContext(Dispatchers.IO) { context.installedCount(packages) }
     }
     IosSection(

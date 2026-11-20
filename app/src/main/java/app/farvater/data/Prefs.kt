@@ -85,6 +85,12 @@ data class AppSettings(
     }
 }
 
+internal val AppSettings.automaticBypassApps: Set<String>
+    get() = if (directRuServices && automaticRoutes && routeRules.isEmpty()) app.farvater.core.catalog.RuApps.packages else emptySet()
+
+internal val AppSettings.effectiveBypassApps: Set<String>
+    get() = bypassApps + automaticBypassApps
+
 internal val AppSettings.notificationIcon: Int get() =
     if (neutralNotification) app.farvater.R.drawable.ic_notification_arrow else app.farvater.R.drawable.ic_logo
 

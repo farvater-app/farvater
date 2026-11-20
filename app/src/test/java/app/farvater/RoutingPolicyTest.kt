@@ -8,6 +8,17 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class RoutingPolicyTest {
+    @Test fun automaticAndManualAppExclusionsMatchTheActivePolicy() {
+        val manual = setOf("test.manual")
+        val baseline = AppSettings(bypassApps = manual)
+        assertEquals(app.farvater.core.catalog.RuApps.packages + manual, baseline.effectiveBypassApps)
+        val explicit = baseline.copy(routeRules = listOf(RouteRule("example.test", RouteAction.VPN)))
+        for (settings in listOf(explicit, baseline.copy(automaticRoutes = false), baseline.copy(directRuServices = false))) {
+            assertEquals(emptySet<String>(), settings.automaticBypassApps)
+            assertEquals(manual, settings.effectiveBypassApps)
+        }
+    }
+
     @Test fun validatesWithoutResolvingAndNormalizesDomainsAndNetworks() {
         assertEquals("xn--e1afmkfd.xn--p1ai", RouteRule.parse("Пример.рф.", RouteAction.BLOCK)?.target)
         assertEquals("2001:db8::/32", RouteRule.parse("2001:db8::/32", RouteAction.VPN)?.target)

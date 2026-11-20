@@ -1,6 +1,6 @@
 --- a/src/core/src/hev-socks5-client-udp.c
 +++ b/src/core/src/hev-socks5-client-udp.c
-@@ -44,10 +44,56 @@
+@@ -44,11 +44,61 @@
  }
 
  static HevSocks5Addr *
@@ -11,12 +11,16 @@
 +    HevSocks5Addr *addr;
 +    int fd;
 +
-+    if (HEV_SOCKS5 (self)->type != HEV_SOCKS5_TYPE_UDP_IN_UDP)
++    if (self->fd >= 0)
 +        return NULL;
 +
 +    memset (&saddr, 0, sizeof (saddr));
 +    if (getsockname (HEV_SOCKS5 (self)->fd, (struct sockaddr *)&saddr, &len) < 0 ||
-+        saddr.sin6_family != AF_INET6)
++        len != sizeof (saddr) || saddr.sin6_family != AF_INET6)
++        return NULL;
++    if (!IN6_IS_ADDR_LOOPBACK (&saddr.sin6_addr) &&
++        !(IN6_IS_ADDR_V4MAPPED (&saddr.sin6_addr) &&
++          saddr.sin6_addr.s6_addr[12] == 127))
 +        return NULL;
 +    saddr.sin6_port = 0;
 +
@@ -26,7 +30,8 @@
 +
 +    len = sizeof (saddr);
 +    if (bind (fd, (struct sockaddr *)&saddr, sizeof (saddr)) < 0 ||
-+        getsockname (fd, (struct sockaddr *)&saddr, &len) < 0) {
++        getsockname (fd, (struct sockaddr *)&saddr, &len) < 0 ||
++        len != sizeof (saddr) || saddr.sin6_port == 0) {
 +        hev_task_del_fd (hev_task_self (), fd);
 +        hev_task_io_close (fd);
 +        return NULL;
@@ -50,22 +55,20 @@
  {
      HevSocks5AddrFamily family;
      HevSocks5Addr *addr;
-+
-+    addr = hev_socks5_client_udp_bind_local (HEV_SOCKS5_CLIENT_UDP (base));
-+    if (addr)
-+        return addr;
 
++    if (HEV_SOCKS5 (base)->type == HEV_SOCKS5_TYPE_UDP_IN_UDP)
++        return hev_socks5_client_udp_bind_local (HEV_SOCKS5_CLIENT_UDP (base));
++
      family = hev_socks5_get_addr_family (HEV_SOCKS5 (base));
 
-@@ -92,7 +138,10 @@
+     switch (family) {
+@@ -92,7 +142,8 @@
          return -1;
      }
 
 -    fd = hev_socks5_socket (SOCK_DGRAM);
 +    fd = self->fd;
 +    self->fd = -1;
-+    if (fd < 0)
-+        fd = hev_socks5_socket (SOCK_DGRAM);
      if (fd < 0) {
          LOG_E ("%p socks5 client udp socket", self);
          return -1;

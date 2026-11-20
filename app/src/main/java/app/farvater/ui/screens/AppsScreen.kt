@@ -53,12 +53,12 @@ fun BypassAppsSheet(selected: Set<String>, ruApps: Set<String>, onChange: (Set<S
     val context = LocalContext.current
     val pm = context.packageManager
     var query by remember { mutableStateOf("") }
-    val initial = remember { selected + ruApps }
+    val initialSelection = remember { selected }
     val icons = remember { HashMap<String, ImageBitmap?>() }
 
     IosSheet(title = stringResource(R.string.bypass_apps), onClose = onClose) {
         val apps by produceState<List<InstalledApp>?>(null) {
-            value = withContext(Dispatchers.IO) { loadApps(pm, context.packageName, initial) }
+            value = withContext(Dispatchers.IO) { loadApps(pm, context.packageName, initialSelection, ruApps) }
         }
         IosSearchField(
             value = query,
@@ -136,15 +136,21 @@ private fun AppIcon(pkg: String, pm: PackageManager, cache: HashMap<String, Imag
 private val SystemApps = listOf("com.google.android.projection.gearhead")
 
 @Suppress("DEPRECATION")
-private fun loadApps(pm: PackageManager, self: String, selected: Set<String>): List<InstalledApp> =
+private fun loadApps(pm: PackageManager, self: String, selected: Set<String>, automatic: Set<String>): List<InstalledApp> =
     (
         pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
             .map { it.activityInfo.packageName to it.loadLabel(pm).toString() } +
-            SystemApps.mapNotNull { pkg -> runCatching { pkg to pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrNull() }
+            (SystemApps + selected).distinct().mapNotNull { pkg ->
+                try {
+                    pkg to pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+                } catch (_: PackageManager.NameNotFoundException) {
+                    if (pkg in selected) pkg to pkg else null
+                }
+            }
         )
         .asSequence()
         .filter { it.first != self }
         .distinctBy { it.first }
         .map { InstalledApp(it.first, it.second) }
-        .sortedWith(compareBy<InstalledApp>({ it.pkg !in selected }, { it.label.lowercase() }))
+        .sortedWith(compareBy<InstalledApp>({ it.pkg !in selected && it.pkg !in automatic }, { it.label.lowercase() }))
         .toList()

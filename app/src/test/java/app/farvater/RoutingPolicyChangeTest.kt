@@ -1,5 +1,7 @@
 package app.farvater
 
+import app.farvater.vpn.applyAppExclusions
+
 import android.app.Application
 import android.os.Looper
 import androidx.lifecycle.viewModelScope
@@ -23,6 +25,22 @@ import java.time.Duration
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
 class RoutingPolicyChangeTest {
+    @Test fun builderRequiresOwnExclusionAndPropagatesAndroidPolicyErrors() {
+        val calls = mutableListOf<String>()
+        applyAppExclusions("test.client", linkedSetOf("test.missing", "test.client", "test.browser")) { pkg ->
+            calls += pkg
+            if (pkg == "test.missing") throw android.content.pm.PackageManager.NameNotFoundException()
+        }
+        assertEquals(listOf("test.client", "test.missing", "test.browser"), calls)
+        org.junit.Assert.assertThrows(SecurityException::class.java) {
+            applyAppExclusions("test.client", setOf("test.browser")) { if (it == "test.browser") throw SecurityException() }
+        }
+        org.junit.Assert.assertThrows(android.content.pm.PackageManager.NameNotFoundException::class.java) {
+            applyAppExclusions("test.client", emptySet()) { throw android.content.pm.PackageManager.NameNotFoundException() }
+        }
+    }
+
+
     private val changes: List<(AppSettings) -> AppSettings> = listOf(
         { it.copy(bypassApps = it.bypassApps + "example.bypass") },
         { it.copy(directRuServices = !it.directRuServices) },

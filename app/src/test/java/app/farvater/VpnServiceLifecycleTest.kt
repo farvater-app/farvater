@@ -70,6 +70,7 @@ class VpnServiceLifecycleTest {
         FarvaterVpnService::class.java.getDeclaredField("lifecycleDispatcher").apply { isAccessible = true }.set(service, queue)
         uncaught.clear()
         Core.succeeds = false
+        InterfaceBuilder.exclusionFailure = null
         InterfaceBuilder.failure = null
         InterfaceBuilder.beforeEstablish = null
         Core.starts = 0
@@ -253,6 +254,18 @@ class VpnServiceLifecycleTest {
         val render = tile.javaClass.getDeclaredMethod("render", VpnState::class.java).apply { isAccessible = true }
         render.invoke(tile, failed)
         assertEquals(android.service.quicksettings.Tile.STATE_INACTIVE, tile.qsTile.state)
+    }
+
+    @Test fun androidPolicyFailureStopsBeforeEstablish() {
+        Core.succeeds = true
+        var reachedEstablish = false
+        InterfaceBuilder.exclusionFailure = SecurityException("Package policy unavailable")
+        InterfaceBuilder.beforeEstablish = { reachedEstablish = true }
+        command(FarvaterVpnService.ACTION_START, 1)
+        queue.drain()
+        assertTrue(uncaught.isEmpty())
+        assertTrue(VpnBus.state.value is VpnState.Failed)
+        assertFalse(reachedEstablish)
     }
 
     @Test fun stopDuringFailedEstablishDoesNotReviveFailure() {
@@ -731,6 +744,11 @@ class VpnServiceLifecycleTest {
         @Implementation
         fun addDnsServer(address: String): android.net.VpnService.Builder = real
         @Implementation
+        fun addDisallowedApplication(packageName: String): android.net.VpnService.Builder {
+            exclusionFailure?.let { throw it }
+            return real
+        }
+        @Implementation
         fun establish(): android.os.ParcelFileDescriptor? {
             beforeEstablish?.invoke()
             failure?.let { throw it }
@@ -739,6 +757,7 @@ class VpnServiceLifecycleTest {
         companion object {
             var failure: RuntimeException? = null
             var beforeEstablish: (() -> Unit)? = null
+            var exclusionFailure: RuntimeException? = null
         }
     }
 

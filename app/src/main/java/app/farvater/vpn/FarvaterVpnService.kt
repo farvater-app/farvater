@@ -24,7 +24,7 @@ import app.farvater.App
 import app.farvater.FarvaterActivity
 import app.farvater.data.notificationIcon
 import app.farvater.R
-import app.farvater.core.catalog.RuApps
+import app.farvater.data.effectiveBypassApps
 import app.farvater.core.model.NetMode
 import app.farvater.core.model.NetModeChoice
 import app.farvater.core.model.ProxyNode
@@ -404,9 +404,13 @@ class FarvaterVpnService : VpnService() {
         if (settings.routeRules.any { ':' in it.target }) {
             builder.addAddress("fc00::1", 126).addRoute("::", 0)
         }
-        runCatching { builder.addDisallowedApplication(packageName) }
-        val bypass = if (settings.directRuServices && settings.automaticRoutes && settings.routeRules.isEmpty()) settings.bypassApps + RuApps.packages else settings.bypassApps
-        bypass.forEach { pkg -> runCatching { builder.addDisallowedApplication(pkg) } }
+        try {
+            applyAppExclusions(packageName, settings.effectiveBypassApps) { builder.addDisallowedApplication(it) }
+        } catch (_: android.content.pm.PackageManager.NameNotFoundException) {
+            return abort(localizedString(R.string.vpn_interface_failed))
+        } catch (_: RuntimeException) {
+            return abort(localizedString(R.string.vpn_interface_failed))
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false)
 
         if (cancelled()) return
@@ -818,6 +822,18 @@ class FarvaterVpnService : VpnService() {
             startForeground(NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
             startForeground(NOTIFICATION_ID, n)
+        }
+    }
+}
+
+internal fun applyAppExclusions(ownPackage: String, packages: Set<String>, exclude: (String) -> Unit) {
+    exclude(ownPackage)
+    for (pkg in packages) {
+        if (pkg == ownPackage) continue
+        try {
+            exclude(pkg)
+        } catch (_: android.content.pm.PackageManager.NameNotFoundException) {
+            continue
         }
     }
 }
