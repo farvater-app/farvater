@@ -1,6 +1,8 @@
 package app.farvater.data
 
 data class BackupSecurityChanges(
+    val routes: List<RouteRule>? = null,
+    val automaticRoutes: Boolean? = null,
     val addedBypassApps: Set<String> = emptySet(),
     val removedBypassApps: Set<String> = emptySet(),
     val safeMode: Boolean? = null,
@@ -9,6 +11,6 @@ data class BackupSecurityChanges(
     val sendHwid: Boolean? = null,
     val directRuServices: Boolean? = null,
 ) {
-    val isEmpty: Boolean get() = addedBypassApps.isEmpty() && removedBypassApps.isEmpty() &&
+    val isEmpty: Boolean get() = routes == null && automaticRoutes == null && addedBypassApps.isEmpty() && removedBypassApps.isEmpty() &&
         listOf(safeMode, encryptedDns, autoUpdates, sendHwid, directRuServices).all { it == null }
 }

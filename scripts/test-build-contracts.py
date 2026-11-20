@@ -116,11 +116,19 @@ class BuildContractsTest(unittest.TestCase):
             self.assertNotEqual(0, subprocess.run(["bash", "-c", script], env={"GITHUB_REF_NAME": name}).returncode)
 
     def test_cache_always_verifies_digests(self):
-        for name, count in (("build.yml", 2), ("release.yml", 1)):
-            text = (ROOT / ".github/workflows" / name).read_text()
-            self.assertEqual(count, text.count("run: python3 scripts/check-natives.py"))
-            self.assertEqual(count, text.count("            app/libs/natives-sha256.json"))
-            self.assertNotRegex(text, r"if:.*\n\s+run: python3 scripts/check-natives.py")
+        development = (ROOT / ".github/workflows/build.yml").read_text()
+        self.assertEqual(2, development.count("run: python3 scripts/check-natives.py"))
+        self.assertEqual(2, development.count("            app/libs/natives-sha256.json"))
+        self.assertNotRegex(development, r"if:.*\n\s+run: python3 scripts/check-natives.py")
+
+        signed = (ROOT / ".github/workflows/release.yml").read_text()
+        self.assertNotIn("actions/cache@", signed)
+        self.assertNotIn("cache-hit", signed)
+        self.assertIn("cache-disabled: true", signed)
+        self.assertIn("gradle --no-build-cache", signed)
+        self.assertIn("run: ./scripts/fetch-natives.sh", signed)
+        self.assertIn("run: python3 scripts/check-natives.py", signed)
+        self.assertIn('[[ "$signer" == "$expected_cert" ]]', signed)
 
     def test_cache_corruption_or_manifest_substitution_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:

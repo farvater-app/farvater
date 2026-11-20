@@ -109,6 +109,7 @@ object NodeTester {
     val tunnelClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", LocalProxyAuth.probePort)))
+            .followRedirects(false).followSslRedirects(false)
             .connectionPool(ConnectionPool(0, 1, TimeUnit.SECONDS))
             .callTimeout(8, TimeUnit.SECONDS)
             .build()

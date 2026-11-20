@@ -90,6 +90,45 @@ class VpnServiceLifecycleTest {
         assertTrue("Unhandled coroutine failure: $uncaught", uncaught.isEmpty())
     }
 
+    @Test fun externalControlRequiresAnExplicitGrantAndRechecksRevocationAtDelivery() {
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        val platform = org.robolectric.Shadows.shadowOf(application)
+        val receiver = app.farvater.vpn.AutomationReceiver()
+        val access = app.farvater.vpn.AutomationAccess
+        access.revoke(application)
+        val start = Intent(application, receiver.javaClass).setAction(app.farvater.vpn.AutomationReceiver.CONNECT)
+        receiver.onReceive(application, start)
+        assertNull(platform.nextStartedService)
+        val key = access.issue(application)
+        App.prefs.settings = App.prefs.settings.copy(acceptedLegalVersion = app.farvater.data.LEGAL_VERSION)
+        start.putExtra("key", key)
+        org.robolectric.shadows.ShadowVpnService.setPrepareResult(Intent())
+        receiver.onReceive(application, start)
+        assertNull(platform.nextStartedService)
+        org.robolectric.shadows.ShadowVpnService.setPrepareResult(null)
+        receiver.onReceive(application, start)
+        val pending = platform.nextStartedService!!
+        receiver.onReceive(application, start)
+        assertNull(platform.nextStartedService)
+        access.revoke(application)
+        service.onStartCommand(pending, 0, 1)
+        queue.drain()
+        assertNull(VpnBus.request.value)
+        assertEquals(0, Core.starts)
+    }
+
+    @Test fun authorizedIdleDisconnectCancelsOlderForegroundChecksWithoutStartingAService() {
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        val receiver = app.farvater.vpn.AutomationReceiver()
+        val key = app.farvater.vpn.AutomationAccess.issue(application)
+        val previous = VpnBus.stopEpoch.get()
+        receiver.onReceive(application, Intent(application, receiver.javaClass)
+            .setAction(app.farvater.vpn.AutomationReceiver.DISCONNECT).putExtra("key", key))
+        assertTrue(VpnBus.stopEpoch.get() > previous)
+        assertNull(org.robolectric.Shadows.shadowOf(application).nextStartedService)
+        app.farvater.vpn.AutomationAccess.revoke(application)
+    }
+
     @Test fun missingVpnPermissionStopsCleanly() = failedInterface(null)
 
     @Test fun revokedVpnPermissionStopsCleanly() = failedInterface(SecurityException("permission revoked"))

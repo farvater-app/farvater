@@ -253,6 +253,7 @@ fun HomeScreen(
             } else {
                 Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.Center) {
                     when {
+                        Ios.observatory -> app.farvater.ui.TelescopeConnect(mode, onToggle)
                         Ios.flyme -> app.farvater.ui.components.FlymeConnect(mode, onToggle)
                         colorOs -> app.farvater.ui.components.ColorOsConnect(mode, onToggle)
                         winter -> app.farvater.ui.components.WinterHero(mode = mode, onClick = onToggle)

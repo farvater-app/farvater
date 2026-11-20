@@ -32,8 +32,11 @@ class ServiceCacheTest {
         Prefs(app).serviceChecks = history
         val restored = Prefs(app).serviceChecks
         assertEquals(history, restored)
-        assertTrue(restored.values.none { ServiceChecks.due(it, now + ServiceChecks.RETRY_MS - 1) })
-        assertTrue(restored.values.all { ServiceChecks.due(it, now + ServiceChecks.RETRY_MS) })
+        for (check in restored.values) {
+            val delay = if (check.reason == ServiceReason.BUSY) 60_000L else ServiceChecks.RETRY_MS
+            assertFalse(check.reason.name, ServiceChecks.due(check, now + delay - 1))
+            assertTrue(check.reason.name, ServiceChecks.due(check, now + delay))
+        }
     }
 
     @Test

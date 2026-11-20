@@ -181,6 +181,7 @@ val SectionCorner = 24.dp
 @Composable
 @ReadOnlyComposable
 fun sectionCorner(): Dp = when {
+    Ios.observatory -> 4.dp
     Ios.flyme -> 10.dp
     Ios.colorOs -> 32.dp
     Ios.origin -> 26.dp
@@ -212,6 +213,10 @@ fun IosLargeTitle(
 ) {
     val c = Ios.colors
     val material = Ios.material
+    if (Ios.observatory) {
+        app.farvater.ui.AtlasHeading(title, subtitle, modifier, trailing)
+        return
+    }
     if (Ios.shell) {
         Column(modifier.fillMaxWidth().padding(start = 24.dp, end = 20.dp, top = 28.dp, bottom = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -383,6 +388,7 @@ fun IosSection(
         Column(
             Modifier
                 .fillMaxWidth()
+                .then(if (Ios.observatory) Modifier.border(1.dp, c.barBorder, shape) else Modifier)
                 .then(if (Ios.origin || Ios.colorOs) Modifier.border(1.dp, originRim(c.dark), shape) else Modifier)
                 .clip(shape)
                 .background(c.cell),
@@ -467,7 +473,7 @@ fun IosRow(
     val subtitleStyle = if (material) MaterialTheme.typography.bodyMedium else IosType.footnote
     val valueStyle = if (material) MaterialTheme.typography.bodyMedium else IosType.body
     val vertical = if (Ios.flyme) 15.dp else if (Ios.colorOs) 13.dp else if (material) 10.dp else 9.dp
-    if ((Ios.winter || Ios.shell || !material) && LocalDensity.current.fontScale > 1.3f) {
+    if ((Ios.winter || Ios.shell || Ios.observatory || !material) && LocalDensity.current.fontScale > 1.3f) {
         Column(
             modifier.fillMaxWidth().then(
                 when {

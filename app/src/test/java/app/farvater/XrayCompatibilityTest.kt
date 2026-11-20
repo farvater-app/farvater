@@ -36,14 +36,18 @@ class XrayCompatibilityTest {
                 val auth = app.farvater.core.xray.LocalProxyAuth
                 val probeAddress = app.farvater.engine.NodeTester.tunnelClient.proxy!!.address() as java.net.InetSocketAddress
                 assertEquals(auth.probePort, probeAddress.port)
-                configFile.writeText(XrayConfigBuilder.build(node, true, encryptedDns = false, probePort = auth.probePort))
+                configFile.writeText(XrayConfigBuilder.build(node, true, encryptedDns = false, probePort = auth.probePort,
+                    automaticRoutes = false, routeRules = listOf(
+                        app.farvater.data.RouteRule("localhost", app.farvater.data.RouteAction.BLOCK),
+                        app.farvater.data.RouteRule("127.0.0.1", app.farvater.data.RouteAction.DIRECT),
+                        app.farvater.data.RouteRule("127.0.0.0/8", app.farvater.data.RouteAction.VPN))))
                 val xray = ProcessBuilder(binary!!, "run", "-config", configFile.absolutePath)
                     .redirectErrorStream(true).redirectOutput(File("/dev/null")).start()
                 try {
-                    fun request(port: Int): Int {
+                    fun request(port: Int, host: String = "127.0.0.1"): Int {
                         val curl = ProcessBuilder("curl", "--silent", "--noproxy", "", "--max-time", "3", "--output", "/dev/null",
                             "--write-out", "%{http_code}", "--proxy", "socks5h://127.0.0.1:$port",
-                            "--proxy-user", "${auth.user}:${auth.pass}", "http://127.0.0.1:${http.address.port}/").start()
+                            "--proxy-user", "${auth.user}:${auth.pass}", "http://$host:${http.address.port}/").start()
                         try {
                             assertTrue(curl.waitFor(5, TimeUnit.SECONDS))
                             return curl.inputStream.bufferedReader().readText().toIntOrNull() ?: 0
@@ -56,6 +60,7 @@ class XrayCompatibilityTest {
                         status = request(auth.port)
                     }
                     assertEquals(204, status)
+                    assertEquals(0, request(auth.port, "localhost"))
                     assertEquals(0, request(auth.probePort))
                     assertTrue(attempted.await(2, TimeUnit.SECONDS))
                     assertEquals(1, hits.get())

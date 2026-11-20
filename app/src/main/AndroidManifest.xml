@@ -318,6 +318,8 @@
             android:taskAffinity=""
             android:theme="@style/Theme.Farvater.Toggle" />
 
+        <receiver android:name=".vpn.AutomationReceiver" android:exported="true" />
+
         <receiver
             android:name=".vpn.VpnWidget"
             android:exported="true"

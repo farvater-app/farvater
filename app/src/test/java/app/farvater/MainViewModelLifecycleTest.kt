@@ -247,7 +247,7 @@ class MainViewModelLifecycleTest {
         vm.viewModelScope.cancel()
         val replacements = List(2) { MainViewModel(app) }
         try {
-            awaitCondition { replacements.all { it.state.value.nodes.size == 1 } }
+            awaitCondition { replacements.all { it.state.value.nodes.isEmpty() && it.state.value.selectedId == node.id } }
             release.countDown()
             awaitCondition { replacements.all { it.state.value.nodes.isEmpty() && it.state.value.selectedId == null } }
             assertNull(App.prefs.lastNode)

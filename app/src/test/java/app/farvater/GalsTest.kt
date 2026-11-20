@@ -50,13 +50,27 @@ class GalsTest {
 
     @Test
     fun dohAnswerNeedsReplyWithoutErrorAndRecords() {
-        fun reply(flags: Int, rcode: Int, answers: Int) =
-            byteArrayOf(0, 0, flags.toByte(), rcode.toByte(), 0, 1, 0, answers.toByte(), 0, 0, 0, 0)
-        assertTrue(DohProbe.answered(reply(0x81, 0x80, 1)))
-        assertFalse(DohProbe.answered(reply(0x81, 0x83, 1)))
-        assertFalse(DohProbe.answered(reply(0x81, 0x80, 0)))
-        assertFalse(DohProbe.answered(reply(0x01, 0x00, 1)))
-        assertFalse(DohProbe.answered(ByteArray(5)))
+        val question = DohProbe.wire("telegram.org")
+        val headerAndQuestion = question.copyOf().apply {
+            this[2] = 0x81.toByte()
+            this[3] = 0x80.toByte()
+            this[7] = 1
+        }
+        val record = byteArrayOf(0xc0.toByte(), 12, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 192.toByte(), 0, 2, 1)
+        val reply = headerAndQuestion + record
+        assertTrue(DohProbe.answered(reply))
+        assertFalse(DohProbe.answered(reply, "example.org"))
+        assertFalse(DohProbe.answered(headerAndQuestion))
+        assertFalse(DohProbe.answered(reply.copyOf(reply.size - 1)))
+        assertFalse(DohProbe.answered(reply.copyOf().apply { this[3] = 0x83.toByte() }))
+        assertFalse(DohProbe.answered(reply.copyOf().apply { this[2] = 0x83.toByte() }))
+        assertFalse(DohProbe.answered(reply.copyOf().apply { this[7] = 0 }))
+        assertFalse(DohProbe.answered(question))
+        val alias = byteArrayOf(3, 119, 119, 119, 0xc0.toByte(), 12)
+        val cname = byteArrayOf(0xc0.toByte(), 12, 0, 5, 0, 1, 0, 0, 0, 60, 0, 6) + alias
+        val aliasAddress = alias + record.copyOfRange(2, record.size)
+        assertTrue(DohProbe.answered(headerAndQuestion.copyOf().apply { this[7] = 2 } + cname + aliasAddress))
+        assertFalse(DohProbe.answered(headerAndQuestion + aliasAddress))
     }
 
     @Test

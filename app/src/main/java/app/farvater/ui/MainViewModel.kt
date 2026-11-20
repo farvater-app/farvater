@@ -361,10 +361,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val result = updates.check(viaTunnel = VpnBus.state.value is VpnState.Connected)
             result.onSuccess { prefs.lastUpdateCheck = System.currentTimeMillis() }
             val info = result.getOrNull()
-            val autoShow = !manual && info != null && info.versionCode > prefs.shownUpdateVersion
+            val autoShow = !manual && info != null && info.versionCode != prefs.shownUpdateVersion
             if (autoShow) {
                 prefs.shownUpdateVersion = info.versionCode
-                prefs.notifiedVersion = maxOf(prefs.notifiedVersion, info.versionCode)
+                prefs.notifiedVersion = info.versionCode
             }
             _state.update {
                 it.copy(update = info, updateStage = UpdateStage.Idle, showUpdate = it.showUpdate || autoShow || (manual && info != null))
@@ -470,7 +470,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         val target = prefs.nodeForMode(mode) ?: return
-        if (target.id == _state.value.selectedId || _state.value.nodes.none { it.id == target.id }) return
+        if (!prefs.allowedForAuto(target) || target.id == _state.value.selectedId || _state.value.nodes.none { it.id == target.id }) return
         setSelected(target)
     }
 
@@ -774,6 +774,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun toggleAutomaticNode(node: ProxyNode) = updateSettings { settings ->
+        val excluded = settings.excludedAutoNodeIds
+        when {
+            node.id in excluded -> settings.copy(excludedAutoNodeIds = excluded - node.id)
+            excluded.size < 5000 -> settings.copy(excludedAutoNodeIds = excluded + node.id)
+            else -> settings
+        }
+    }
+
     fun renameNode(node: ProxyNode, name: String) {
         if (node.sourceId != ProxyNode.MANUAL_SOURCE && prefs.userSources.none { it.id == node.sourceId }) return
         if (_state.value.nodes.none { it.id == node.id && it.sourceId == node.sourceId }) return
@@ -800,7 +809,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (pathJob?.isActive == true) return
         val mode = effectiveMode(prefs.settings)
         val nodes = snapshots.value[sourceId]?.nodes.orEmpty().filter { node ->
-            node.sourceId == sourceId && prefs.allowedForAuto(node) && sourceMode(sourceId).fits(mode)
+            node.sourceId == sourceId && prefs.eligibleSource(node) && sourceMode(sourceId).fits(mode)
         }.distinctBy { it.id }
         checkNodes(nodes, fullScope = false)
     }
@@ -923,7 +932,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         if (_state.value.nodes.isEmpty()) {
             _state.update { it.copy(gals = false, galsNet = null) }
-            checkNodes(_state.value.nodes, fullScope = true, method = ProbeMethod.AUTO)
+            checkNodes(_state.value.nodes.filter(prefs::allowedForAuto), fullScope = prefs.settings.excludedAutoNodeIds.isEmpty(), method = ProbeMethod.AUTO)
             return
         }
         pathJob = viewModelScope.launch(start = kotlinx.coroutines.CoroutineStart.LAZY) {
@@ -982,7 +991,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
             try {
                 val since = System.currentTimeMillis()
-                checkNodes(_state.value.nodes, fullScope = true, method = ProbeMethod.AUTO)
+                checkNodes(_state.value.nodes.filter(prefs::allowedForAuto), fullScope = prefs.settings.excludedAutoNodeIds.isEmpty(), method = ProbeMethod.AUTO)
                 var scanned = 0
                 while (scanned + deferred.size < PATH_CANDIDATES && network.current() && stopEpoch == VpnBus.stopEpoch.get()) {
                     val running = testJob?.isActive == true
@@ -1170,7 +1179,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun bestNode(): ProxyNode? =
-        _state.value.nodes.firstOrNull { results.value[it.id]?.alive == true && it.id !in _state.value.dead }
+        _state.value.nodes.firstOrNull { prefs.allowedForAuto(it) && results.value[it.id]?.alive == true && it.id !in _state.value.dead }
 
     private fun modeKey(): String = effectiveMode(prefs.settings)?.name ?: "ANY"
 
@@ -1182,7 +1191,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val mode = effectiveMode(prefs.settings)
         val eligible = nodes.filter { node ->
             val sourceMode = prefs.sourceConfigs[node.sourceId]?.mode ?: BuiltInCatalog.byId(node.sourceId)?.mode ?: SourceMode.ANY
-            prefs.allowedForAuto(node) && sourceMode.fits(mode)
+            prefs.eligibleSource(node) && sourceMode.fits(mode)
         }.mapTo(HashSet()) { it.id }
         val current = when (val vpn = VpnBus.state.value) {
             is VpnState.Connected -> vpn.node.id
@@ -1219,7 +1228,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val history = NodeHealth.record(prefs.nodeHealth, mode, batch, exempt = exempt)
                 prefs.nodeHealth = history
                 val dead = deadFor(history, mode)
-                prefs.backupNodes = BackupNodes(mode, Failover.pick(_state.value.nodes, results.value, dead))
+                prefs.backupNodes = BackupNodes(mode, Failover.pick(_state.value.nodes.filter(prefs::allowedForAuto), results.value, dead))
                 dead
             }
         }
@@ -1304,7 +1313,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 val dead = _state.value.dead
                 val node = _state.value.selectedNode
-                    ?: (bestNode() ?: _state.value.nodes.firstOrNull { it.id !in dead } ?: _state.value.nodes.firstOrNull())
+                    ?: (bestNode() ?: _state.value.nodes.firstOrNull { it.id !in dead && prefs.allowedForAuto(it) } ?: _state.value.nodes.firstOrNull(prefs::allowedForAuto))
                         ?.also(::setSelected)
                 when {
                     node == null -> toast(messageText(R.string.no_nodes_connect))
@@ -1443,7 +1452,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (old.groupDead != new.groupDead) _state.update { it.copy(dead = deadFor(prefs.nodeHealth, modeKey()), groupedDead = groupedDeadFor(it.nodes)) }
         rebuild()
         val vpn = VpnBus.state.value
-        val tunnelChanged = old.bypassApps != new.bypassApps ||
+        val tunnelChanged = old.routeRules != new.routeRules || old.automaticRoutes != new.automaticRoutes || old.bypassApps != new.bypassApps ||
             old.directRuServices != new.directRuServices ||
             old.encryptedDns != new.encryptedDns ||
             old.mtu != new.mtu
@@ -1600,7 +1609,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun shortHash(s: String) =
         MessageDigest.getInstance("SHA-1").digest(s.toByteArray()).take(5).joinToString("") { "%02x".format(java.util.Locale.ROOT, it) }
 
-    private fun hostOf(url: String) = url.substringAfter("://").substringBefore('/').ifBlank { messageText(R.string.subscription_title) }
+    private fun hostOf(url: String) = app.farvater.net.ImportLink.endpoint(url) ?: messageText(R.string.subscription_title)
 
     companion object {
         @Volatile private var cachedResultsMode: String? = null

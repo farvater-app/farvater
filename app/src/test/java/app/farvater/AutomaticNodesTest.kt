@@ -46,6 +46,19 @@ class AutomaticNodesTest {
         assertEquals(b, AutomaticNodes.resolve(b, App.prefs, App.repo, NetMode.BLACK))
     }
 
+    @Test fun excludedNodeStaysInItsSourceAndCannotBePickedByEitherAutoPolicy() {
+        val candidate = node(second)
+        install(candidate)
+        for (groupId in listOf(group.id, null)) {
+            App.prefs.settings = App.prefs.settings.copy(activeGalsGroupId = groupId, excludedAutoNodeIds = setOf(candidate.id))
+            assertTrue(App.prefs.eligibleSource(candidate))
+            assertNull(AutomaticNodes.resolve(candidate, App.prefs, App.repo, NetMode.BLACK))
+            assertTrue(AutomaticNodes.candidates(App.prefs, App.repo, NetMode.BLACK).isEmpty())
+            App.prefs.selectNode(candidate)
+            assertEquals(candidate, App.prefs.lastNode)
+        }
+    }
+
     @Test fun sameIdDoesNotAuthorizeAnOutdatedConfiguration() {
         val old = node(second)
         install(old.copy(params = old.params + ("type" to "ws")))

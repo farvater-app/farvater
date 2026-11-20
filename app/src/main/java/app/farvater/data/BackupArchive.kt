@@ -31,6 +31,8 @@ data class BackupArchive(
     fun securityChanges(current: AppSettings): BackupSecurityChanges {
         val restored = decodedSettings()
         return BackupSecurityChanges(
+            routes = restored.routeRules.takeIf { "routeRules" in settings && it != current.routeRules },
+            automaticRoutes = restored.automaticRoutes.takeIf { "automaticRoutes" in settings && it != current.automaticRoutes },
             addedBypassApps = restored.bypassApps - current.bypassApps,
             removedBypassApps = current.bypassApps - restored.bypassApps,
             safeMode = restored.safeMode.takeIf { it != current.safeMode },
@@ -47,6 +49,8 @@ data class BackupArchive(
         require(language.isEmpty() || language in AppLanguages.supported)
         require(settings.keys.none { it in excludedSettings })
         val decoded = decodedSettings()
+        require(RouteRule.valid(decoded.routeRules))
+        require(decoded.excludedAutoNodeIds.size <= 5000 && decoded.excludedAutoNodeIds.all { nodeId.matches(it) })
         require(decoded.mtu in 1280..9000 && decoded.concurrency in 1..32)
         require(decoded.testUrl in ProbeUrls.all)
         require(decoded.serviceExpectedCode in 200..599)

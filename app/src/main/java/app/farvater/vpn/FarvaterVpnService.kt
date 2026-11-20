@@ -82,6 +82,33 @@ class FarvaterVpnService : VpnService() {
         const val EXTRA_RESTART = "app.farvater.extra.RESTART"
         const val EXTRA_CHECK_MODE = "app.farvater.extra.CHECK_MODE"
         private const val ACTION_CHECK_MODE = "app.farvater.action.CHECK_MODE"
+        private const val EXTRA_GRANT = "automation-grant"
+        @Volatile private var instance = java.lang.ref.WeakReference<FarvaterVpnService>(null)
+        fun lockdownStatus(): Boolean? = if (Build.VERSION.SDK_INT >= 29) runCatching { instance.get()?.isLockdownEnabled }.getOrNull() else null
+
+        private fun externalAllowed(context: Context, active: Boolean): Boolean {
+            if (active) return App.prefs.lastNode != null && VpnService.prepare(context) == null &&
+                App.prefs.settings.acceptedLegalVersion >= app.farvater.data.LEGAL_VERSION
+            val service = instance.get()
+            return Build.VERSION.SDK_INT < 29 || service == null || (!service.isAlwaysOn && !service.isLockdownEnabled)
+        }
+
+        internal fun external(context: Context, active: Boolean, grant: ByteArray): Boolean {
+            if (!runCatching { externalAllowed(context, active) }.getOrDefault(false)) return false
+            val state = VpnBus.state.value
+            val intended = VpnBus.request.value?.active ?: (state is VpnState.Connected || state is VpnState.Connecting)
+            if (active == intended) {
+                if (!active) {
+                    VpnBus.stopEpoch.incrementAndGet()
+                    VpnBus.automaticEpoch.incrementAndGet()
+                }
+                return true
+            }
+            val action = if (active) ACTION_START else ACTION_STOP
+            send(context, Intent(context, FarvaterVpnService::class.java).setAction(action).putExtra(EXTRA_GRANT, grant), active)
+            return true
+        }
+
         private const val EXTRA_MODE = "app.farvater.extra.MODE"
         private const val EXTRA_AUTOMATIC = "app.farvater.extra.AUTOMATIC"
         private const val EXTRA_REQUEST = "app.farvater.extra.REQUEST"
@@ -187,6 +214,7 @@ class FarvaterVpnService : VpnService() {
 
     override fun onCreate() {
         super.onCreate()
+        instance = java.lang.ref.WeakReference(this)
         screenOn.value = getSystemService(PowerManager::class.java).isInteractive
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_ON)
@@ -197,6 +225,27 @@ class FarvaterVpnService : VpnService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = synchronized(commandLock) {
         latestStartId = startId
+        if (intent?.hasExtra(EXTRA_GRANT) == true) {
+            val pending = VpnBus.request.value
+            val id = intent.getLongExtra(EXTRA_REQUEST, 0L)
+            val active = intent.action == ACTION_START
+            val grant = AutomationAccess.current(this)
+            if (pending?.id != id || grant == null ||
+                !java.security.MessageDigest.isEqual(grant, intent.getByteArrayExtra(EXTRA_GRANT)) ||
+                !runCatching { externalAllowed(this, active) }.getOrDefault(false)) {
+                if (pending?.id == id) VpnBus.request.compareAndSet(pending, null)
+                if (VpnBus.request.value == null && VpnBus.state.value !is VpnState.Connected && VpnBus.state.value !is VpnState.Connecting) {
+                    if (active) {
+                        startForegroundCompat(notification(localizedString(R.string.app_name), localizedString(R.string.automation_inactive)))
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                    }
+                    stopSelf(startId)
+                }
+                val live = VpnBus.state.value is VpnState.Connected || VpnBus.state.value is VpnState.Connecting
+                return if (!stopped && (VpnBus.request.value?.active ?: live)) START_STICKY else START_NOT_STICKY
+            }
+            if (!active) VpnBus.automaticEpoch.incrementAndGet()
+        }
         if (intent?.action == ACTION_STOP) {
             activeRequest = requestFrom(intent, active = false)
             App.prefs.vpnWasOn = false
@@ -269,7 +318,7 @@ class FarvaterVpnService : VpnService() {
                     is VpnState.Connecting -> state.node
                     else -> null
                 }
-                if (current != fallback || !App.prefs.allowedForAuto(node) || !App.prefs.replaceSelection(fallback.id, node)) return
+                if (current != fallback || !availableBackup(node) || !App.prefs.replaceSelection(fallback.id, node)) return
             }
             engineOwner = this
             val current = VpnBus.state.value
@@ -330,13 +379,18 @@ class FarvaterVpnService : VpnService() {
             fail(message, node, generation)
         }
 
-        val config = XrayConfigBuilder.build(
-            node,
-            settings.directRuServices,
-            probePort = app.farvater.core.xray.LocalProxyAuth.probePort,
-            encryptedDns = settings.encryptedDns,
-            profile = if (request == null) App.prefs.profileFor(node.id) else request.automatic?.connectionProfile,
-        )
+        val config = try {
+            XrayConfigBuilder.build(
+                node, settings.directRuServices,
+                probePort = app.farvater.core.xray.LocalProxyAuth.probePort,
+                encryptedDns = settings.encryptedDns,
+                automaticRoutes = settings.automaticRoutes,
+                routeRules = settings.routeRules,
+                profile = if (request == null) App.prefs.profileFor(node.id) else request.automatic?.connectionProfile,
+            )
+        } catch (error: RuntimeException) {
+            return abort(localizedString(R.string.error_tun_config))
+        }
         XrayEngine.start(config).onFailure { return abort(localizedString(R.string.xray_start_failed, it.userMessage(this))) }
 
         if (cancelled()) return
@@ -347,8 +401,11 @@ class FarvaterVpnService : VpnService() {
             .addAddress("10.10.14.1", 30)
             .addRoute("0.0.0.0", 0)
             .addDnsServer("1.1.1.1")
+        if (settings.routeRules.any { ':' in it.target }) {
+            builder.addAddress("fc00::1", 126).addRoute("::", 0)
+        }
         runCatching { builder.addDisallowedApplication(packageName) }
-        val bypass = if (settings.directRuServices) settings.bypassApps + RuApps.packages else settings.bypassApps
+        val bypass = if (settings.directRuServices && settings.automaticRoutes && settings.routeRules.isEmpty()) settings.bypassApps + RuApps.packages else settings.bypassApps
         bypass.forEach { pkg -> runCatching { builder.addDisallowedApplication(pkg) } }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false)
 
@@ -587,6 +644,12 @@ class FarvaterVpnService : VpnService() {
         }
     }
 
+    private fun availableBackup(node: ProxyNode): Boolean {
+        if (!App.prefs.allowedForAuto(node)) return false
+        val snapshot = App.repo.snapshots.value[node.sourceId] ?: App.repo.loadCached(node.sourceId)
+        return snapshot == null || node in snapshot.nodes
+    }
+
     private fun failover(stalled: ProxyNode) {
         if (failoverJob?.isActive == true) return
         val generation = startGeneration
@@ -600,7 +663,7 @@ class FarvaterVpnService : VpnService() {
             val mode = if (choice == NetModeChoice.AUTO) App.prefs.lastNetMode else choice.name
             if (backups.mode != "ANY" && mode != null && backups.mode != mode) return@launch
             val url = App.prefs.settings.testUrl
-            for (next in Failover.order(backups.nodes, current, failedBackups.excluded(SystemClock.elapsedRealtime())).filter { App.prefs.allowedForAuto(it) }.take(Failover.TRIES)) {
+            for (next in Failover.order(backups.nodes, current, failedBackups.excluded(SystemClock.elapsedRealtime())).filter(::availableBackup).take(Failover.TRIES)) {
                 updateNotification(App.prefs.settings.nodeLabel(current), localizedString(R.string.notification_testing_next, App.prefs.settings.nodeLabel(next)))
                 val result = runInterruptible { NodeTester.testRecovery(next, url, App.prefs.profileFor(next.id)) }
                 ensureActive()
@@ -657,7 +720,6 @@ class FarvaterVpnService : VpnService() {
     private fun stopVpn(): Unit = synchronized(commandLock) {
         stopped = true
         val generation = ++startGeneration
-        val startId = latestStartId
         val request = activeRequest
         unwatchNetwork()
         modeJob?.cancel()
@@ -672,7 +734,7 @@ class FarvaterVpnService : VpnService() {
                     VpnBus.state.value = VpnState.Idle
                     VpnBus.request.compareAndSet(request, null)
                     stopForeground(STOP_FOREGROUND_REMOVE)
-                    stopSelf(startId)
+                    stopSelf(latestStartId)
                 }
             }
         }
@@ -697,6 +759,7 @@ class FarvaterVpnService : VpnService() {
     }
 
     override fun onDestroy() {
+        if (instance.get() === this) instance.clear()
         val request = synchronized(commandLock) {
             stopped = true
             startGeneration++

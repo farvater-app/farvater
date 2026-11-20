@@ -7,6 +7,8 @@ import android.content.SharedPreferences
 import androidx.test.core.app.ApplicationProvider
 import app.farvater.core.model.ProxyNode
 import app.farvater.core.parser.LinkParser
+import app.farvater.data.RouteRule
+import app.farvater.data.RouteAction
 import app.farvater.data.AppSettings
 import app.farvater.data.ProbeMethod
 import app.farvater.data.AppFont
@@ -64,6 +66,20 @@ class BackupArchiveTest {
         assertEquals(original.probeMethod, restored.probeMethod)
         assertTrue(restored.neutralNotification && restored.flatNodes)
         assertEquals("Original", restored.rename(node, "").nodeLabel(node))
+    }
+
+    @Test fun legacyBackupKeepsRulesAutomaticPolicyAndExplicitNodeExclusions() {
+        val old = BackupArchive(settings = JsonObject(emptyMap()))
+        prefs.settings = prefs.settings.copy(automaticRoutes = false, excludedAutoNodeIds = setOf(node.id),
+            routeRules = listOf(RouteRule("example.test", RouteAction.BLOCK)))
+        val expected = prefs.settings
+        val reviewed = old.securityChanges(expected)
+        assertNull(reviewed.routes)
+        assertNull(reviewed.automaticRoutes)
+        prefs.restoreBackup(old, true, reviewed)
+        assertEquals(expected.routeRules, prefs.settings.routeRules)
+        assertFalse(prefs.settings.automaticRoutes)
+        assertEquals(setOf(node.id), prefs.settings.excludedAutoNodeIds)
     }
 
     @Test

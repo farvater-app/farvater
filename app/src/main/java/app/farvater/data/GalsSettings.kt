@@ -59,7 +59,7 @@ class GalsPolicy private constructor(val group: GalsGroup?, private val valid: B
 
     fun sameBehavior(other: GalsPolicy): Boolean = valid == other.valid &&
         group?.copy(name = "") == other.group?.copy(name = "") && settings.testUrl == other.settings.testUrl &&
-        settings.encryptedDns == other.settings.encryptedDns && settings.netMode == other.settings.netMode
+        settings.excludedAutoNodeIds == other.settings.excludedAutoNodeIds && settings.encryptedDns == other.settings.encryptedDns && settings.netMode == other.settings.netMode
 
     companion object {
         fun from(settings: AppSettings): GalsPolicy {

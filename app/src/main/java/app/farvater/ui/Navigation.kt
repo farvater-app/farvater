@@ -151,9 +151,10 @@ internal fun FarvaterFrame(
             measurer.measure(it, style = style, maxLines = 1, softWrap = false).size.width > width
         }
         if (crowded) {
-            AccessibleFrame(tab, selectTab, snackbar, style, content)
+            CompositionLocalProvider(LocalAtlasPage provides tab) { AccessibleFrame(tab, selectTab, snackbar, style, content) }
         } else {
             when {
+                Ios.observatory -> ObservatoryFrame(tab, selectTab, snackbar, content)
                 Ios.shell -> ShellFrame(tab, selectTab, snackbar, content)
                 Ios.winter -> ScenicFrame(tab, selectTab, snackbar, floating = false, content = content)
                 Ios.witch -> WitchFrame(tab, selectTab, snackbar, content)
@@ -172,6 +173,7 @@ internal fun FarvaterFrame(
 
 @Composable
 private fun navigationLabelStyle(): TextStyle = when {
+    Ios.observatory -> TextStyle(fontSize = 12.sp, lineHeight = 15.sp)
     Ios.nothing -> NothingLabel.copy(fontSize = 9.sp, letterSpacing = 1.sp)
     Ios.origin -> TextStyle(fontFamily = localizedFont(OriginFont), fontWeight = FontWeight.ExtraBold, fontSize = 10.5.sp, lineHeight = 13.sp)
     Ios.hyper -> TextStyle(fontFamily = localizedFont(HyperFont), fontWeight = FontWeight.SemiBold, fontSize = 11.sp, lineHeight = 14.sp)
@@ -207,10 +209,11 @@ private fun AccessibleFrame(
             val textHeight = titles.maxOf {
                 measurer.measure(it, style = style, constraints = Constraints(maxWidth = textWidth)).size.height
             }
-            val rowHeight = with(density) { textHeight.toDp() + 20.dp }.coerceAtLeast(48.dp)
+            val rowHeight = with(density) { textHeight.toDp() + 20.dp }.coerceAtLeast(48.dp) + if (Ios.observatory) 24.dp else 0.dp
             val barHeight = rowHeight * 2 + 8.dp
             val bottomInset = navInset + barHeight + gap
             when {
+                Ios.observatory -> AtlasSky(tab, Modifier.matchParentSize())
                 Ios.winter -> app.farvater.ui.components.WinterBackdrop(Modifier.matchParentSize())
                 Ios.nothing -> Box(Modifier.matchParentSize().dotGrid(c.label))
                 LocalUiStyle.current == UiStyle.SUMIE -> Box(Modifier.matchParentSize().paperGrain(c.label))
@@ -238,9 +241,12 @@ private fun AccessibleFrame(
                                 .background(if (selected && !Ios.oneUi && !Ios.nothing && !Ios.oxygen) c.highlight else Color.Transparent)
                                 .clickable(role = Role.Tab) { onTab(item) }.semantics { this.selected = selected },
                                 contentAlignment = Alignment.Center) {
-                                Text(if (Ios.nothing) item.title.uppercase() else item.title,
-                                    style = style, color = tint, textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp))
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    if (Ios.observatory) AtlasTabIcon(item, selected, Modifier.size(22.dp))
+                                    Text(if (Ios.nothing) item.title.uppercase() else item.title,
+                                        style = style, color = tint, textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp))
+                                }
                                 if (selected && (Ios.oneUi || Ios.nothing || Ios.oxygen)) {
                                     Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp)
                                         .size(if (Ios.oneUi) 22.dp else 5.dp, if (Ios.oneUi) 3.dp else 5.dp)

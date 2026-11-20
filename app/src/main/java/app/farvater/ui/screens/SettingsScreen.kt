@@ -163,6 +163,7 @@ private val ConcurrencyOptions: List<Pair<Int, String>>
 private enum class SettingsPage(val title: Int) {
     Appearance(R.string.settings_appearance),
     Connection(R.string.settings_connection),
+    Routes(R.string.routes_title),
     Security(R.string.settings_security),
     Subscriptions(R.string.settings_subscriptions),
     Testing(R.string.settings_testing),
@@ -246,6 +247,7 @@ fun SettingsScreen(
                         appIcon = icon
                     }
                     SettingsPage.Connection -> ConnectionPage(settings, onChange) { showApps = true }
+                    SettingsPage.Routes -> RoutingPage(settings, onChange)
                     SettingsPage.Security -> SecurityPage(settings, onChange)
                     SettingsPage.Subscriptions -> SubscriptionsPage(settings, onChange, hwid, onCopied)
                     SettingsPage.Gals -> GalsSettingsPage(settings, sources, onChange)
@@ -338,6 +340,7 @@ private fun SettingsRoot(
                         UiStyle.WITCH -> stringResource(R.string.style_witch)
                         UiStyle.WINTER -> stringResource(R.string.style_winter)
                         UiStyle.COLOROS -> stringResource(R.string.style_coloros)
+                        UiStyle.OBSERVATORY -> stringResource(R.string.style_observatory)
                         UiStyle.FLYME -> stringResource(R.string.style_flyme)
                     },
                     chevron = true,
@@ -370,6 +373,11 @@ private fun SettingsRoot(
                     value = if (settings.directRuServices) stringResource(R.string.russian_direct_short) else null,
                     chevron = true,
                     onClick = { onOpen(SettingsPage.Connection) },
+                )
+                IosDivider(start = divider)
+                IosRow(
+                    title = stringResource(R.string.routes_title), icon = Icons.Rounded.Hub, iconTint = c.teal,
+                    chevron = true, onClick = { onOpen(SettingsPage.Routes) },
                 )
                 IosDivider(start = divider)
                 IosRow(
@@ -687,6 +695,11 @@ private fun AppearancePage(
         )
     }
 
+    IosSection {
+        IosChoiceRow(stringResource(R.string.style_observatory), settings.uiStyle == UiStyle.OBSERVATORY,
+            { onChange { it.copy(uiStyle = UiStyle.OBSERVATORY) } }, subtitle = stringResource(R.string.observatory_hint),
+            leading = { StyleMark { app.farvater.ui.OrbitMark(3, true, Modifier.size(40.dp)) } })
+    }
     if (settings.uiStyle !in setOf(UiStyle.ROSKOMPOZOR, UiStyle.WITCH)) {
         IosSection(header = stringResource(R.string.theme_title)) {
             ThemeChoices.forEachIndexed { i, (mode, title) ->
@@ -748,8 +761,8 @@ private val ThemeChoices: List<Pair<ThemeMode, String>>
 private fun ConnectionPage(settings: AppSettings, onChange: ((AppSettings) -> AppSettings) -> Unit, onApps: () -> Unit) {
     val c = Ios.colors
     val context = LocalContext.current
-    val bypassCount by produceState<Int?>(null, settings.bypassApps, settings.directRuServices) {
-        val packages = if (settings.directRuServices) settings.bypassApps + RuApps.packages else settings.bypassApps
+    val bypassCount by produceState<Int?>(null, settings.bypassApps, settings.directRuServices, settings.automaticRoutes, settings.routeRules) {
+        val packages = if (settings.directRuServices && settings.automaticRoutes && settings.routeRules.isEmpty()) settings.bypassApps + RuApps.packages else settings.bypassApps
         value = withContext(Dispatchers.IO) { context.installedCount(packages) }
     }
     IosSection(
@@ -829,6 +842,7 @@ private fun ConnectionPage(settings: AppSettings, onChange: ((AppSettings) -> Ap
             },
         )
     }
+    VpnControls()
     IosSection(
         header = "MTU",
         footer = stringResource(R.string.mtu_hint),

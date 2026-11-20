@@ -54,24 +54,12 @@ jobs:
         with:
           packages: platform-tools
 
-      - name: Кэш ядра и TUN-моста
-        id: natives
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
-        with:
-          path: |
-            app/libs/libv2ray.aar
-            app/libs/natives-sha256.json
-            app/src/main/jniLibs
-          key: natives-${{ env.NDK_VERSION }}-${{ hashFiles('scripts/fetch-natives.sh', 'scripts/check-natives.py', 'scripts/native-versions.json', 'scripts/hev-udp-bind.patch') }}
-
       - name: NDK
-        if: steps.natives.outputs.cache-hit != 'true'
         run: |
           sdkmanager "ndk;${NDK_VERSION}"
           echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
 
       - name: Ядро и TUN-мост
-        if: steps.natives.outputs.cache-hit != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: ./scripts/fetch-natives.sh
@@ -92,6 +80,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a
         with:
           gradle-version: "9.8.2"
+          cache-disabled: true
 
       - name: Тесты и release-сборка
         env:
@@ -100,7 +89,7 @@ jobs:
           FARVATER_KEY_ALIAS: ${{ secrets.FARVATER_KEY_ALIAS }}
           FARVATER_KEY_PASSWORD: ${{ secrets.FARVATER_KEY_PASSWORD }}
         run: >
-          gradle :app:testReleaseUnitTest --tests 'app.farvater.ParserTest' :app:assembleRelease
+          gradle --no-build-cache :app:testReleaseUnitTest --tests 'app.farvater.ParserTest' :app:assembleRelease
           "-PfarvaterVersion=$TAG"
           "-PfarvaterUpdateRepo=$UPDATE_REPO"
 
@@ -114,10 +103,14 @@ jobs:
           done
           (cd dist && sha256sum *.apk > SHA256SUMS.txt)
           APKSIGNER=$(ls -d "$ANDROID_SDK_ROOT"/build-tools/*/ | sort -V | tail -1)apksigner
+          expected_cert=d880fcfe51d4a306a50fb86740839d74753753d488066b27e15400b542bc680f
+          python3 scripts/check-release-apk.py dist/*universal*.apk "$(dirname "$APKSIGNER")"
           for apk in dist/*.apk; do
             files="$(unzip -l "$apk")"
             grep -qE "META-INF/[^/]+\.(RSA|EC|DSA)$" <<<"$files" || { echo "::error::$apk без файлов подписи v1"; exit 1; }
-            schemes="$("$APKSIGNER" verify --verbose --min-sdk-version 23 "$apk")"
+            schemes="$("$APKSIGNER" verify --verbose --print-certs --min-sdk-version 23 "$apk")"
+            signer=$(awk '/^Signer #[0-9]+ certificate SHA-256 digest:/ {print tolower($NF)}' <<<"$schemes")
+            [[ "$signer" == "$expected_cert" ]] || { echo "::error::Unexpected APK signer"; exit 1; }
             for v in v1 v2 v3; do
               grep -q "Verified using $v scheme.*: true" <<<"$schemes" || { echo "::error::$apk не подписан схемой $v"; exit 1; }
             done

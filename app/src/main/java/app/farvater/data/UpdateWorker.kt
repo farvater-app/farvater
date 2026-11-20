@@ -36,7 +36,7 @@ class UpdateWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             val result = App.updates.check(viaTunnel = VpnBus.state.value is VpnState.Connected)
             if (result.isSuccess) App.prefs.lastUpdateCheck = System.currentTimeMillis()
             val info = result.getOrNull() ?: return
-            if (App.prefs.notifiedVersion >= info.versionCode) return
+            if (App.prefs.notifiedVersion == info.versionCode) return
             App.prefs.notifiedVersion = info.versionCode
             notify(context, info)
         }

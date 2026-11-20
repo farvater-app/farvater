@@ -32,6 +32,10 @@ https://github.com/JetBrains/kotlin
 OkHttp и Okio — Square, Inc. Apache License 2.0.
 https://github.com/square/okhttp
 
+Распознавание и создание QR-кодов — ZXing Core (проект ZXing). Экран сканирования на Android — ZXing Android Embedded (JourneyApps). Оба компонента распространяются по Apache License 2.0.
+https://github.com/zxing/zxing
+https://github.com/journeyapps/zxing-android-embedded
+
 Шрифт Farvater Dot для стиля Nothing — изменённая версия шрифта Tiny5 (The Tiny5 Project Authors): в нём оставлены латиница и кириллица, а пиксели скруглены в точки. SIL Open Font License 1.1.
 https://github.com/Gissio/font_tiny5
 

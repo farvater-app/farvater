@@ -60,7 +60,7 @@ fun BackupPage(
             IosButton(stringResource(R.string.backup_import), modifier = Modifier.fillMaxWidth(), style = IosButtonStyle.Tinted, color = Ios.colors.label, enabled = !busy, onClick = { open.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) })
         }
     }
-    if (warnExport) BackupConfirmation(
+    if (warnExport) ActionConfirmation(
         title = stringResource(R.string.backup_title),
         message = stringResource(R.string.backup_secrets),
         action = stringResource(R.string.backup_export),
@@ -76,7 +76,7 @@ fun BackupPage(
         val transfer = stringResource(R.string.backup_security_transfer)
         val keep = stringResource(R.string.backup_security_keep)
         val changes = backupSecuritySummary(securityChanges)
-        BackupConfirmation(
+        ActionConfirmation(
             title = stringResource(R.string.backup_restore),
             message = stringResource(R.string.backup_preview, preview.first, preview.second) + "\n\n" + keep,
             action = stringResource(R.string.backup_restore),
@@ -109,7 +109,7 @@ fun BackupPage(
 }
 
 @Composable
-private fun BackupConfirmation(title: String, message: String, action: String, destructive: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit, details: @Composable () -> Unit = {}) {
+internal fun ActionConfirmation(title: String, message: String, action: String, destructive: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit, details: @Composable () -> Unit = {}) {
     val cancel = stringResource(R.string.action_cancel)
     val readMore = stringResource(R.string.backup_read_more)
     IosAlert(title = title, onDismiss = onDismiss, actions = emptyList(), content = {
@@ -141,7 +141,11 @@ private fun backupSecuritySummary(changes: BackupSecurityChanges): String {
     val lines = mutableListOf<String>()
     if (changes.addedBypassApps.isNotEmpty()) lines += stringResource(R.string.backup_security_bypass_add, changes.addedBypassApps.sorted().joinToString("\n"))
     if (changes.removedBypassApps.isNotEmpty()) lines += stringResource(R.string.backup_security_bypass_remove, changes.removedBypassApps.sorted().joinToString("\n"))
-    listOf(changes.safeMode to R.string.safe_nodes, changes.encryptedDns to R.string.encrypted_dns,
+    changes.routes?.let { routes ->
+        val titles = routes.map { it.target + "  ·  " + stringResource(routeLabel(it.action)) }
+        lines += stringResource(R.string.routes_title) + "\n" + if (titles.isEmpty()) stringResource(R.string.route_empty) else titles.joinToString("\n")
+    }
+    listOf(changes.automaticRoutes to R.string.routes_auto, changes.safeMode to R.string.safe_nodes, changes.encryptedDns to R.string.encrypted_dns,
         changes.autoUpdates to R.string.backup_security_updates, changes.sendHwid to R.string.send_hwid,
         changes.directRuServices to R.string.backup_security_ru_direct).forEach { (value, title) ->
         if (value != null) lines += stringResource(if (value) R.string.backup_security_enable else R.string.backup_security_disable, stringResource(title))

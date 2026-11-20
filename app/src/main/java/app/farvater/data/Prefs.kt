@@ -12,10 +12,10 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
 
-const val LEGAL_VERSION = 6
+const val LEGAL_VERSION = 7
 
 @Serializable
-enum class UiStyle { IOS, MATERIAL, ROSKOMPOZOR, SUMIE, NOTHING, ORIGIN, HYPER, HARMONY, ONEUI, OXYGEN, WITCH, WINTER, COLOROS, FLYME }
+enum class UiStyle { IOS, MATERIAL, ROSKOMPOZOR, SUMIE, NOTHING, ORIGIN, HYPER, HARMONY, ONEUI, OXYGEN, WITCH, WINTER, COLOROS, FLYME, OBSERVATORY }
 
 @Serializable
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
@@ -69,6 +69,9 @@ data class AppSettings(
     val galsGroups: List<GalsGroup> = emptyList(),
     val activeGalsGroupId: String? = null,
     val nodeNames: Map<String, String> = emptyMap(),
+    val routeRules: List<RouteRule> = emptyList(),
+    val automaticRoutes: Boolean = true,
+    val excludedAutoNodeIds: Set<String> = emptySet(),
 ) {
     fun nodeLabel(node: ProxyNode): String = nodeNames["${node.sourceId}/${node.id}"] ?: node.name
 
@@ -220,7 +223,9 @@ class Prefs(context: Context) {
         if (kept.size != modeNodes.size) modeNodes = kept
     }
 
-    fun allowedForAuto(node: ProxyNode): Boolean {
+    fun allowedForAuto(node: ProxyNode): Boolean = node.id !in settings.excludedAutoNodeIds && eligibleSource(node)
+
+    fun eligibleSource(node: ProxyNode): Boolean {
         val s = settings
         return when {
             node.sourceId == ProxyNode.MANUAL_SOURCE -> true
@@ -338,6 +343,9 @@ class Prefs(context: Context) {
         val incoming = archive.decodedSettings()
         if (includeSecuritySettings) require(reviewedChanges != null && reviewedChanges == archive.securityChanges(old))
         val restored = incoming.copy(
+            excludedAutoNodeIds = (old.excludedAutoNodeIds + incoming.excludedAutoNodeIds).also { require(it.size <= 5000) },
+            routeRules = if (includeSecuritySettings && "routeRules" in archive.settings) incoming.routeRules else old.routeRules,
+            automaticRoutes = if (includeSecuritySettings && "automaticRoutes" in archive.settings) incoming.automaticRoutes else old.automaticRoutes,
             bypassApps = if (includeSecuritySettings) incoming.bypassApps else old.bypassApps,
             safeMode = if (includeSecuritySettings) incoming.safeMode else old.safeMode,
             encryptedDns = if (includeSecuritySettings) incoming.encryptedDns else old.encryptedDns,

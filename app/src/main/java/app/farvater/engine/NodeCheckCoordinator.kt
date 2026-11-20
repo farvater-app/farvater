@@ -181,7 +181,7 @@ object NodeCheckCoordinator {
                 prefs.nodeHealth = history
                 val results = NodeHealth.results(history, mode)
                 val previous = prefs.backupNodes.takeIf { it.mode == mode }?.nodes.orEmpty()
-                prefs.backupNodes = BackupNodes(mode, Failover.pick((nodes + previous).distinctBy { it.id }, results, NodeHealth.dead(history, mode)))
+                prefs.backupNodes = BackupNodes(mode, Failover.pick((nodes + previous).filter(prefs::allowedForAuto).distinctBy { it.id }, results, NodeHealth.dead(history, mode)))
             }
         }
     }

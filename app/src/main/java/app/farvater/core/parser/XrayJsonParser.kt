@@ -88,6 +88,15 @@ object XrayJsonParser {
     private fun node(config: JsonObject, sourceId: String): ProxyNode? {
         val original = config.array("outbounds").filterIsInstance<JsonObject>()
             .filter { it.str("tag") !in RESERVED_TAGS && it.str("protocol")?.lowercase() != "dns" }
+        val tags = original.mapNotNull { outbound ->
+            val fields = outbound.filterKeys { it.equals("tag", ignoreCase = true) }.values.filter { it != JsonNull }
+            if (fields.isEmpty()) return@mapNotNull null
+            if (fields.distinct().size != 1) return null
+            val tag = fields.singleOrNull() as? JsonPrimitive ?: return null
+            if (!tag.isString || tag.content.isBlank()) return null
+            tag.content
+        }
+        if (tags.size != tags.toSet().size) return null
         val main = original.firstOrNull { it.str("tag") == "proxy" && it.str("protocol")?.lowercase() in PROTOCOLS }
             ?: original.firstOrNull { it.str("protocol")?.lowercase() in PROTOCOLS }
             ?: return null
@@ -102,7 +111,7 @@ object XrayJsonParser {
         val port = server.int("port") ?: return null
 
         val ordered = listOf(main) + original.filter { it !== main }
-        val outbounds = ordered.map { withoutInsecure(it) as JsonObject }
+        val outbounds = ordered.map { sanitizeNativeOptions(it) as JsonObject }
         val routing = config.obj("routing")
         val balancerTag = routing?.array("rules")?.filterIsInstance<JsonObject>()
             ?.lastOrNull { it.str("balancerTag") != null }?.str("balancerTag")
@@ -161,12 +170,16 @@ object XrayJsonParser {
         )
     }
 
-    internal fun withoutInsecure(value: JsonElement, parent: String = ""): JsonElement = when (value) {
-        is JsonObject -> JsonObject(value.filterKeys {
-            !it.equals("allowInsecure", ignoreCase = true) &&
-                !(parent.equals("masquerade", ignoreCase = true) && it.equals("insecure", ignoreCase = true))
-        }.mapValues { (key, child) -> withoutInsecure(child, key) })
-        is JsonArray -> JsonArray(value.map { withoutInsecure(it, parent) })
+    internal fun sanitizeNativeOptions(value: JsonElement, parent: String = ""): JsonElement = when (value) {
+        is JsonObject -> JsonObject(value.filterKeys { key ->
+            !key.equals("allowInsecure", true) && when {
+                parent.equals("tlsSettings", true) || parent.equals("realitySettings", true) -> !key.equals("masterKeyLog", true)
+                parent.equals("certificates", true) -> !key.equals("certificateFile", true) && !key.equals("keyFile", true)
+                parent.equals("masquerade", true) -> !key.equals("insecure", true) && !key.equals("dir", true)
+                else -> true
+            }
+        }.mapValues { (key, child) -> sanitizeNativeOptions(child, key) })
+        is JsonArray -> JsonArray(value.map { sanitizeNativeOptions(it, parent) })
         else -> value
     }
 

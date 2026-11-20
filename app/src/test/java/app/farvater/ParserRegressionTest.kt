@@ -3,6 +3,7 @@ package app.farvater
 import app.farvater.core.model.Protocol
 import app.farvater.core.model.ProxyNode
 import app.farvater.core.model.onePerEndpoint
+import app.farvater.core.parser.XrayJsonParser
 import app.farvater.core.parser.LinkParser
 import app.farvater.core.parser.SubscriptionParser
 import app.farvater.core.xray.XrayConfigBuilder
@@ -153,6 +154,31 @@ class ParserRegressionTest {
         val input = config("proxy").replace("\"security\":\"tls\"", """"security":"tls","network":"xhttp","xhttpSettings":{"extra":{"downloadSettings":{"security":"tls","tlsSettings":{"allowInsecure":true}}}}""")
         val node = SubscriptionParser.parse(input, "test").nodes.single()
         assertFalse(XrayConfigBuilder.build(node, false).contains("allowInsecure"))
+    }
+
+    @Test
+    fun transportOptionsKeepInlineCertificatesAndOmitDeviceFileSettings() {
+        val tls = """{"masterKeyLog":"fixture-log","certificates":[{"CertificateFile":"fixture-cert","keyFile":"fixture-key","certificate":["inline-pem"]}]}"""
+        val extra = """{"downloadSettings":{"security":"tls","tlsSettings":$tls,"realitySettings":{"MasterKeyLog":"fixture-log"}}}"""
+        val raw = config("proxy").replace("\"security\":\"tls\"", """"security":"tls","tlsSettings":$tls,"network":"xhttp","xhttpSettings":{"extra":$extra}""")
+        val imported = SubscriptionParser.parse(raw, "test").nodes.single()
+        val linked = LinkParser.parse("$validLink&type=xhttp&extra=" + URLEncoder.encode(extra, "UTF-8"))!!
+        for (node in listOf(imported, imported.copy(raw = raw), linked)) {
+            for (probe in listOf(false, true)) {
+                val built = XrayConfigBuilder.build(node, false, forTest = probe)
+                assertFalse(built.contains("fixture-"))
+                assertTrue(built.contains("inline-pem"))
+            }
+        }
+    }
+
+    @Test
+    fun nativeOptionFilteringUsesSchemaContextsAndPreservesHeaders() {
+        val fields = Json.parseToJsonElement("""{"TLSSettings":{"MasterKeyLog":"unused"},"masquerade":{"DIR":"unused","insecure":true},"headers":{"dir":"header-value","keyFile":"header-value"}}""")
+        val clean = XrayJsonParser.sanitizeNativeOptions(fields).jsonObject
+        assertTrue(clean.getValue("TLSSettings").jsonObject.isEmpty())
+        assertTrue(clean.getValue("masquerade").jsonObject.isEmpty())
+        assertEquals(fields.jsonObject["headers"], clean["headers"])
     }
 
     @Test

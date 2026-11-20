@@ -125,6 +125,7 @@ fun ServersScreen(
     onTestSource: ((String) -> Unit)? = null,
     onRename: (ProxyNode, String) -> Unit = { _, _ -> },
     onTestForServices: () -> Unit = onTestAll,
+    onToggleAuto: (ProxyNode) -> Unit = {},
 ) {
     val c = Ios.colors
     val winter = Ios.winter
@@ -450,6 +451,9 @@ fun ServersScreen(
                     icon = Icons.Rounded.ContentCopy,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                IosButton(stringResource(if (node.id in state.settings.excludedAutoNodeIds) R.string.auto_include else R.string.auto_exclude),
+                    onClick = { close { onToggleAuto(node) } }, style = IosButtonStyle.Tinted, modifier = Modifier.fillMaxWidth(),
+                    enabled = node.id in state.settings.excludedAutoNodeIds || state.settings.excludedAutoNodeIds.size < 5000)
                 IosButton(stringResource(R.string.qr_show), onClick = { close { qr = node.raw } },
                     style = IosButtonStyle.Tinted, modifier = Modifier.fillMaxWidth())
                 if (node.sourceId == ProxyNode.MANUAL_SOURCE || state.sources.any { it.id == node.sourceId && !it.community }) {
@@ -529,11 +533,11 @@ private fun NodeRow(
     val (flag, title) = remember(name) { splitFlag(name) }
     val subtitle = (securityLabel(node.securityIssue)?.let { "$it · " } ?: "") + nodeSummary(node)
     IosRow(
-        title = title,
+        title = if (Ios.observatory) name else title,
         subtitle = subtitle,
         subtitleColor = if (node.isInsecure) c.red else null,
         subtitleLines = 1,
-        leading = { NodeAvatar(flag, node) },
+        leading = { if (Ios.observatory) app.farvater.ui.OrbitMark(node.id.hashCode(), selected, Modifier.size(42.dp)) else NodeAvatar(flag, node) },
         trailing = {
             Box(
                 Modifier.size(48.dp).clip(CircleShape).toggleable(value = favorite, role = Role.Checkbox, onValueChange = { onFavorite() }),

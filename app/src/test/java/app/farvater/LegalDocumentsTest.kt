@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import app.farvater.data.LEGAL_VERSION
 import app.farvater.data.Prefs
+import app.farvater.ui.screens.documentHeadings
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,11 +28,19 @@ class LegalDocumentsTest {
         }
     }
 
+    @Test fun contentsPreserveSectionOrderAndKeepLicenseClausesOutOfNavigation() {
+        for ((file, expected) in listOf("privacy.txt" to 24, "terms.txt" to 18, "licenses.txt" to 7)) {
+            val lines = app.assets.open(file).bufferedReader().use { it.readLines().filter(String::isNotBlank).drop(1) }
+            val headings = documentHeadings(lines).map { lines[it].substringBefore('.').toInt() }
+            assertEquals(file, (1..expected).toList(), headings)
+        }
+    }
+
     @Test fun oneNewRevisionCoversBackgroundChecksAndLocalDiagnostics() {
-        assertEquals(6, LEGAL_VERSION)
+        assertEquals(7, LEGAL_VERSION)
         val policy = app.assets.open("privacy.txt").bufferedReader().use { it.readText() }
         val terms = app.assets.open("terms.txt").bufferedReader().use { it.readText() }
-        assertTrue(terms.contains("Редакция 3. Действует с 2 ноября 2026 года."))
+        assertTrue(terms.contains("Редакция 4 от 20 ноября 2026 года. Применяется после принятия в приложении."))
         listOf(
             "web.telegram.org", "www.tiktok.com", "При восстановлении группа требует повторного выбора",
             "при погашенном экране",

@@ -55,7 +55,7 @@ fun FarvaterRoot(vm: MainViewModel) {
     var settingsPage by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler(enabled = tab != Tab.Home) { tab = Tab.Home }
     var reopenOnboarding by remember { mutableStateOf(false) }
-    var openDocument by remember { mutableStateOf<String?>(null) }
+    var openDocument by rememberSaveable { mutableStateOf<String?>(null) }
     val snackbar = remember { SnackbarHostState() }
 
     LaunchedEffect(state.message) {
@@ -65,7 +65,8 @@ fun FarvaterRoot(vm: MainViewModel) {
     }
 
     val shell = app.farvater.ui.theme.Ios.shell
-    val still = if (shell) app.farvater.ui.components.LocalShellMotionDisabled.current else rememberReduceMotion()
+    val atlas = app.farvater.ui.theme.Ios.observatory
+    val still = if (shell || atlas) app.farvater.ui.components.LocalShellMotionDisabled.current else rememberReduceMotion()
     val tabMotion = if (shell) 280 else 340
     FarvaterFrame(
         tab = tab,
@@ -80,7 +81,9 @@ fun FarvaterRoot(vm: MainViewModel) {
             modifier = Modifier.padding(padding).consumeWindowInsets(padding),
             transitionSpec = {
                 if (still) {
-                    fadeIn(tween(if (shell) 0 else 160)) togetherWith fadeOut(tween(if (shell) 0 else 100))
+                    fadeIn(tween(if (shell || atlas) 0 else 160)) togetherWith fadeOut(tween(if (shell || atlas) 0 else 100))
+                } else if (atlas) {
+                    (androidx.compose.animation.scaleIn(tween(340), initialScale = 0.96f) + fadeIn(tween(240))) togetherWith fadeOut(tween(110))
                 } else {
                     val dir = if (targetState.ordinal > initialState.ordinal) 1 else -1
                     (slideInHorizontally(tween(tabMotion, easing = EaseOutQuint)) { it * dir } + fadeIn(tween(200))) togetherWith
@@ -121,6 +124,7 @@ fun FarvaterRoot(vm: MainViewModel) {
                     onCancelTest = vm::cancelTest,
                     onDeleteManual = vm::deleteManualNode,
                     onRename = vm::renameNode,
+                    onToggleAuto = vm::toggleAutomaticNode,
                     onCopied = { vm.showMessage(linkCopied) },
                     onDuplicates = { remove -> vm.updateSettings { it.copy(dropDuplicates = remove, duplicatesAsked = true) } },
                 )
@@ -212,7 +216,7 @@ fun FarvaterRoot(vm: MainViewModel) {
         androidx.compose.runtime.key(text) {
             IosAlert(
                 title = stringResource(R.string.import_link_question),
-                message = text.take(300),
+                message = remember(text) { app.farvater.net.ImportLink.preview(text) } ?: stringResource(R.string.import_invalid),
                 onDismiss = { vm.dismissImport(text) },
                 actions = listOf(
                     AlertAction(stringResource(R.string.action_cancel)) { vm.dismissImport(text) },

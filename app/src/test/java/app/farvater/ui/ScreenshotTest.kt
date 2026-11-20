@@ -23,6 +23,10 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToKey
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -66,6 +70,33 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [35], qualifiers = "ru-w393dp-h852dp-xxhdpi", application = Application::class)
 class ScreenshotTest {
     @get:Rule val rule = createComposeRule()
+
+    @Test fun observatoryHomeLight() = shot("observatory_home_light", dark = false, style = UiStyle.OBSERVATORY) { Home(VpnState.Idle) }
+    @Test fun observatoryHomeDark() = shot("observatory_home_dark", dark = true, style = UiStyle.OBSERVATORY) { Home(VpnState.Idle) }
+    @Test fun observatoryNodesLight() = shot("observatory_nodes_light", dark = false, style = UiStyle.OBSERVATORY) { Servers() }
+    @Test fun observatoryNodesDark() = shot("observatory_nodes_dark", dark = true, style = UiStyle.OBSERVATORY) { Servers() }
+    @Test fun observatorySourcesLight() = shot("observatory_sources_light", dark = false, style = UiStyle.OBSERVATORY) { Sources() }
+    @Test fun observatorySourcesDark() = shot("observatory_sources_dark", dark = true, style = UiStyle.OBSERVATORY) { Sources() }
+    @Test fun observatorySettingsLight() = shot("observatory_settings_light", dark = false, style = UiStyle.OBSERVATORY) { Settings() }
+    @Test fun observatorySettingsDark() = shot("observatory_settings_dark", dark = true, style = UiStyle.OBSERVATORY) { Settings() }
+    @Test fun observatorySourcesLargeFa() = shot("observatory_sources_fa_large", dark = true, style = UiStyle.OBSERVATORY, fontScale = 2f, language = "fa") { Sources() }
+
+    @Test fun observatoryPrivacyContents() = shot("observatory_privacy_contents", dark = true, style = UiStyle.OBSERVATORY,
+        screen = true, act = { rule.onNodeWithText("Содержание").performClick() }) {
+        app.farvater.ui.screens.LegalDocument("privacy.txt") {}
+    }
+
+    @Test fun observatoryPrivacyJump() = shot("observatory_privacy_section", dark = false, style = UiStyle.OBSERVATORY,
+        screen = true, act = {
+            rule.mainClock.autoAdvance = true
+            rule.onNodeWithText("Содержание").performClick()
+            rule.onNodeWithText("К тексту").assertIsDisplayed()
+            rule.onNode(androidx.compose.ui.test.hasScrollToIndexAction()).performScrollToNode(hasText("15. Исключения из VPN и список приложений"))
+            rule.onNodeWithText("15. Исключения из VPN и список приложений").performClick()
+            rule.mainClock.advanceTimeBy(300)
+            rule.onNodeWithText("Содержание").assertIsDisplayed()
+            rule.onNodeWithText("15. Исключения из VPN и список приложений").assertIsDisplayed()
+        }) { app.farvater.ui.screens.LegalDocument("privacy.txt") {} }
 
     @Test fun language_fa_about() = shot("L_fa_about_scrolled", dark = true, style = UiStyle.WITCH, language = "fa",
         act = { repeat(3) { rule.onRoot().performTouchInput { swipeUp(startY = height * 0.7f, endY = height * 0.2f) }; rule.mainClock.advanceTimeBy(1000) } },

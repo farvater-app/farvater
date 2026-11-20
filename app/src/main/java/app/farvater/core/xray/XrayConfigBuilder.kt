@@ -1,5 +1,10 @@
 package app.farvater.core.xray
 
+import app.farvater.data.RouteRule
+import app.farvater.data.RouteAction
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.JsonPrimitive
 import app.farvater.core.model.NodeProfile
 import app.farvater.core.model.Protocol
 import app.farvater.core.model.canFragment
@@ -47,12 +52,40 @@ object XrayConfigBuilder {
         profile: NodeProfile? = null,
         socksPort: Int = SOCKS_PORT,
         probePort: Int? = null,
+        routeRules: List<RouteRule> = emptyList(),
+        automaticRoutes: Boolean = true,
     ): String {
         val provider = if (node.isJson) Json.parseToJsonElement(node.raw).jsonObject else null
         val tuned = profile?.takeIf { provider == null }
         val fragment = tuned?.fragment == true && node.canFragment
         val proxies = provider?.get("outbounds")?.jsonArray ?: listOf(outbound(node, tuned, fragment))
         val balancers = provider?.get("routing")?.jsonObject?.get("balancers")?.jsonArray
+        require(RouteRule.valid(routeRules))
+        val main = proxies.first().jsonObject
+        val primary = (main["tag"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() } ?: generateSequence("farvater-main") { it + "-" }
+            .first { tag -> proxies.none { (it.jsonObject["tag"] as? JsonPrimitive)?.contentOrNull == tag } }
+        val userVpn = routeRules.any { it.action == RouteAction.VPN }
+        val outputs = buildJsonArray {
+            proxies.forEachIndexed { i, proxy ->
+                add(if (i == 0 && userVpn) JsonObject(main + ("tag" to JsonPrimitive(primary))) else proxy)
+            }
+            if (fragment) addJsonObject {
+                put("tag", FRAGMENT_TAG)
+                put("protocol", "freedom")
+                putJsonObject("settings") {
+                    putJsonObject("fragment") {
+                        put("packets", "tlshello")
+                        put("length", "100-200")
+                        put("interval", "10-20")
+                    }
+                }
+            }
+            addJsonObject { put("tag", "direct"); put("protocol", "freedom") }
+            addJsonObject { put("tag", "block"); put("protocol", "blackhole") }
+            if (!forTest && encryptedDns) addJsonObject { put("tag", "dns-out"); put("protocol", "dns") }
+        }
+        val acceptedBalancers = balancers?.let { XrayJsonParser.safeBalancers(it, outputs) }
+        val safeBalancer = acceptedBalancers?.firstOrNull()?.get("tag")
         val config = buildJsonObject {
             putJsonObject("log") { put("loglevel", "warning") }
             if (!forTest) {
@@ -74,23 +107,7 @@ object XrayConfigBuilder {
                     put("serveExpiredTTL", 3600)
                 }
             }
-            putJsonArray("outbounds") {
-                proxies.forEach { add(it) }
-                if (fragment) addJsonObject {
-                    put("tag", FRAGMENT_TAG)
-                    put("protocol", "freedom")
-                    putJsonObject("settings") {
-                        putJsonObject("fragment") {
-                            put("packets", "tlshello")
-                            put("length", "100-200")
-                            put("interval", "10-20")
-                        }
-                    }
-                }
-                addJsonObject { put("tag", "direct"); put("protocol", "freedom") }
-                addJsonObject { put("tag", "block"); put("protocol", "blackhole") }
-                if (!forTest && encryptedDns) addJsonObject { put("tag", "dns-out"); put("protocol", "dns") }
-            }
+            put("outbounds", outputs)
             if (!forTest) {
                 putJsonObject("routing") {
                     put("domainStrategy", "AsIs")
@@ -101,19 +118,31 @@ object XrayConfigBuilder {
                             put("port", "53")
                             put("outboundTag", "dns-out")
                         }
-                        addJsonObject {
+                        for (rule in routeRules) addJsonObject {
+                            put("type", "field")
+                            putJsonArray("inboundTag") { add("socks") }
+                            if (rule.isIp) putJsonArray("ip") { add(rule.target) }
+                            else putJsonArray("domain") { add("domain:${rule.target}") }
+                            when (rule.action) {
+                                RouteAction.DIRECT -> put("outboundTag", "direct")
+                                RouteAction.BLOCK -> put("outboundTag", "block")
+                                RouteAction.VPN -> if (safeBalancer != null) put("balancerTag", safeBalancer) else put("outboundTag", primary)
+                            }
+                        }
+                        if (automaticRoutes) addJsonObject {
                             put("type", "field")
                             putJsonArray("inboundTag") { add("socks") }
                             putJsonArray("ip") { PRIVATE_CIDRS.forEach { add(it) } }
                             put("outboundTag", "direct")
                         }
-                        if (directRuServices) addJsonObject {
+                        if (automaticRoutes && directRuServices) addJsonObject {
                             put("type", "field")
                             putJsonArray("inboundTag") { add("socks") }
                             putJsonArray("domain") { DIRECT_DOMAINS.forEach { add("domain:$it") } }
                             put("outboundTag", "direct")
                         }
-                        balancers?.firstOrNull()?.jsonObject?.get("tag")?.let { tag ->
+                        val providerDefault = balancers?.firstOrNull()?.jsonObject?.get("tag")
+                        providerDefault?.takeIf { tag -> acceptedBalancers?.any { it["tag"] == tag } == true }?.let { tag ->
                             addJsonObject {
                                 put("type", "field")
                                 put("network", "tcp,udp")
@@ -121,26 +150,13 @@ object XrayConfigBuilder {
                             }
                         }
                     }
-                    balancers?.let { put("balancers", it) }
+                    acceptedBalancers?.let { put("balancers", JsonArray(it)) }
                 }
                 provider?.get("observatory")?.let { put("observatory", it) }
                 provider?.get("burstObservatory")?.let { put("burstObservatory", it) }
             }
         }
-        val routing = config["routing"]?.jsonObject
-        val safeConfig = if (routing != null && balancers != null) {
-            val safe = XrayJsonParser.safeBalancers(balancers, config.getValue("outbounds").jsonArray)
-            val tags = safe.mapNotNull { it["tag"] }.toSet()
-            val rules = routing.getValue("rules").jsonArray.filter {
-                val tag = it.jsonObject["balancerTag"]
-                tag == null || tag in tags
-            }
-            JsonObject(config + ("routing" to JsonObject(routing + mapOf(
-                "balancers" to JsonArray(safe),
-                "rules" to JsonArray(rules),
-            ))))
-        } else config
-        return XrayJsonParser.withoutInsecure(safeConfig).toString()
+        return XrayJsonParser.sanitizeNativeOptions(config).toString()
     }
 
     private fun socksInbound(tag: String, port: Int, udp: Boolean) = buildJsonObject {
