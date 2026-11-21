@@ -89,7 +89,7 @@ internal fun GalsSettingsPage(settings: AppSettings, sources: List<SourceUi>, on
                 }
                 IosSection(header = stringResource(R.string.gals_target)) {
                     IosChoiceRow(stringResource(R.string.gals_standard), draft.target == null, { draft = draft.copy(target = null) })
-                    ServiceKind.entries.forEach { target ->
+                    ServiceKind.entries.sortedBy { it == ServiceKind.CUSTOM }.forEach { target ->
                         IosDivider()
                         IosChoiceRow(serviceName(target), draft.target == target, { draft = draft.copy(target = target) })
                     }
@@ -107,13 +107,13 @@ internal fun GalsSettingsPage(settings: AppSettings, sources: List<SourceUi>, on
                     }
                 }
                 IosSection(header = stringResource(R.string.gals_interval), footer = stringResource(R.string.gals_period_hint)) {
+                    IosRow(title = stringResource(R.string.gals_optimize), titleLines = 2, checked = draft.periodicOptimization,
+                        onCheckedChange = { draft = draft.copy(periodicOptimization = it) })
+                    IosDivider()
                     GalsGroups.intervals.forEach { seconds ->
                         IosChoiceRow(stringResource(R.string.gals_seconds, seconds), draft.intervalSeconds == seconds,
                             { draft = draft.copy(intervalSeconds = seconds) })
                     }
-                    IosDivider()
-                    IosRow(title = stringResource(R.string.gals_optimize), titleLines = 2, checked = draft.periodicOptimization,
-                        onCheckedChange = { draft = draft.copy(periodicOptimization = it) })
                 }
                 val custom = draft.target == ServiceKind.CUSTOM
                 val saved = draft.copy(name = draft.name.trim(), sourceIds = draft.sourceIds.intersect(sourceNames.keys),

@@ -74,6 +74,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.farvater.core.model.NetMode
 import app.farvater.core.model.ProxyNode
@@ -339,13 +340,16 @@ fun ServersScreen(
                     if (sourceId != FlatGroup) item(key = "group:$sourceId", contentType = "group") {
                         val title = if (isDead) stringResource(R.string.nodes_dead)
                             else state.sourceTitle(sourceId, stringResource(R.string.interval_manual))
-                        Row(Modifier.fillMaxWidth().animateItem(), verticalAlignment = Alignment.CenterVertically) {
+                        val canCheck = !isDead && onTestSource != null && state.progress == null && !state.gals && !state.refining
+                        Row(Modifier.fillMaxWidth().animateItem().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (canCheck) Spacer(Modifier.width(48.dp))
                             GroupHeader(title, nodes.size, nodes.count { state.results[it.id]?.alive == true }, collapsed,
                                 { onToggleGroup(if (isDead) DeadGroupOpen else sourceId) }, Modifier.weight(1f))
-                            if (!isDead && onTestSource != null && state.progress == null && !state.gals && !state.refining) {
-                                Box(Modifier.padding(end = 16.dp)) {
-                                    IosCircleButton(Icons.Rounded.Speed, stringResource(R.string.test_source_nodes, title),
-                                        { onTestSource(sourceId) })
+                            if (canCheck) {
+                                Box(Modifier.size(48.dp).clip(CircleShape).clickable(role = Role.Button) { onTestSource(sourceId) },
+                                    contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Rounded.Speed, stringResource(R.string.test_source_nodes, title),
+                                        tint = c.secondaryLabel, modifier = Modifier.size(20.dp))
                                 }
                             }
                         }
@@ -486,14 +490,15 @@ private fun GroupHeader(title: String, count: Int, alive: Int, collapsed: Boolea
     val turn = if (rememberReduceMotion()) target else animateFloatAsState(target, spring(dampingRatio = 0.8f, stiffness = 500f), label = "chevron").value
     val groupState = stringResource(if (collapsed) R.string.group_collapsed else R.string.group_expanded)
     val action = stringResource(if (collapsed) R.string.action_expand else R.string.action_collapse)
-    Row(
+    Column(
         modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
             .semantics { stateDescription = groupState }
             .clickable(role = Role.Button, onClickLabel = action, onClick = onClick)
-            .padding(start = 32.dp, end = 24.dp, top = 18.dp, bottom = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = 4.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
         val material = Ios.material && !Ios.nothing
         Text(
@@ -504,17 +509,20 @@ private fun GroupHeader(title: String, count: Int, alive: Int, collapsed: Boolea
                 else -> IosType.footnote
             },
             color = if (material) c.tint else c.secondaryLabel,
-            maxLines = 1,
-            modifier = Modifier.weight(1f),
+            maxLines = 2,
+            textAlign = TextAlign.Center,
+            overflow = TextOverflow.Ellipsis,
         )
-        Text(if (alive > 0) stringResource(R.string.count_of, alive, count) else "$count", style = IosType.footnote, color = c.secondaryLabel)
-        Spacer(Modifier.width(4.dp))
-        Icon(
-            Icons.Rounded.KeyboardArrowDown,
-            contentDescription = null,
-            tint = c.secondaryLabel,
-            modifier = Modifier.size(18.dp).rotate(turn),
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(if (alive > 0) stringResource(R.string.count_of, alive, count) else "$count", style = IosType.footnote, color = c.secondaryLabel)
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                Icons.Rounded.KeyboardArrowDown,
+                contentDescription = null,
+                tint = c.secondaryLabel,
+                modifier = Modifier.size(18.dp).rotate(turn),
+            )
+        }
     }
 }
 

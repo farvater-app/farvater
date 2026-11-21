@@ -34,7 +34,7 @@ data class AppSettings(
     val directRuServices: Boolean = true,
     val hideDead: Boolean = false,
     val liveSort: Boolean = false,
-    val probeMethod: ProbeMethod = ProbeMethod.AUTO,
+    val probeMethod: ProbeMethod = ProbeMethod.HTTPS,
     val flatNodes: Boolean = false,
     val neutralNotification: Boolean = false,
     val accent: Accent = Accent.THEME,
@@ -73,6 +73,11 @@ data class AppSettings(
     val automaticRoutes: Boolean = true,
     val excludedAutoNodeIds: Set<String> = emptySet(),
 ) {
+    internal fun migrated(): AppSettings = copy(
+        testUrl = ProbeUrls.migrate(testUrl),
+        probeMethod = if (probeMethod == ProbeMethod.AUTO) ProbeMethod.HTTPS else probeMethod,
+    )
+
     fun nodeLabel(node: ProxyNode): String = nodeNames["${node.sourceId}/${node.id}"] ?: node.name
 
     fun rename(node: ProxyNode, name: String): AppSettings {
@@ -98,7 +103,10 @@ internal val AppSettings.notificationIcon: Int get() =
 data class SourceConfig(val mode: SourceMode? = null, val intervalHours: Int? = null)
 
 @Serializable
-data class UserSource(val id: String, val url: String, val title: String)
+data class UserSource(val id: String, val url: String, val title: String) {
+    fun displayTitle(profileTitle: String?): String? =
+        listOfNotNull(profileTitle, title).firstOrNull { it.isNotBlank() && it.trim() != "kotlin.Unit" }
+}
 
 @Serializable
 data class DayTraffic(val day: Long = 0, val bytes: Long = 0)
@@ -118,7 +126,7 @@ class Prefs(context: Context) {
     var settings: AppSettings
         get() = cachedSettings ?: run {
             val stored = read<AppSettings>("settings") ?: AppSettings()
-            val current = stored.copy(testUrl = ProbeUrls.migrate(stored.testUrl))
+            val current = stored.migrated()
             if (current != stored) write("settings", current)
             current
         }.also { cachedSettings = it }

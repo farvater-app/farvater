@@ -59,6 +59,8 @@ import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.GppGood
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.automirrored.rounded.AltRoute
+import androidx.compose.material.icons.rounded.SmartToy
 import androidx.compose.material.icons.rounded.Hub
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Link
@@ -143,6 +145,7 @@ import app.farvater.ui.ios.SheetCorner
 import app.farvater.data.Accent
 import app.farvater.data.AppFont
 import app.farvater.R
+import app.farvater.data.ProbeMethod
 import app.farvater.ui.theme.Ios
 import app.farvater.ui.theme.IosType
 import app.farvater.ui.theme.RkpBlue
@@ -377,7 +380,7 @@ private fun SettingsRoot(
                 )
                 IosDivider(start = divider)
                 IosRow(
-                    title = stringResource(R.string.routes_title), icon = Icons.Rounded.Hub, iconTint = c.teal,
+                    title = stringResource(R.string.routes_title), icon = Icons.AutoMirrored.Rounded.AltRoute, iconTint = c.teal,
                     chevron = true, onClick = { onOpen(SettingsPage.Routes) },
                 )
                 IosDivider(start = divider)
@@ -410,7 +413,7 @@ private fun SettingsRoot(
                 IosDivider(start = divider)
                 IosRow(
                     title = stringResource(R.string.gals_settings),
-                    icon = Icons.Rounded.Speed,
+                    icon = Icons.Rounded.SmartToy,
                     iconTint = c.teal,
                     chevron = true,
                     onClick = { onOpen(SettingsPage.Gals) },
@@ -978,14 +981,9 @@ private fun TestingPage(settings: AppSettings, onChange: ((AppSettings) -> AppSe
         )
     }
     IosSection(header = stringResource(R.string.probe_method), footer = stringResource(R.string.probe_method_hint)) {
-        app.farvater.data.ProbeMethod.entries.forEachIndexed { i, method ->
+        listOf(ProbeMethod.HTTPS, ProbeMethod.TCP).forEachIndexed { i, method ->
             if (i > 0) IosDivider()
-            val title = when (method) {
-                app.farvater.data.ProbeMethod.AUTO -> stringResource(R.string.automatic)
-                app.farvater.data.ProbeMethod.TCP -> "TCP"
-                app.farvater.data.ProbeMethod.HTTPS -> "HTTPS"
-            }
-            IosChoiceRow(title, selected = settings.probeMethod == method, onClick = { onChange { it.copy(probeMethod = method) } })
+            IosChoiceRow(method.name, selected = settings.probeMethod == method, onClick = { onChange { it.copy(probeMethod = method) } })
         }
     }
     IosSection(

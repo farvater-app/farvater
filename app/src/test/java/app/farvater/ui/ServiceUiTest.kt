@@ -22,6 +22,21 @@ class ServiceUiTest {
     @get:Rule val rule = createComposeRule()
 
     @Test
+    fun groupEditorPresentsBuiltInsFirstAndOptimizationAboveIntervals() {
+        rule.setContent { FarvaterTheme(dynamicColor = false) {
+            app.farvater.ui.screens.GalsSettingsPage(AppSettings(), emptyList()) {}
+        } }
+        rule.onNodeWithText("Добавить").performClick()
+        fun order(first: String, second: String) {
+            val matches = rule.onAllNodes(hasText(first) or hasText(second)).fetchSemanticsNodes()
+            assertEquals(2, matches.size)
+            assertEquals(first, matches.first().config[androidx.compose.ui.semantics.SemanticsProperties.Text].first().text)
+        }
+        order("TikTok", "Свой адрес")
+        order("Искать лучший узел во время работы VPN", "30 с")
+    }
+
+    @Test
     fun untestedServiceFilterExplainsHowToGetResults() {
         val node = LinkParser.parse("vless://test@untested.example.test:443?security=tls#Untested")!!
         val target = ServiceChecks.builtIn.first { it.kind == ServiceKind.YOUTUBE }

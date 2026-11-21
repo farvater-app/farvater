@@ -8,6 +8,7 @@ import app.farvater.data.GalsGroup
 import app.farvater.data.GalsStrategy
 import app.farvater.data.SourceSnapshot
 import app.farvater.engine.AutomaticContext
+import app.farvater.engine.NodeCheckCoordinator
 import app.farvater.engine.GalsMonitor
 import app.farvater.engine.PathResult
 import app.farvater.engine.ProbeLane
@@ -98,6 +99,43 @@ class GalsMonitorTest {
         alternative = working.copy(delayMs = 90, speedBps = 2000)
         tick()
         assertEquals(spare, selected?.node)
+    }
+
+    private fun startManualCheck() = NodeCheckCoordinator.testAll(ApplicationProvider.getApplicationContext<Application>(),
+        listOf(spare), App.prefs.settings, "BLACK", null, emptySet(), false)
+
+    @Test fun activeManualCheckDefersOptimizationButAllowsFailover() = runBlocking {
+        val job = requireNotNull(startManualCheck())
+        try {
+            alternative = working.copy(delayMs = 5)
+            assertEquals(true, tick())
+            assertTrue(lanes.isEmpty())
+            assertNull(selected)
+            current = PathResult(null)
+            assertEquals(false, tick())
+            assertEquals(listOf(ProbeLane.RECOVERY), lanes)
+            assertEquals(spare, selected?.node)
+        } finally {
+            NodeCheckCoordinator.cancel()
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+            job.join()
+        }
+    }
+
+    @Test fun manualCheckStartingDuringOptimizationPreservesTheLiveNode() = runBlocking {
+        alternative = working.copy(delayMs = 5)
+        var job: kotlinx.coroutines.Job? = null
+        probeHook = { job = startManualCheck() }
+        try {
+            assertEquals(true, tick())
+            assertNotNull(job)
+            assertNull(selected)
+        } finally {
+            NodeCheckCoordinator.cancel()
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+            job?.join()
+        }
+        Unit
     }
 
     @Test fun manualChoiceDuringProbeWins() = runBlocking {

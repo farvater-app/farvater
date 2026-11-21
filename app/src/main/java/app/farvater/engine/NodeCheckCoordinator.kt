@@ -10,6 +10,7 @@ import app.farvater.core.model.ProxyNode
 import app.farvater.data.AppSettings
 import app.farvater.data.BackupNodes
 import app.farvater.data.NodeHealth
+import app.farvater.data.ProbeMethod
 import app.farvater.data.ServiceCheck
 import app.farvater.data.ServiceChecks
 import app.farvater.data.ServiceReason
@@ -41,7 +42,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 data class NodeCheckProgress(val done: Int, val total: Int, val alive: Int)
 
-enum class NodeCheckFailure { START, TIMEOUT }
+enum class NodeCheckFailure { START, TIMEOUT, INTERRUPTED }
 
 data class NodeCheckWork(
     val session: Long = 0,
@@ -68,6 +69,8 @@ object NodeCheckCoordinator {
     private var startedAt = 0L
     private var nextJob = 0L
     private val jobs = mutableMapOf<Long, Job>()
+    private data class HttpsCheckOrder(val mode: String, val url: String, val ids: LinkedHashSet<String>)
+    private var incompleteHttps: HttpsCheckOrder? = null
     private var allJob: Job? = null
     private var serviceJob: Job? = null
     private var serviceGeneration = 0L
@@ -76,12 +79,21 @@ object NodeCheckCoordinator {
     fun testAll(context: Context, nodes: List<ProxyNode>, settings: AppSettings, mode: String,
         connected: ProxyNode?, exempt: Set<String>, allowServices: Boolean, fullScope: Boolean = true): Job? {
         if (jobs.isNotEmpty() && _state.value.mode != mode) return null
-        if (allJob?.isActive == true || nodes.isEmpty()) return allJob
+        if (allJob?.isCompleted == false || nodes.isEmpty()) return allJob
         cancelServices()
         val generation = serviceGeneration
         val profiles = App.prefs.nodeProfiles
-        val tcpOnly = settings.probeMethod == app.farvater.data.ProbeMethod.TCP
+        val tcpOnly = settings.probeMethod == ProbeMethod.TCP
         val job = launch(context, mode) {
+            val order = if (settings.probeMethod == ProbeMethod.HTTPS) {
+                val ids = nodes.mapTo(LinkedHashSet()) { it.id }
+                incompleteHttps?.takeIf { it.mode == mode && it.url == settings.testUrl && it.ids == ids }
+                    ?: HttpsCheckOrder(mode, settings.testUrl, ids)
+            } else null
+            val scheduled = if (order != null && order === incompleteHttps) {
+                val byId = nodes.associateBy { it.id }
+                order.ids.map(byId::getValue)
+            } else nodes
             var done = 0
             var alive = 0
             var lastFlush = 0L
@@ -98,6 +110,10 @@ object NodeCheckCoordinator {
                 _state.update { it.copy(progress = NodeCheckProgress(done, nodes.size, alive).takeIf { _ -> it.active }) }
             }
             suspend fun take(result: TestResult) {
+                // After an interruption, retry the nodes that never returned a result first.
+                order?.ids?.let { ids ->
+                    if (ids.remove(result.nodeId)) ids.add(result.nodeId)
+                }
                 if (result.evaluated) observed[result.nodeId] = result
                 done++
                 if (result.alive) alive++
@@ -114,9 +130,10 @@ object NodeCheckCoordinator {
             try {
                 val tunnel = connected?.takeUnless { tcpOnly }?.let { LiveNodeCheck.measure(it, settings.testUrl) }
                 if (tunnel != null) take(tunnel)
-                val remaining = nodes.filter { it.id != tunnel?.nodeId }
+                val remaining = scheduled.filter { it.id != tunnel?.nodeId }
                 NodeTester.userCheck(remaining, settings.testUrl, settings.concurrency, profiles, settings.probeMethod).collect { take(it) }
             } finally {
+                incompleteHttps = order?.takeIf { done < nodes.size }
                 withContext(NonCancellable) { flush() }
                 _state.update { it.copy(progress = null) }
             }
@@ -152,7 +169,7 @@ object NodeCheckCoordinator {
         if (singleJobs[node.id]?.isActive == true) return null
         val generation = serviceGeneration
         val profiles = App.prefs.nodeProfiles
-        val tcpOnly = settings.probeMethod == app.farvater.data.ProbeMethod.TCP
+        val tcpOnly = settings.probeMethod == ProbeMethod.TCP
         val job = launch(context, mode) {
             _state.update { it.copy(checking = it.checking + node.id) }
             try {
@@ -272,7 +289,7 @@ object NodeCheckCoordinator {
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
-                if (isCurrent(session)) _state.update { it.copy(failure = NodeCheckFailure.START) }
+                if (isCurrent(session)) _state.update { it.copy(failure = NodeCheckFailure.INTERRUPTED) }
             } finally {
                 jobs.remove(id)
                 if (isCurrent(session) && jobs.isEmpty()) _state.update {

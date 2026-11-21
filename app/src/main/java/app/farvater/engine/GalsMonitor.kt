@@ -50,11 +50,13 @@ internal class GalsMonitor(
         val live = liveCheck(session.node, saved, group, settings.testUrl, settings.encryptedDns)
         if (!current() || live.deferred) return null
         val healthy = live.profile != null
-        if (healthy && !group.periodicOptimization || !healthy && !settings.autoSwitch) return healthy
+        if (healthy && (!group.periodicOptimization || NodeCheckCoordinator.state.value.active)) return true
+        if (!healthy && !settings.autoSwitch) return false
         val reason = if (healthy) AutomaticReason.OPTIMIZATION else AutomaticReason.FAILOVER
 
         fun select(candidate: Reserve): Boolean = synchronized(Prefs.selectionLock) {
             if (!current() || !candidate.context.valid(prefs, repository)) return@synchronized false
+            if (healthy && NodeCheckCoordinator.state.value.active) return@synchronized false
             if (!healthy && !prefs.settings.autoSwitch) return@synchronized false
             val command = candidate.context.withProbeResult(candidate.profile, reason)
             if (!command.valid(prefs, repository)) return@synchronized false

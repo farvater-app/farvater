@@ -15,7 +15,8 @@ internal class NativeProbeBudget(val normalLimit: Int) {
     init { require(normalLimit in 1..8) }
     private val normal = Semaphore(normalLimit, true)
     private val recovery = Semaphore(1, true)
-    private val measurements = Semaphore((normalLimit - 1).coerceAtLeast(1), true)
+    val measurementLimit = (normalLimit - 1).coerceAtLeast(1)
+    private val measurements = Semaphore(measurementLimit, true)
 
     fun acquireMeasurement(lane: ProbeLane, waitMs: Long): Lease? {
         if (lane == ProbeLane.RECOVERY) return acquire(lane, waitMs)

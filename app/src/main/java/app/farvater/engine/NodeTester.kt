@@ -9,6 +9,7 @@ import app.farvater.net.await
 import app.farvater.net.orDefault
 import app.farvater.data.ProbeMethod
 import android.os.Process
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
@@ -72,7 +73,8 @@ object NodeTester {
         method: ProbeMethod): Flow<TestResult> = channelFlow {
         val real = XrayEngine.isAvailable
         val tcpGate = Semaphore(TCP_CONCURRENCY)
-        val realGate = Semaphore(concurrency.coerceIn(1, 32))
+        val limit = if (method == ProbeMethod.HTTPS) XrayEngine.measurementParallelism else 32
+        val realGate = Semaphore(concurrency.coerceIn(1, limit))
         val hostGates = ConcurrentHashMap<String, Semaphore>()
         val sniGates = ConcurrentHashMap<String, Semaphore>()
         val cursor = AtomicInteger()
@@ -129,18 +131,24 @@ object NodeTester {
         return (p["sni"] ?: p["peer"] ?: p["host"])?.takeIf { it.isNotBlank() }?.lowercase() ?: node.address.lowercase()
     }
 
-    fun test(node: ProxyNode, url: String): TestResult = when {
-        XrayEngine.isAvailable -> XrayEngine.measureDelayDetailed(
-            XrayConfigBuilder.build(node, directRuServices = false, forTest = true), url,
-        ).let { TestResult(node.id, it.delayMs, TestMethod.REAL, reason = it.reason) }
-        node.protocol == Protocol.HYSTERIA2 -> TestResult(node.id, -1, TestMethod.TCP)
-        else -> tcping(node).let { TestResult(node.id, it.delayMs, TestMethod.TCP, reason = it.reason) }
-    }
+    fun test(node: ProxyNode, url: String): TestResult = test(node, url, null)
 
-    fun test(node: ProxyNode, url: String, profile: NodeProfile?): TestResult =
-        if (profile == null || !XrayEngine.isAvailable) test(node, url) else
-            XrayEngine.measureDelayDetailed(XrayConfigBuilder.build(node, directRuServices = false, forTest = true, profile = profile), url)
-                .let { TestResult(node.id, it.delayMs, TestMethod.REAL, reason = it.reason) }
+    fun test(node: ProxyNode, url: String, profile: NodeProfile?): TestResult {
+        if (!XrayEngine.isAvailable) {
+            if (node.protocol == Protocol.HYSTERIA2) return TestResult(node.id, -1, TestMethod.TCP)
+            return tcping(node).let { TestResult(node.id, it.delayMs, TestMethod.TCP, reason = it.reason) }
+        }
+        val config = try {
+            XrayConfigBuilder.build(node, directRuServices = false, forTest = true, profile = profile)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: RuntimeException) {
+            return TestResult(node.id, -1, TestMethod.REAL, reason = TestFailure.UNSUPPORTED)
+        }
+        return XrayEngine.measureDelayDetailed(config, url).let {
+            TestResult(node.id, it.delayMs, TestMethod.REAL, reason = it.reason)
+        }
+    }
 
     fun testRecovery(node: ProxyNode, url: String, profile: NodeProfile?): TestResult =
         if (!XrayEngine.isAvailable) test(node, url) else

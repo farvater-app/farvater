@@ -71,6 +71,17 @@ import org.robolectric.annotation.GraphicsMode
 class ScreenshotTest {
     @get:Rule val rule = createComposeRule()
 
+    @Test fun groupProbeTargetsDark() = groupProbeSettings("group_probe_targets_dark", dark = true, row = "Свой адрес")
+    @Test fun groupProbeIntervalLight() = groupProbeSettings("group_probe_interval_light", dark = false, row = "30 с")
+
+    private fun groupProbeSettings(name: String, dark: Boolean, row: String) =
+        shot(name, dark = dark, screen = true, style = UiStyle.IOS, act = {
+            rule.mainClock.autoAdvance = true
+            rule.onNodeWithText("Добавить").performClick()
+            rule.waitForIdle()
+            rule.onNodeWithText(row).performScrollTo().assertIsDisplayed()
+        }) { Settings(page = "Gals") }
+
     @Test fun observatoryHomeLight() = shot("observatory_home_light", dark = false, style = UiStyle.OBSERVATORY) { Home(VpnState.Idle) }
     @Test fun observatoryHomeDark() = shot("observatory_home_dark", dark = true, style = UiStyle.OBSERVATORY) { Home(VpnState.Idle) }
     @Test fun observatoryNodesLight() = shot("observatory_nodes_light", dark = false, style = UiStyle.OBSERVATORY) { Servers() }
@@ -964,7 +975,7 @@ class ScreenshotTest {
         androidx.compose.foundation.layout.Box(Modifier.padding(p)) {
             ServersScreen(
                 state = state, onSelect = {}, onTestAll = {}, onCancelTest = {},
-                onDeleteManual = {}, onCopied = {},
+                onDeleteManual = {}, onCopied = {}, onTestSource = {},
             )
         }
     }

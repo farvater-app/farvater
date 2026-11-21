@@ -42,6 +42,7 @@ object GalsGroups {
     }
 
     fun transport(node: ProxyNode): String = if (node.protocol == Protocol.HYSTERIA2) "hysteria2" else when (val value = node.transport) {
+        "mkcp" -> "kcp"
         "raw" -> "tcp"
         "splithttp" -> "xhttp"
         "http", "http2" -> "h2"

@@ -30,6 +30,8 @@ import app.farvater.engine.ServiceProbe
 import app.farvater.engine.TestMethod
 import app.farvater.engine.TestResult
 import app.farvater.engine.TestFailure
+import app.farvater.data.UserSource
+import app.farvater.data.ProbeMethod
 import app.farvater.data.FullNodeCheck
 import app.farvater.ui.MainViewModel
 import app.farvater.ui.UiState
@@ -86,6 +88,7 @@ class NodeCheckServiceTest {
         Nodes.liveResult = null
         Nodes.reason = TestFailure.UNKNOWN
         Nodes.onLive = {}
+        Nodes.onBatch = {}
         Nodes.seenProfiles = emptyMap()
         Nodes.cancelled = 0
         Services.permits = Channel(Channel.UNLIMITED)
@@ -157,6 +160,55 @@ class NodeCheckServiceTest {
     }
 
     @Test
+    fun failedActiveNodeMeasurementStillChecksOtherNodes() {
+        val active = nodes.first()
+        VpnBus.state.value = VpnState.Connected(active, 1)
+        Nodes.onLive = { throw java.io.IOException("live tunnel closed") }
+        val vm = model()
+        vm.testAll()
+        startService()
+        Nodes.permits.trySend(Unit)
+        await { !NodeCheckCoordinator.state.value.active }
+        val work = NodeCheckCoordinator.state.value
+        assertNull(work.failure)
+        assertEquals(false, work.results[active.id]?.alive)
+        assertEquals(true, work.results[nodes.last().id]?.alive)
+    }
+
+    @Test
+    fun repeatedPartialHttpsChecksReachTheEndOfTheSubscription() {
+        val list = nodes + LinkParser.parse("vless://test@third.example.test:443?security=tls#Third")!!
+        fun begin(settings: app.farvater.data.AppSettings) = NodeCheckCoordinator.testAll(
+            app, list, settings, "BLACK", connected = null, exempt = emptySet(), allowServices = false, fullScope = false,
+        )!!.also { NodeCheckCoordinator.ready(NodeCheckCoordinator.state.value.session) }
+        val settings = App.prefs.settings.copy(probeMethod = ProbeMethod.HTTPS)
+        for (expected in list + list.first()) {
+            val job = begin(settings)
+            Nodes.permits.trySend(Unit)
+            await { NodeCheckCoordinator.state.value.results.isNotEmpty() }
+            assertEquals(setOf(expected.id), NodeCheckCoordinator.state.value.results.keys)
+            NodeCheckCoordinator.fail(NodeCheckCoordinator.state.value.session, NodeCheckFailure.TIMEOUT)
+            await { job.isCompleted }
+        }
+        val newTarget = begin(settings.copy(testUrl = "https://different.example.test/"))
+        Nodes.permits.trySend(Unit)
+        await { NodeCheckCoordinator.state.value.results.isNotEmpty() }
+        assertEquals(setOf(list.first().id), NodeCheckCoordinator.state.value.results.keys)
+        NodeCheckCoordinator.cancel()
+        await { newTarget.isCompleted }
+    }
+
+    @Test
+    fun interruptedBatchDoesNotTellAnOpenAppToStartAgain() {
+        Nodes.onBatch = { throw java.io.IOException("interrupted batch") }
+        val vm = model()
+        vm.testAll()
+        startService()
+        await { !NodeCheckCoordinator.state.value.active && vm.state.value.message != null }
+        assertEquals(app.getString(R.string.node_test_incomplete), vm.state.value.message)
+    }
+
+    @Test
     fun busyCheckIsVisibleWithoutReplacingHealthOrCompleteSnapshot() {
         val node = nodes.first()
         val before = TestResult(node.id, 40, TestMethod.REAL)
@@ -178,6 +230,23 @@ class NodeCheckServiceTest {
         assertEquals(node.id, (best.invoke(vm) as ProxyNode).id)
         assertEquals(savedHealth, App.prefs.nodeHealth)
         assertEquals(savedFull, App.prefs.fullNodeChecks["BLACK"])
+    }
+
+    @Test
+    fun legacySubscriptionTitleUsesOnlyTheEndpointAndKeepsOneSource() {
+        val source = UserSource("user-old", "https://example.test:8443/private/profile", "kotlin.Unit")
+        App.prefs.userSources = listOf(source)
+        val cache = java.io.File(app.filesDir, "subs/${source.id}.txt")
+        cache.writeText("#profile-title: kotlin.Unit")
+        App.repo.loadSnapshot(source.id)
+        val vm = MainViewModel(app).also(models::add)
+        await { vm.state.value.sources.any { it.id == source.id } }
+        val owned = vm.state.value.sources.filterNot { it.community }
+        assertEquals(listOf("example.test:8443"), owned.map { it.title })
+        cache.writeText("#profile-title: My subscription")
+        App.repo.loadSnapshot(source.id)
+        await { vm.state.value.sources.single { it.id == source.id }.title == "My subscription" }
+        assertEquals(listOf(source), App.prefs.userSources)
     }
 
     @Test
@@ -651,6 +720,10 @@ class NodeCheckServiceTest {
     @Implements(value = NodeTester::class, isInAndroidSdk = false)
     class Nodes {
         @Implementation
+        fun userCheck(nodes: List<ProxyNode>, url: String, concurrency: Int, profiles: Map<String, NodeProfile>,
+            method: ProbeMethod): Flow<TestResult> = testAll(nodes, url, concurrency, profiles)
+
+        @Implementation
         fun testAll(nodes: List<ProxyNode>, url: String, concurrency: Int, profiles: Map<String, NodeProfile>): Flow<TestResult> {
             seenProfiles = profiles
             return testAll(nodes, url, concurrency)
@@ -659,6 +732,7 @@ class NodeCheckServiceTest {
         @Implementation
         fun testAll(nodes: List<ProxyNode>, url: String, concurrency: Int): Flow<TestResult> = flow {
             try {
+                onBatch()
                 nodes.forEach {
                     nativeIds += it.id
                     permits.receive()
@@ -688,6 +762,7 @@ class NodeCheckServiceTest {
             var liveResult: TestResult? = null
             var reason = TestFailure.UNKNOWN
             var onLive: () -> Unit = {}
+            var onBatch: () -> Unit = {}
             var seenProfiles: Map<String, NodeProfile> = emptyMap()
         }
     }

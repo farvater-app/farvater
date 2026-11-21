@@ -43,6 +43,14 @@ class GalsPolicyTest {
     }
 
     @Test
+    fun kcpGroupAcceptsBothTransportSpellings() {
+        val kcp = policy(GalsGroup("group", "Group", transports = setOf("kcp")))
+        assertTrue(kcp.accepts(node("first", "kcp")))
+        assertTrue(kcp.accepts(node("first", "mKCP")))
+        assertFalse(kcp.accepts(node("first", "quic")))
+    }
+
+    @Test
     fun renamingAGroupDoesNotChangeItsEffectiveBehavior() {
         val group = GalsGroup("group", "Old name")
         assertTrue(policy(group).sameBehavior(policy(group.copy(name = "New name"))))

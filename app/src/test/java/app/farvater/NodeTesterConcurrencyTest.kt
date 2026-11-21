@@ -104,6 +104,36 @@ class NodeTesterConcurrencyTest {
     }
 
     @Test
+    fun brokenCachedNodeCannotAbortTheNextHttpsCheck() = runBlocking {
+        Core.reset(1)
+        Core.release.countDown()
+        val good = nodes(false, false).first()
+        val stale = good.copy(id = "stale", raw = """{"outbounds":[]}""")
+        val checked = NodeTester.userCheck(listOf(stale, good), "https://probe.example.test/", 1, emptyMap(),
+            app.farvater.data.ProbeMethod.HTTPS).toList().associateBy { it.nodeId }
+        assertFalse(checked.getValue(stale.id).evaluated)
+        assertTrue(checked.getValue(good.id).alive)
+    }
+
+    @Test
+    fun manualHttpsWaitsItsTurnOnALowMemoryDevice() = runBlocking {
+        Core.reset(1)
+        val checked = async(Dispatchers.Default) {
+            NodeTester.userCheck(nodes(false, false), "https://probe.example.test/", 32, emptyMap(),
+                app.farvater.data.ProbeMethod.HTTPS).toList()
+        }
+        try {
+            assertTrue(Core.entered.await(5, TimeUnit.SECONDS))
+            assertFalse(Core.overLimit.await(250, TimeUnit.MILLISECONDS))
+            Core.release.countDown()
+            assertEquals(40, checked.await().count { it.alive })
+        } finally {
+            Core.release.countDown()
+            checked.cancelAndJoin()
+        }
+    }
+
+    @Test
     fun emptyListCompletesWithoutCoreCalls() = runBlocking {
         Core.reset(1)
         assertTrue(NodeTester.testAll(emptyList(), "https://example.test/", 16).toList().isEmpty())
@@ -138,6 +168,9 @@ class NodeTesterConcurrencyTest {
     class Core {
         @Implementation
         fun isAvailable() = true
+
+        @Implementation
+        fun getMeasurementParallelism() = 1
 
         @Implementation
         fun measureDelayDetailed(config: String, url: String): DelayMeasurement {

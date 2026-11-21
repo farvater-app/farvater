@@ -31,7 +31,8 @@ object XrayEngine {
 
     private const val MEASURE_TIMEOUT_MS = 8000L
 
-    private var probeBudget = NativeProbeBudget(2)
+    @Volatile private var probeBudget = NativeProbeBudget(2)
+    val measurementParallelism: Int get() = probeBudget.measurementLimit
     private val measurers by lazy { NativeMeasurements(probeBudget) }
 
     private fun libMethod(name: String): Method? =

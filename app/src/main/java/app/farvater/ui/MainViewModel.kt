@@ -301,7 +301,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 ) }
                 if (sameMode && work.failure != null && failureSession != work.session) {
                     failureSession = work.session
-                    toast(messageText(if (work.failure == NodeCheckFailure.TIMEOUT) R.string.checks_timed_out else R.string.checks_start_failed))
+                    toast(messageText(when (work.failure) {
+                        NodeCheckFailure.START -> R.string.checks_start_failed
+                        NodeCheckFailure.TIMEOUT -> R.string.checks_timed_out
+                        NodeCheckFailure.INTERRUPTED -> R.string.node_test_incomplete
+                    }))
                 }
             }
         }
@@ -1543,7 +1547,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val own = prefs.userSources.map { u ->
             val snap = snaps[u.id]
             SourceUi(
-                id = u.id, title = snap?.title ?: u.title, author = messageText(R.string.source_own_author), license = "",
+                id = u.id, title = u.displayTitle(snap?.title) ?: hostOf(u.url), author = messageText(R.string.source_own_author), license = "",
                 homepage = u.url, description = u.url, community = false, enabled = true,
                 nodeCount = shown(snap), updatedAt = snap?.updatedAt ?: 0,
                 error = snap?.error, loading = u.id in busy, hidden = hiddenNote(snap),
