@@ -1,0 +1,4 @@
+- With the VPN on, one failed node no longer stops a subscription check. Manual checks now use HTTPS by default.
+- Choose subscriptions, transports, a service and a check interval for Gals. Scheduled optimization yields to manual checks.
+- Add domain and IP rules, control the VPN from Tasker or MacroDroid, and open Android’s settings to block connections without VPN.
+- Import nodes and subscriptions from QR codes. Try the Observatory theme. Xray has been updated to 26.11.9.
