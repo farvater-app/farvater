@@ -29,7 +29,7 @@ import app.farvater.engine.TestMethod
 import app.farvater.engine.TestResult
 import app.farvater.ui.MainViewModel
 import app.farvater.ui.UiState
-import app.farvater.vpn.FarvaterVpnService
+import app.farvater.vpn.TunnelCoordinator
 import app.farvater.vpn.NodeCheckService
 import app.farvater.vpn.VpnBus
 import app.farvater.vpn.VpnState
@@ -274,7 +274,7 @@ class GalsEligibilityTest {
         VpnBus.state.value = VpnState.Connecting(automatic)
         vm.select(manual)
         assertEquals(manual, App.prefs.lastNode)
-        assertEquals(FarvaterVpnService.ACTION_START, shadowOf(app).nextStartedService?.action)
+        assertEquals(TunnelCoordinator.ACTION_START, shadowOf(app).nextStartedService?.action)
     }
 
     @Test fun manualSelectionRevokesAnOlderPendingPermissionRequest() {
@@ -489,8 +489,8 @@ class GalsEligibilityTest {
 
     private fun stopAndMaybeFinish(finished: Boolean) {
         dispatchChecking()
-        FarvaterVpnService.stop(app)
-        assertEquals(FarvaterVpnService.ACTION_STOP, shadowOf(app).nextStartedService?.action)
+        TunnelCoordinator.stop(app)
+        assertEquals(TunnelCoordinator.ACTION_STOP, shadowOf(app).nextStartedService?.action)
         if (finished) {
             VpnBus.state.value = VpnState.Idle
             VpnBus.request.value = null

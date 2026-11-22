@@ -7,22 +7,26 @@ import java.util.concurrent.ConcurrentHashMap
 
 object LocalProxyAuth {
     private val random = SecureRandom()
-    private val live = ConcurrentHashMap.newKeySet<Int>()
+    class Account {
+        val user: String = token(12)
+        val pass: String = token(24)
+    }
+    private class Listener(val account: Account, val alive: () -> Boolean)
+    private val live = ConcurrentHashMap<Int, Listener>()
+    val defaultAccount = Account()
 
-    val user: String = token(12)
-    val pass: String = token(24)
     val port: Int = freePort()
     val probePort: Int = generateSequence { freePort() }.first { it != port }
 
-    fun open(port: Int) {
-        live += port
+    fun open(port: Int, account: Account, alive: () -> Boolean) {
+        live[port] = Listener(account, alive)
     }
 
-    fun close(port: Int) {
-        live -= port
+    fun close(port: Int, account: Account) {
+        live.computeIfPresent(port) { _, current -> current.takeUnless { it.account === account } }
     }
 
-    fun isLive(port: Int): Boolean = port in live
+    fun account(port: Int): Account? = live[port]?.takeIf { it.alive() }?.account
 
     private fun freePort(): Int = runCatching {
         ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }

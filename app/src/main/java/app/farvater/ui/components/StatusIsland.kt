@@ -68,7 +68,7 @@ fun StatusIsland(
     mode: ConnectMode,
     node: String?,
     since: Long?,
-    downBps: Long,
+    downBps: () -> Long,
     progress: Pair<Int, Int>?,
     modifier: Modifier = Modifier,
 ) {
@@ -199,7 +199,7 @@ fun StatusIsland(
                         )
                         val extra = when {
                             s == Island.Busy && progress != null && mode == ConnectMode.Searching -> "${progress.first}/${progress.second}"
-                            s == Island.On && hyper -> "↓ ${formatSpeed(downBps)}"
+                            s == Island.On && hyper -> "↓ ${formatSpeed(downBps())}"
                             s == Island.On && since != null -> formatDuration(now - since)
                             else -> null
                         }

@@ -18,7 +18,7 @@ import app.farvater.data.UpdateRepository
 import app.farvater.data.UpdateWorker
 import app.farvater.engine.XrayEngine
 import app.farvater.ui.ios.powerSave
-import app.farvater.vpn.FarvaterVpnService
+import app.farvater.vpn.TunnelCoordinator
 import app.farvater.vpn.VpnBus
 import app.farvater.vpn.VpnWidget
 import kotlinx.coroutines.MainScope
@@ -27,25 +27,46 @@ import java.net.Authenticator
 import java.net.PasswordAuthentication
 
 class App : Application() {
+    private var vpnProcess = false
+
     override fun attachBaseContext(base: android.content.Context) {
         super.attachBaseContext(AppLanguages.wrap(base))
     }
 
     override fun onCreate() {
         super.onCreate()
+        val process = if (android.os.Build.VERSION.SDK_INT >= 28) getProcessName()
+            else java.io.File("/proc/self/cmdline").inputStream().buffered().use { input ->
+                buildString { while (true) { val next = input.read(); if (next <= 0) break; append(next.toChar()) } }
+            }
+        vpnProcess = process == "$packageName:vpn"
+        if (vpnProcess) {
+            XrayEngine.init(this)
+            return
+        }
+        app.farvater.storage.ProfileCipher.initialize(noBackupFilesDir)
+        app.farvater.engine.ProbeClient.init(this)
         AppLanguages.migrate(this)
         MainScope().launch { app.farvater.data.ApkSharing.clearLegacyCache(this@App) }
         instance = this
         prefs = Prefs(this)
         repo = SubscriptionRepository(this)
-        XrayEngine.init(this)
+        MainScope().launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                java.nio.file.Files.deleteIfExists(filesDir.resolve("hev.yml").toPath())
+                repo.migrateStoredProfiles()
+            } catch (_: java.security.GeneralSecurityException) {
+                android.util.Log.w("Farvater", "Profile migration postponed")
+            } catch (_: java.io.IOException) {
+                android.util.Log.w("Farvater", "Profile migration postponed")
+            }
+        }
         Authenticator.setDefault(object : Authenticator() {
             override fun getPasswordAuthentication(): PasswordAuthentication? =
                 if (requestingProtocol?.startsWith("SOCKS") == true &&
-                    (requestingHost == "127.0.0.1" || requestingSite?.isLoopbackAddress == true) &&
-                    LocalProxyAuth.isLive(requestingPort)
+                    (requestingHost == "127.0.0.1" || requestingSite?.isLoopbackAddress == true)
                 ) {
-                    PasswordAuthentication(LocalProxyAuth.user, LocalProxyAuth.pass.toCharArray())
+                    LocalProxyAuth.account(requestingPort)?.let { PasswordAuthentication(it.user, it.pass.toCharArray()) }
                 } else {
                     null
                 }
@@ -70,12 +91,12 @@ class App : Application() {
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
-        AppLanguages.refresh(this)
+        if (!vpnProcess) AppLanguages.refresh(this)
     }
 
     fun refreshChannels() {
         getSystemService(NotificationManager::class.java).apply {
-            createNotificationChannel(NotificationChannel(FarvaterVpnService.CHANNEL, localizedString(R.string.settings_connection), NotificationManager.IMPORTANCE_LOW))
+            createNotificationChannel(NotificationChannel(TunnelCoordinator.CHANNEL, localizedString(R.string.settings_connection), NotificationManager.IMPORTANCE_LOW))
             createNotificationChannel(NotificationChannel(UpdateWorker.CHANNEL, localizedString(R.string.settings_updates), NotificationManager.IMPORTANCE_HIGH))
             deleteNotificationChannel("updates")
         }

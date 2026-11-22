@@ -141,7 +141,7 @@ class MainViewModelLifecycleTest {
         val tile = org.robolectric.Robolectric.buildService(app.farvater.vpn.QsTileService::class.java).create().get()
         tile.onClick()
         val shadow = shadowOf(ApplicationProvider.getApplicationContext<Application>())
-        assertEquals(app.farvater.vpn.FarvaterVpnService.ACTION_START, shadow.nextStartedService?.action)
+        assertEquals(app.farvater.vpn.TunnelCoordinator.ACTION_START, shadow.nextStartedService?.action)
         assertNull(shadow.nextStartedActivity)
     }
 

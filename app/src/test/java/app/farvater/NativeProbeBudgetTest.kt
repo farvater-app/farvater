@@ -113,6 +113,35 @@ class NativeProbeBudgetTest {
         next!!.close()
     }
 
+    @Test fun transientStopErrorCanBeRetriedWithoutReleasingAnotherCoreSlot() {
+        val budget = NativeProbeBudget(1)
+        var attempts = 0
+        val handle = NativeProbeHandle(Any(), budget.acquire(ProbeLane.NORMAL, 0)!!) {
+            if (++attempts == 1) error("temporary stop failure")
+        }
+        assertFalse(handle.close())
+        assertNull(budget.acquire(ProbeLane.NORMAL, 0))
+        assertTrue(handle.close())
+        assertTrue(handle.close())
+        assertEquals(2, attempts)
+        budget.acquire(ProbeLane.NORMAL, 0)!!.close()
+    }
+
+    @Test fun failedStartCleanupOwnsTheLeaseUntilTheScheduledRetryFinishes() {
+        val budget = NativeProbeBudget(1)
+        val pending = ArrayDeque<() -> Unit>()
+        var attempts = 0
+        val handle = NativeProbeHandle(Any(), budget.acquire(ProbeLane.NORMAL, 0)!!) {
+            if (++attempts == 1) error("temporary stop failure")
+        }
+        handle.release(pending::addLast)
+        assertNull(budget.acquire(ProbeLane.NORMAL, 0))
+        pending.removeFirst().invoke()
+        assertTrue(pending.isEmpty())
+        assertEquals(2, attempts)
+        budget.acquire(ProbeLane.NORMAL, 0)!!.close()
+    }
+
     @Test
     fun failedStopDoesNotPretendTheNativeResourceIsGone() {
         val budget = NativeProbeBudget(1)

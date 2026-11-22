@@ -24,6 +24,6 @@ class BootReceiver : BroadcastReceiver() {
         val cm = context.getSystemService(ConnectivityManager::class.java)
         if (cm?.getNetworkCapabilities(cm.activeNetwork)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true) return
         if (VpnService.prepare(context) != null) return
-        runCatching { FarvaterVpnService.start(context, node, checkMode = true) }
+        runCatching { TunnelCoordinator.start(context, node, checkMode = true) }
     }
 }

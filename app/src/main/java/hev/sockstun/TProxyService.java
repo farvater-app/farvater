@@ -3,7 +3,7 @@ package hev.sockstun;
 public final class TProxyService {
     private TProxyService() {}
 
-    public static native boolean TProxyStartService(String configPath, int fd);
+    public static native boolean TProxyStartServiceFromConfig(byte[] config, int fd);
 
     public static native boolean TProxyStopService();
 

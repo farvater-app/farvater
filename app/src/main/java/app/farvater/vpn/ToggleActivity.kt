@@ -15,7 +15,7 @@ class ToggleActivity : ComponentActivity() {
     }
 
     private val consent = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == RESULT_OK) App.prefs.lastNode?.let { FarvaterVpnService.start(this, it) }
+        if (result.resultCode == RESULT_OK) App.prefs.lastNode?.let { TunnelCoordinator.start(this, it) }
         finish()
     }
 
@@ -23,14 +23,14 @@ class ToggleActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         if (savedInstanceState != null) return
         when (VpnBus.state.value) {
-            is VpnState.Connected, is VpnState.Connecting -> FarvaterVpnService.stop(this)
+            is VpnState.Connected, is VpnState.Connecting -> TunnelCoordinator.stop(this)
             else -> {
                 val node = App.prefs.lastNode
                 val request = VpnService.prepare(this)
                 when {
                     node == null -> startActivity(Intent(this, FarvaterActivity::class.java))
                     request != null -> return consent.launch(request)
-                    else -> FarvaterVpnService.start(this, node)
+                    else -> TunnelCoordinator.start(this, node)
                 }
             }
         }

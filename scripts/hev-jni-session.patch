@@ -1,0 +1,139 @@
+--- a/src/hev-jni.c
++++ b/src/hev-jni.c
+@@ -10,6 +10,8 @@
+ #ifdef ANDROID
+ 
+ #include <jni.h>
++#include <fcntl.h>
++#include <unistd.h>
+ #include <pthread.h>
+ #include <stdatomic.h>
+ 
+@@ -39,7 +41,8 @@
+ 
+ struct _ThreadData
+ {
+-    char *path;
++    unsigned char *config;
++    unsigned int config_len;
+     int fd;
+ };
+ 
+@@ -51,13 +54,13 @@
+ static pthread_key_t current_jni_env;
+ 
+ static jboolean native_start_service (JNIEnv *env, jobject thiz,
+-                                      jstring conig_path, jint fd);
++                                      jbyteArray config, jint fd);
+ static jboolean native_stop_service (JNIEnv *env, jobject thiz);
+ static jboolean native_is_running (JNIEnv *env, jobject thiz);
+ static jlongArray native_get_stats (JNIEnv *env, jobject thiz);
+ 
+ static JNINativeMethod native_methods[] = {
+-    { "TProxyStartService", "(Ljava/lang/String;I)Z",
++    { "TProxyStartServiceFromConfig", "([BI)Z",
+       (void *)native_start_service },
+     { "TProxyStopService", "()Z", (void *)native_stop_service },
+     { "TProxyIsRunning", "()Z", (void *)native_is_running },
+@@ -102,20 +105,21 @@
+ {
+     ThreadData *tdata = data;
+ 
+-    hev_socks5_tunnel_main (tdata->path, tdata->fd);
++    hev_socks5_tunnel_main_from_str (tdata->config, tdata->config_len, tdata->fd);
++    close (tdata->fd);
+ 
+     atomic_store_explicit (&is_running, 0, memory_order_release);
+ 
+-    free (tdata->path);
++    free (tdata->config);
+     free (tdata);
+ 
+     return NULL;
+ }
+ 
+ static jboolean
+-native_start_service (JNIEnv *env, jobject thiz, jstring config_path, jint fd)
+-{
+-    const jbyte *bytes;
++native_start_service (JNIEnv *env, jobject thiz, jbyteArray config, jint fd)
++{
++    jsize len;
+     ThreadData *tdata;
+     int res;
+     jboolean result = JNI_FALSE;
+@@ -126,38 +130,47 @@
+         goto exit;
+ 
+     if (thread_joinable) {
+-        pthread_join (work_thread, NULL);
++        if (pthread_join (work_thread, NULL) != 0)
++            goto exit;
+         thread_joinable = 0;
+     }
+ 
+-    tdata = malloc (sizeof (ThreadData));
++    if (!config || fd < 0)
++        goto exit;
++    len = (*env)->GetArrayLength (env, config);
++    if (len <= 0 || len > 8192)
++        goto exit;
++    tdata = calloc (1, sizeof (ThreadData));
+     if (!tdata)
+         goto exit;
+-    tdata->fd = fd;
+-
+-    bytes = (const jbyte *)(*env)->GetStringUTFChars (env, config_path, NULL);
+-    if (!bytes) {
+-        free (tdata);
+-        goto exit;
+-    }
+-    tdata->path = strdup ((const char *)bytes);
+-    (*env)->ReleaseStringUTFChars (env, config_path, (const char *)bytes);
+-    if (!tdata->path) {
+-        free (tdata);
+-        goto exit;
+-    }
++    tdata->fd = fcntl (fd, F_DUPFD_CLOEXEC, 0);
++    if (tdata->fd < 0)
++        goto free_data;
++    tdata->config = malloc (len);
++    if (!tdata->config)
++        goto close_fd;
++    tdata->config_len = len;
++    (*env)->GetByteArrayRegion (env, config, 0, len, (jbyte *)tdata->config);
++    if ((*env)->ExceptionCheck (env))
++        goto free_config;
+ 
+     atomic_store_explicit (&is_running, 1, memory_order_release);
+     res = pthread_create (&work_thread, NULL, thread_handler, tdata);
+     if (res != 0) {
+         atomic_store_explicit (&is_running, 0, memory_order_release);
+-        free (tdata->path);
+-        free (tdata);
+-        goto exit;
++        goto free_config;
+     }
+ 
+     thread_joinable = 1;
+     result = JNI_TRUE;
++    goto exit;
++
++free_config:
++    free (tdata->config);
++close_fd:
++    close (tdata->fd);
++free_data:
++    free (tdata);
+ exit:
+     pthread_mutex_unlock (&mutex);
+     return result;
+@@ -176,6 +189,8 @@
+     if (atomic_load_explicit (&is_running, memory_order_acquire))
+         hev_socks5_tunnel_quit ();
+     res = pthread_join (work_thread, NULL);
++    if (res != 0)
++        goto exit;
+ 
+     thread_joinable = 0;
+     atomic_store_explicit (&is_running, 0, memory_order_release);

@@ -26,7 +26,7 @@ class ProbeMigrationTest {
         assertEquals(ProbeUrls.GOOGLE, Prefs(context).settings.testUrl)
         assertEquals(1400, Prefs(context).settings.mtu)
         assertFalse(Prefs(context).settings.safeMode)
-        assertFalse(storage.getString("settings", "")!!.contains("firefox"))
+        assertFalse(storage.contains("settings"))
         assertEquals(setOf(ProbeUrls.GOOGLE, ProbeUrls.CLOUDFLARE, ProbeUrls.APPLE), ProbeUrls.all)
     }
 
@@ -40,7 +40,7 @@ class ProbeMigrationTest {
 
     @Test fun currentChoicesRemainUnchanged() {
         for (url in ProbeUrls.all) {
-            storage.edit().putString("settings", """{"testUrl":"$url"}""").commit()
+            storage.edit().clear().putString("settings", """{"testUrl":"$url"}""").commit()
             assertEquals(url, Prefs(context).settings.testUrl)
         }
     }

@@ -12,7 +12,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
 
-const val LEGAL_VERSION = 7
+const val LEGAL_VERSION = 8
 
 @Serializable
 enum class UiStyle { IOS, MATERIAL, ROSKOMPOZOR, SUMIE, NOTHING, ORIGIN, HYPER, HARMONY, ONEUI, OXYGEN, WITCH, WINTER, COLOROS, FLYME, OBSERVATORY }
@@ -118,10 +118,52 @@ class Prefs(context: Context) {
     private val sp = context.getSharedPreferences("farvater", Context.MODE_PRIVATE)
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
+    private val unreadable = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private var prepared = false
+    internal val protectedDataUnavailable get() = unreadable.isNotEmpty()
+
+    internal fun prepareProtectedData(): Boolean = synchronized(selectionLock) {
+        if (prepared && unreadable.isEmpty()) return@synchronized true
+        for (key in ProfileStorage.sensitive) {
+            if (sp.contains(key) || sp.contains(ProfileStorage.sealedKey(key))) readString(key) else unreadable.remove(key)
+        }
+        if (unreadable.isEmpty() && !sp.contains(ProfileStorage.sealedKey("settings"))) {
+            withStorage("settings") {
+                if (!ProfileStorage.put(sp.edit(), "settings", json.encodeToString(AppSettings())).commit()) {
+                    throw java.io.IOException("Cannot initialize protected settings")
+                }
+            }
+        }
+        if (unreadable.isEmpty()) {
+            settings
+            lastNode
+            userSources
+            modeNodes
+        }
+        prepared = unreadable.isEmpty()
+        prepared
+    }
+
+    private fun readString(key: String): String? = withStorage(key) { ProfileStorage.get(sp, key) }
+
+    private inline fun <T> withStorage(key: String, operation: () -> T): T? {
+        return try {
+            operation().also { unreadable.remove(key) }
+        } catch (_: java.security.GeneralSecurityException) {
+            unreadable.add(key)
+            null
+        } catch (_: java.io.IOException) {
+            unreadable.add(key)
+            null
+        }
+    }
+
     @Volatile private var cachedSettings: AppSettings? = null
     @Volatile private var cachedEnabled: Set<String>? = null
     @Volatile private var cachedUserSources: List<UserSource>? = null
     @Volatile private var cachedConfigs: Map<String, SourceConfig>? = null
+
+    internal val loadedSettings get() = cachedSettings
 
     var settings: AppSettings
         get() = cachedSettings ?: run {
@@ -129,11 +171,12 @@ class Prefs(context: Context) {
             val current = stored.migrated()
             if (current != stored) write("settings", current)
             current
-        }.also { cachedSettings = it }
-        set(value) = synchronized(selectionLock) {
-            cachedSettings = value
-            write("settings", value)
-        }
+        }.also { if ("settings" !in unreadable) cachedSettings = it }
+        set(value) { saveSettings(value) }
+
+    internal fun saveSettings(value: AppSettings): Boolean = synchronized(selectionLock) {
+        write("settings", value).also { if (it) cachedSettings = value }
+    }
 
     var enabledSources: Set<String>
         get() = cachedEnabled ?: run {
@@ -151,11 +194,12 @@ class Prefs(context: Context) {
         }
 
     var userSources: List<UserSource>
-        get() = cachedUserSources ?: (read<List<UserSource>>("user_sources") ?: emptyList()).also { cachedUserSources = it }
-        set(value) = synchronized(selectionLock) {
-            cachedUserSources = value
-            write("user_sources", value)
-        }
+        get() = cachedUserSources ?: (read<List<UserSource>>("user_sources") ?: emptyList()).also { if ("user_sources" !in unreadable) cachedUserSources = it }
+        set(value) { saveUserSources(value) }
+
+    internal fun saveUserSources(value: List<UserSource>): Boolean = synchronized(selectionLock) {
+        write("user_sources", value).also { if (it) cachedUserSources = value }
+    }
 
     var sourceConfigs: Map<String, SourceConfig>
         get() = cachedConfigs ?: (read<Map<String, SourceConfig>>("source_configs") ?: emptyMap()).also { cachedConfigs = it }
@@ -173,8 +217,15 @@ class Prefs(context: Context) {
         set(value) = sp.edit().putString("last_net_mode", value).apply()
 
     val hwid: String
-        get() = sp.getString("hwid", null) ?: java.util.UUID.randomUUID().toString().replace("-", "")
-            .also { sp.edit().putString("hwid", it).apply() }
+        get() = synchronized(selectionLock) {
+            readString("hwid")?.let { return@synchronized it }
+            if ("hwid" in unreadable) return@synchronized ""
+            withStorage("hwid") {
+                val id = java.util.UUID.randomUUID().toString().replace("-", "")
+                if (!ProfileStorage.put(sp.edit(), "hwid", id).commit()) throw java.io.IOException("Cannot save installation ID")
+                id
+            }.orEmpty()
+        }
 
     var lastUpdateCheck: Long
         get() = sp.getLong("last_update_check", 0)
@@ -194,37 +245,45 @@ class Prefs(context: Context) {
 
     @Volatile private var cachedLastNode: ProxyNode? = null
 
+    internal val loadedLastNode get() = cachedLastNode
+
     var lastNode: ProxyNode?
         get() = cachedLastNode ?: read<ProxyNode>("last_node")?.also { cachedLastNode = it }
-        set(value) {
-            if (value != null && value == cachedLastNode) return
-            cachedLastNode = value
-            write("last_node", value)
+        set(value) = synchronized(selectionLock) {
+            if (value != null && value == cachedLastNode) return@synchronized
+            if (write("last_node", value)) cachedLastNode = value
         }
 
-    fun selectNode(node: ProxyNode): Unit = synchronized(selectionLock) {
-        if (selectedNodeId != node.id) selectedNodeId = node.id
-        lastNode = node
+    fun selectNode(node: ProxyNode): Boolean = synchronized(selectionLock) {
+        if (cachedLastNode == null && sp.contains(ProfileStorage.sealedKey("last_node"))) lastNode
+        if ("last_node" in unreadable) return@synchronized false
+        if (cachedLastNode == node && selectedNodeId == node.id) return@synchronized true
+        try {
+            val editor = sp.edit().putString("selected_node", node.id)
+            ProfileStorage.put(editor, "last_node", json.encodeToString(node)).apply()
+            cachedLastNode = node
+            true
+        } catch (_: java.security.GeneralSecurityException) {
+            false
+        }
     }
 
     fun replaceSelection(expectedId: String, node: ProxyNode): Boolean = synchronized(selectionLock) {
         if (lastNode?.id != expectedId) return@synchronized false
         selectNode(node)
-        true
     }
 
     @Volatile private var cachedModeNodes: Map<String, ProxyNode>? = null
 
     var modeNodes: Map<String, ProxyNode>
-        get() = cachedModeNodes ?: (read<Map<String, ProxyNode>>("mode_nodes") ?: emptyMap()).also { cachedModeNodes = it }
+        get() = cachedModeNodes ?: (read<Map<String, ProxyNode>>("mode_nodes") ?: emptyMap()).also { if ("mode_nodes" !in unreadable) cachedModeNodes = it }
         set(value) = synchronized(selectionLock) {
-            cachedModeNodes = value
-            write("mode_nodes", value)
+            if (write("mode_nodes", value)) cachedModeNodes = value
         }
 
     var backupNodes: BackupNodes
         get() = read<BackupNodes>("backup_nodes") ?: BackupNodes()
-        set(value) = write("backup_nodes", value)
+        set(value) { write("backup_nodes", value) }
 
     fun nodeForMode(mode: NetMode): ProxyNode? = modeNodes[mode.name]
 
@@ -249,6 +308,8 @@ class Prefs(context: Context) {
             else -> false
         }
     }
+
+    internal fun flushWrites(): Boolean = sp.edit().commit()
 
     var vpnWasOn: Boolean
         get() = sp.getBoolean("vpn_was_on", false)
@@ -346,8 +407,10 @@ class Prefs(context: Context) {
         }
 
     fun clearSelection(): Unit = synchronized(selectionLock) {
-        selectedNodeId = null
-        lastNode = null
+        if ("last_node" !in unreadable) {
+            ProfileStorage.put(sp.edit().remove("selected_node"), "last_node", null).apply()
+            cachedLastNode = null
+        }
     }
 
     fun restoreBackup(archive: BackupArchive, includeSecuritySettings: Boolean = false,
@@ -375,20 +438,22 @@ class Prefs(context: Context) {
         }.joinToString("\n", postfix = "\n")
         val before = sp.all
         val editor = sp.edit()
-            .putString("settings", json.encodeToString(restored))
-            .putString("user_sources", json.encodeToString(archive.subscriptions))
+            .also { ProfileStorage.put(it, "settings", json.encodeToString(restored)) }
+            .also { ProfileStorage.put(it, "user_sources", json.encodeToString(archive.subscriptions)) }
             .putStringSet("enabled_sources", archive.enabledSources)
             .putStringSet("catalog_seen", BuiltInCatalog.sources.map { it.id }.toSet())
             .putString("source_configs", json.encodeToString(archive.sourceConfigs))
-            .putString(MANUAL_NODES_KEY, manual)
+            .also { ProfileStorage.put(it, MANUAL_NODES_KEY, manual) }
             .putString("backup_language", archive.language)
-            .remove("selected_node").remove("last_node").remove("mode_nodes").remove("backup_nodes")
+            .remove("selected_node").also { editor ->
+                for (key in listOf("last_node", "mode_nodes", "backup_nodes")) ProfileStorage.put(editor, key, null)
+            }
             .remove("node_profiles").remove("collapsed_groups")
         if (!editor.commit()) {
             val rollback = sp.edit()
             val keys = setOf("settings", "user_sources", "enabled_sources", "catalog_seen", "source_configs",
                 MANUAL_NODES_KEY, "backup_language", "selected_node", "last_node", "mode_nodes", "backup_nodes",
-                "node_profiles", "collapsed_groups")
+                "node_profiles", "collapsed_groups").let { raw -> raw + raw.intersect(ProfileStorage.sensitive).map(ProfileStorage::sealedKey) }
             keys.forEach { rollback.remove(it) }
             before.filterKeys { it in keys }.forEach { (key, value) ->
                 when (value) {
@@ -424,10 +489,24 @@ class Prefs(context: Context) {
         )
     }
 
-    private inline fun <reified T> read(key: String): T? =
-        sp.getString(key, null)?.let { runCatching { json.decodeFromString(serializer<T>(), it) }.getOrNull() }
+    private inline fun <reified T> read(key: String): T? {
+        val text = readString(key) ?: return null
+        return try {
+            json.decodeFromString(serializer<T>(), text)
+        } catch (_: IllegalArgumentException) {
+            if (key in ProfileStorage.sensitive) unreadable.add(key)
+            null
+        }
+    }
 
-    private inline fun <reified T> write(key: String, value: T?) {
-        sp.edit().putString(key, value?.let { json.encodeToString(serializer<T>(), it) }).apply()
+    private inline fun <reified T> write(key: String, value: T?): Boolean {
+        if (key in unreadable) {
+            read<T>(key)
+            if (key in unreadable) return false
+        }
+        return withStorage(key) {
+            ProfileStorage.put(sp.edit(), key, value?.let { json.encodeToString(serializer<T>(), it) }).apply()
+            true
+        } == true
     }
 }

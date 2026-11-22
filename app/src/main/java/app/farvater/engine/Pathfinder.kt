@@ -89,13 +89,14 @@ object Pathfinder {
 
     private suspend fun check(node: ProxyNode, profile: NodeProfile, dns: List<String>?): Check = withContext(Dispatchers.IO) {
         val port = freePort() ?: return@withContext Check(Verdict.NO_DATA)
-        val config = XrayConfigBuilder.build(node, directRuServices = false, encryptedDns = false, profile = profile, socksPort = port)
+        val account = LocalProxyAuth.Account()
+        val config = XrayConfigBuilder.build(node, directRuServices = false, encryptedDns = false, profile = profile, socksPort = port, account = account)
         val probe = try {
-            ProbeLaunch.await({ XrayEngine.startProbe(config) }, XrayEngine::stopProbe, deferOnTimeout = true)
+            ProbeLaunch.await({ ProbeClient.startProbe(config) }, ProbeClient::stopProbe, deferOnTimeout = true)
         } catch (_: ProbeDeferredException) {
             return@withContext Check(Verdict.DEFERRED)
         } ?: return@withContext Check(Verdict.NO_DATA)
-        LocalProxyAuth.open(port)
+        LocalProxyAuth.open(port, account) { ProbeClient.alive(probe) }
         try {
             val client = base.newBuilder().proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port))).build()
             val speed = measureSpeed(client)
@@ -106,8 +107,8 @@ object Pathfinder {
                 else -> DohProbe.firstAnswering(client, dns)?.let { Check(Verdict.OK, it, speed) } ?: Check(Verdict.NO_DNS, speedBps = speed)
             }
         } finally {
-            LocalProxyAuth.close(port)
-            XrayEngine.stopProbe(probe)
+            LocalProxyAuth.close(port, account)
+            ProbeClient.stopProbe(probe)
         }
     }
 

@@ -41,9 +41,11 @@ class FarvaterActivity : ComponentActivity() {
     }
 
     private val vm: MainViewModel by viewModels()
+    private var ready = false
+    private var initialLink = false
 
     private val vpnPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        vm.onVpnPermissionResult(it.resultCode == RESULT_OK)
+        if (ready) vm.onVpnPermissionResult(it.resultCode == RESULT_OK)
     }
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
 
@@ -51,7 +53,29 @@ class FarvaterActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         onBackPressedDispatcher.addCallback(this) { moveTaskToBack(true) }
+        initialLink = savedInstanceState == null
+        openProfiles()
+    }
 
+    private fun openProfiles() {
+        lifecycleScope.launch {
+            val available = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { App.prefs.prepareProtectedData() }
+            if (available) {
+                ready = true
+                openInterface()
+                if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) vm.onForeground()
+            } else {
+                android.app.AlertDialog.Builder(this@FarvaterActivity)
+                    .setMessage(R.string.profile_storage_unavailable)
+                    .setPositiveButton(R.string.action_try_again) { _, _ -> openProfiles() }
+                    .setNegativeButton(android.R.string.cancel) { _, _ -> finish() }
+                    .setOnCancelListener { finish() }
+                    .show()
+            }
+        }
+    }
+
+    private fun openInterface() {
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
@@ -70,7 +94,7 @@ class FarvaterActivity : ComponentActivity() {
             }
         }
 
-        if (savedInstanceState == null) handleDeepLink(intent)
+        if (initialLink) handleDeepLink(intent)
         val initialSettings = vm.state.value.settings
         setContent {
             val settings by remember { vm.state.map { it.settings }.distinctUntilChanged() }
@@ -100,7 +124,7 @@ class FarvaterActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         lifecycleScope.launch { app.farvater.data.AppLanguages.applyBackupLanguage(this@FarvaterActivity) }
-        vm.onForeground()
+        if (ready) vm.onForeground()
     }
 
     override fun onStop() {
@@ -110,7 +134,8 @@ class FarvaterActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        handleDeepLink(intent)
+        setIntent(intent)
+        if (ready) handleDeepLink(intent) else initialLink = true
     }
 
     private fun handleDeepLink(intent: Intent?) {

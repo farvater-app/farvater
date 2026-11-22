@@ -62,7 +62,7 @@ class AutomationReceiver : BroadcastReceiver() {
         }
         val accepted = runCatching {
             val grant = AutomationAccess.authorize(context, intent.getStringExtra("key")) ?: return
-            FarvaterVpnService.external(context, connect, grant)
+            TunnelCoordinator.external(context, connect, grant)
         }.getOrDefault(false)
         if (accepted && isOrderedBroadcast) resultCode = Activity.RESULT_OK
     }

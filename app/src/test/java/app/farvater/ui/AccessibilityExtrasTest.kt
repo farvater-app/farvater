@@ -55,7 +55,7 @@ class AccessibilityExtrasTest {
     private fun connectionStatusLiveRegion(style: app.farvater.data.UiStyle) {
         rule.setContent {
             FarvaterTheme(dynamicColor = false, style = style) {
-                HomeScreen(state = UiState(nodes = listOf(node)), vpn = VpnState.Idle, traffic = Traffic(), history = emptyList(),
+                HomeScreen(state = UiState(nodes = listOf(node)), vpn = VpnState.Idle, traffic = { Traffic() }, history = { emptyList() },
                     onToggle = {}, onFindWorking = {}, onCancelTest = {}, onOpenServers = {})
             }
         }

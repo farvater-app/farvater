@@ -36,7 +36,7 @@ class StatusIslandContrastTest {
         rule.setContent {
             view = LocalView.current
             FarvaterTheme(style = style.value, darkTheme = dark.value, dynamicColor = false) {
-                StatusIsland(mode.value, "Test", null, 0, null)
+                StatusIsland(mode.value, "Test", null, { 0L }, null)
             }
         }
         for (currentStyle in listOf(UiStyle.HARMONY, UiStyle.HYPER, UiStyle.ORIGIN, UiStyle.OXYGEN)) {

@@ -10,6 +10,21 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class SocksBindingTest {
+    @Test fun aClosedOrReplacedProbeCannotAuthenticateOnAReusedPort() {
+        val port = 12349
+        val previous = LocalProxyAuth.Account()
+        val current = LocalProxyAuth.Account()
+        var alive = true
+        LocalProxyAuth.open(port, previous) { true }
+        LocalProxyAuth.open(port, current) { alive }
+        LocalProxyAuth.close(port, previous)
+        assertSame(current, LocalProxyAuth.account(port))
+        assertNotEquals(previous.pass, current.pass)
+        alive = false
+        assertNull(LocalProxyAuth.account(port))
+        LocalProxyAuth.close(port, current)
+    }
+
     @Test fun importedListenersCannotOverrideApplicationSocks() {
         for (listen in listOf("0.0.0.0", "::", "192.0.2.10", "127.0.0.2")) {
             val raw = """{"inbounds":[{"listen":"$listen","port":9999,"protocol":"socks","settings":{"auth":"noauth"}},{"listen":"$listen","port":9998,"protocol":"http"}],"outbounds":[{"protocol":"vless","settings":{"address":"node.example.test","port":443,"id":"id","encryption":"none"},"streamSettings":{"security":"tls"}}]}"""
@@ -54,8 +69,8 @@ class SocksBindingTest {
         val settings = inbound.getValue("settings").jsonObject
         assertEquals("password", settings.getValue("auth").jsonPrimitive.content)
         val account = settings.getValue("accounts").jsonArray.single().jsonObject
-        assertEquals(LocalProxyAuth.user, account.getValue("user").jsonPrimitive.content)
-        assertEquals(LocalProxyAuth.pass, account.getValue("pass").jsonPrimitive.content)
+        assertEquals(LocalProxyAuth.defaultAccount.user, account.getValue("user").jsonPrimitive.content)
+        assertEquals(LocalProxyAuth.defaultAccount.pass, account.getValue("pass").jsonPrimitive.content)
         assertEquals(port == XrayConfigBuilder.SOCKS_PORT, settings.getValue("udp").jsonPrimitive.boolean)
     }
 }

@@ -1,5 +1,6 @@
 package app.farvater
 
+import app.farvater.data.ProfileStorage
 import android.app.Application
 import android.app.NotificationManager
 import android.content.ComponentName
@@ -243,7 +244,7 @@ class NodeCheckServiceTest {
         await { vm.state.value.sources.any { it.id == source.id } }
         val owned = vm.state.value.sources.filterNot { it.community }
         assertEquals(listOf("example.test:8443"), owned.map { it.title })
-        cache.writeText("#profile-title: My subscription")
+        ProfileStorage.write(cache, "#profile-title: My subscription")
         App.repo.loadSnapshot(source.id)
         await { vm.state.value.sources.single { it.id == source.id }.title == "My subscription" }
         assertEquals(listOf(source), App.prefs.userSources)

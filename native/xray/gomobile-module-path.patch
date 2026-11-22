@@ -1,0 +1,21 @@
+--- a/cmd/gomobile/bind.go
++++ b/cmd/gomobile/bind.go
+@@ -353,6 +353,18 @@
+ 		if f == nil {
+ 			return nil
+ 		}
++		for _, replacement := range f.Replace {
++			if replacement.Old.Path != "github.com/2dust/AndroidLibXrayLite" || !filepath.IsAbs(replacement.New.Path) {
++				continue
++			}
++			// Go retains replacement paths in the shared library's module information.
++			if err := os.Symlink(replacement.New.Path, filepath.Join(dir, "bridge-src")); err != nil {
++				return err
++			}
++			if err := f.AddReplace(replacement.Old.Path, replacement.Old.Version, "./bridge-src", ""); err != nil {
++				return err
++			}
++		}
+ 		bs, err := f.Format()
+ 		if err != nil {
+ 			return err

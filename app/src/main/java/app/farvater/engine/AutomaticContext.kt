@@ -51,8 +51,8 @@ class AutomaticContext private constructor(
 
     fun commit(prefs: Prefs, repository: SubscriptionRepository): Boolean = synchronized(Prefs.selectionLock) {
         if (!valid(prefs, repository)) return@synchronized false
+        if (!prefs.selectNode(node)) return@synchronized false
         connectionProfile?.let { prefs.rememberProfile(node.id, it) }
-        prefs.selectNode(node)
         true
     }
 

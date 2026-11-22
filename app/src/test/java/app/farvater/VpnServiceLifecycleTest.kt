@@ -22,10 +22,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.intrinsics.startCoroutineUninterceptedOrReturn
-import kotlin.coroutines.intrinsics.suspendCoroutineUninterceptedOrReturn
 import app.farvater.engine.TunBridge
 import app.farvater.engine.XrayEngine
 import app.farvater.vpn.FarvaterVpnService
+import app.farvater.vpn.TunnelCoordinator
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -51,7 +51,9 @@ import kotlin.concurrent.thread
 @Config(sdk = [35], application = Application::class, shadows = [VpnServiceLifecycleTest.Core::class, VpnServiceLifecycleTest.Bridge::class, VpnServiceLifecycleTest.Probe::class, VpnServiceLifecycleTest.Selection::class, VpnServiceLifecycleTest.TilePlatform::class, VpnServiceLifecycleTest.InterfaceBuilder::class],
     instrumentedPackages = ["app.farvater.engine.XrayEngine", "app.farvater.engine.TunBridge", "app.farvater.engine.NodeTester", "app.farvater.data.Prefs"] , qualifiers = "ru")
 class VpnServiceLifecycleTest {
-    private lateinit var service: FarvaterVpnService
+    private lateinit var service: TunnelCoordinator
+    private lateinit var platformVpn: app.farvater.vpn.FarvaterVpnService
+    private val finishedStarts = mutableListOf<Int>()
     private lateinit var queue: QueueDispatcher
     private lateinit var scope: CoroutineScope
     private val uncaught = mutableListOf<Throwable>()
@@ -61,13 +63,24 @@ class VpnServiceLifecycleTest {
         val app = ApplicationProvider.getApplicationContext<Application>()
         prepareRuntime(app)
         App.prefs.selectNode(LinkParser.parse("vless://test@node.example.test:443?security=tls")!!)
-        service = Robolectric.buildService(FarvaterVpnService::class.java).create().get()
+        service = Robolectric.buildService(TunnelCoordinator::class.java).create().get()
+        val bindIntent = Intent(app, TunnelCoordinator::class.java)
+        org.robolectric.Shadows.shadowOf(app).setComponentNameAndServiceForBindServiceForIntent(
+            bindIntent, bindIntent.component!!, service.onBind(bindIntent))
+        platformVpn = Robolectric.buildService(FarvaterVpnService::class.java).create().get()
+        // Robolectric records the coordinator binding in the queue used for service starts.
+        assertEquals(bindIntent.component, org.robolectric.Shadows.shadowOf(app).nextStartedService?.component)
+        val platform = platformVpn.endpoint
+        service.endpoint = object : app.farvater.vpn.IVpnEndpoint by platform {
+            override fun finishStart(startId: Int) { finishedStarts.add(startId) }
+            override fun counters(): LongArray? = Bridge.reading ?: platform.counters()
+        }
         queue = QueueDispatcher()
         scope = CoroutineScope(SupervisorJob() + queue + kotlinx.coroutines.CoroutineExceptionHandler { _, error -> uncaught.add(error) })
-        val field = FarvaterVpnService::class.java.getDeclaredField("scope").apply { isAccessible = true }
+        val field = TunnelCoordinator::class.java.getDeclaredField("scope").apply { isAccessible = true }
         (field.get(service) as CoroutineScope).cancel()
         field.set(service, scope)
-        FarvaterVpnService::class.java.getDeclaredField("lifecycleDispatcher").apply { isAccessible = true }.set(service, queue)
+        TunnelCoordinator::class.java.getDeclaredField("lifecycleDispatcher").apply { isAccessible = true }.set(service, queue)
         uncaught.clear()
         Core.succeeds = false
         InterfaceBuilder.exclusionFailure = null
@@ -88,6 +101,7 @@ class VpnServiceLifecycleTest {
         Selection.beforeEligibility = null
         service.onDestroy()
         queue.drain()
+        platformVpn.onDestroy()
         assertTrue("Unhandled coroutine failure: $uncaught", uncaught.isEmpty())
     }
 
@@ -130,6 +144,44 @@ class VpnServiceLifecycleTest {
         app.farvater.vpn.AutomationAccess.revoke(application)
     }
 
+    @Test fun aStickyRestartRequiresAPreviouslyEnabledVpn() {
+        App.prefs.vpnWasOn = false
+        assertEquals(android.app.Service.START_NOT_STICKY, service.onStartCommand(null, 0, 9))
+        queue.drain()
+        assertEquals(0, Core.starts)
+        assertEquals(listOf(9), finishedStarts)
+    }
+
+    @Test fun theFirstManualStartIsAcknowledgedAfterTheTunnelCanResume() {
+        App.prefs.vpnWasOn = false
+        val receipts = mutableListOf<Pair<Int, Boolean>>()
+        val platform = platformVpn.endpoint
+        val remote = object : app.farvater.vpn.IVpnEndpoint by platform {
+            override fun received(startId: Int) { receipts += startId to App.prefs.vpnWasOn }
+            override fun startCore(configuration: android.os.Bundle) = 0
+            override fun establish(label: String, mtu: Int, ipv6: Boolean, excluded: Array<String>) =
+                android.os.ParcelFileDescriptor.open(java.io.File("/dev/null"), android.os.ParcelFileDescriptor.MODE_READ_WRITE)
+            override fun startBridge(tun: android.os.ParcelFileDescriptor, configuration: ByteArray) = tun.use { true }
+        }
+        val binder = app.farvater.vpn.ITunnelControl.Stub.asInterface(service.onBind(null))
+        binder.command(remote, Intent(TunnelCoordinator.ACTION_START), 8)
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertTrue(receipts.isEmpty())
+        queue.drain()
+        assertEquals(listOf(8 to true), receipts)
+    }
+
+    @Test fun detachingAFailedEndpointPreservesTheError() {
+        val failed = VpnState.Failed("fixture error", App.prefs.lastNode)
+        VpnBus.state.value = failed
+        val binder = app.farvater.vpn.ITunnelControl.Stub.asInterface(service.onBind(null))
+        binder.ended(platformVpn.endpoint, false)
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        queue.drain()
+        assertEquals(failed, VpnBus.state.value)
+        assertNull(service.endpoint)
+    }
+
     @Test fun missingVpnPermissionStopsCleanly() = failedInterface(null)
 
     @Test fun revokedVpnPermissionStopsCleanly() = failedInterface(SecurityException("permission revoked"))
@@ -159,7 +211,7 @@ class VpnServiceLifecycleTest {
         queue.drain()
         assertEquals(0, Core.starts)
         assertEquals(VpnState.Idle, VpnBus.state.value)
-        assertTrue(org.robolectric.Shadows.shadowOf(service).isStoppedBySelf)
+        assertTrue(finishedStarts.isNotEmpty())
     }
 
     @Test fun validAutomaticRequestStillReachesTheCore() {
@@ -211,16 +263,16 @@ class VpnServiceLifecycleTest {
 
     @Test fun automaticStartCannotReplaceAPendingStop() {
         val app = ApplicationProvider.getApplicationContext<Application>()
-        FarvaterVpnService.stop(app)
+        TunnelCoordinator.stop(app)
         val pending = VpnBus.request.value
         val node = App.prefs.lastNode!!
         App.repo.snapshots.value = mapOf(node.sourceId to SourceSnapshot(node.sourceId, null, null, emptyList(), listOf(node), 1))
         val checked = AutomaticContext.capture(ProbeNetwork(ApplicationProvider.getApplicationContext<Application>()), node, App.prefs, App.repo, NetMode.BLACK, GalsPolicy.from(App.prefs.settings))!!
-        FarvaterVpnService.startAutomatic(app, checked, restart = true)
+        TunnelCoordinator.startAutomatic(app, checked, restart = true)
         assertNotNull(pending)
         assertSame(pending, VpnBus.request.value)
         val platform = org.robolectric.Shadows.shadowOf(app)
-        assertEquals(FarvaterVpnService.ACTION_STOP, platform.nextStartedService.action)
+        assertEquals(TunnelCoordinator.ACTION_STOP, platform.nextStartedService.action)
         assertNull(platform.nextStartedService)
     }
 
@@ -229,7 +281,7 @@ class VpnServiceLifecycleTest {
         App.repo.snapshots.value = mapOf(node.sourceId to SourceSnapshot(node.sourceId, null, null, emptyList(), listOf(node), 1))
         val context = AutomaticContext.capture(ProbeNetwork(ApplicationProvider.getApplicationContext<Application>()), node, App.prefs, App.repo, NetMode.BLACK, GalsPolicy.from(App.prefs.settings))!!
         val app = ApplicationProvider.getApplicationContext<Application>()
-        FarvaterVpnService.startAutomatic(app, context, restart = true)
+        TunnelCoordinator.startAutomatic(app, context, restart = true)
         return org.robolectric.Shadows.shadowOf(app).nextStartedService!!
     }
 
@@ -237,7 +289,7 @@ class VpnServiceLifecycleTest {
         Core.succeeds = true
         InterfaceBuilder.failure = error
         App.prefs.vpnWasOn = true
-        command(FarvaterVpnService.ACTION_START, 1)
+        command(TunnelCoordinator.ACTION_START, 1)
         queue.drain()
         assertTrue("Unhandled coroutine failure: $uncaught", uncaught.isEmpty())
         val failed = VpnBus.state.value as VpnState.Failed
@@ -246,7 +298,7 @@ class VpnServiceLifecycleTest {
         assertFalse(App.prefs.vpnWasOn)
         assertNull(VpnBus.request.value)
         assertTrue(Core.stops >= 2)
-        assertTrue(org.robolectric.Shadows.shadowOf(service).isStoppedBySelf)
+        assertTrue(finishedStarts.isNotEmpty())
         val notifications = ApplicationProvider.getApplicationContext<Application>()
             .getSystemService(android.app.NotificationManager::class.java)
         assertTrue(notifications.activeNotifications.isEmpty())
@@ -261,7 +313,7 @@ class VpnServiceLifecycleTest {
         var reachedEstablish = false
         InterfaceBuilder.exclusionFailure = SecurityException("Package policy unavailable")
         InterfaceBuilder.beforeEstablish = { reachedEstablish = true }
-        command(FarvaterVpnService.ACTION_START, 1)
+        command(TunnelCoordinator.ACTION_START, 1)
         queue.drain()
         assertTrue(uncaught.isEmpty())
         assertTrue(VpnBus.state.value is VpnState.Failed)
@@ -271,8 +323,8 @@ class VpnServiceLifecycleTest {
     @Test fun stopDuringFailedEstablishDoesNotReviveFailure() {
         Core.succeeds = true
         InterfaceBuilder.failure = IllegalStateException("Cannot create interface")
-        InterfaceBuilder.beforeEstablish = { command(FarvaterVpnService.ACTION_STOP, 2) }
-        command(FarvaterVpnService.ACTION_START, 1)
+        InterfaceBuilder.beforeEstablish = { command(TunnelCoordinator.ACTION_STOP, 2) }
+        command(TunnelCoordinator.ACTION_START, 1)
         queue.drain()
         assertTrue(uncaught.isEmpty())
         assertEquals(VpnState.Idle, VpnBus.state.value)
@@ -285,20 +337,18 @@ class VpnServiceLifecycleTest {
         var date = java.time.LocalDate.now().toEpochDay()
         val firstDay = date
         App.prefs.dayTraffic = app.farvater.data.DayTraffic(date, 10)
-        FarvaterVpnService::class.java.getDeclaredField("trafficDay").apply { isAccessible = true }
+        TunnelCoordinator::class.java.getDeclaredField("trafficDay").apply { isAccessible = true }
             .set(service, { date })
         @Suppress("UNCHECKED_CAST")
-        val screen = FarvaterVpnService::class.java.getDeclaredField("screenOn").apply { isAccessible = true }
+        val screen = TunnelCoordinator::class.java.getDeclaredField("screenOn").apply { isAccessible = true }
             .get(service) as kotlinx.coroutines.flow.MutableStateFlow<Boolean>
         screen.value = false
         Bridge.reading = longArrayOf(0, 0, 0, 0)
         Probe.entered = CountDownLatch(1)
         Probe.cancelled = CountDownLatch(1)
-        val method = FarvaterVpnService::class.java.getDeclaredMethod("monitorLoop", ProxyNode::class.java, Continuation::class.java).apply { isAccessible = true }
+        val traffic = service.newTraffic(service.endpoint!!)
         val monitor = backgroundScope.launch {
-            suspendCoroutineUninterceptedOrReturn<Unit> { continuation ->
-                method.invoke(service, LinkParser.parse("vless://test@node.example.test:443?security=tls")!!, continuation)
-            }
+            service.monitorLoop(LinkParser.parse("vless://test@node.example.test:443?security=tls")!!, traffic)
         }
         try {
             testScheduler.runCurrent()
@@ -332,8 +382,8 @@ class VpnServiceLifecycleTest {
         VpnBus.state.value = VpnState.Connected(current, 1)
         VpnBus.failedChecks.value = VpnBus.STALL_CHECKS
         val mode = Job()
-        FarvaterVpnService::class.java.getDeclaredField("modeJob").apply { isAccessible = true }.set(service, mode)
-        val failover = FarvaterVpnService::class.java.getDeclaredMethod("failover", ProxyNode::class.java)
+        TunnelCoordinator::class.java.getDeclaredField("modeJob").apply { isAccessible = true }.set(service, mode)
+        val failover = TunnelCoordinator::class.java.getDeclaredMethod("failover", ProxyNode::class.java)
             .apply { isAccessible = true }
         try {
             failover.invoke(service, current)
@@ -347,8 +397,8 @@ class VpnServiceLifecycleTest {
 
     @Test
     fun stopPreventsQueuedStartBeforeDestroy() {
-        service.onStartCommand(Intent().setAction(FarvaterVpnService.ACTION_START), 0, 1)
-        service.onStartCommand(Intent().setAction(FarvaterVpnService.ACTION_STOP), 0, 2)
+        service.onStartCommand(Intent().setAction(TunnelCoordinator.ACTION_START), 0, 1)
+        service.onStartCommand(Intent().setAction(TunnelCoordinator.ACTION_STOP), 0, 2)
         queue.drain()
         assertEquals(0, Core.starts)
     }
@@ -365,7 +415,7 @@ class VpnServiceLifecycleTest {
             org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
             assertEquals(android.service.quicksettings.Tile.STATE_ACTIVE, tile.qsTile.state)
             if (android.os.Build.VERSION.SDK_INT >= 29) assertEquals("Home", tile.qsTile.subtitle)
-            command(FarvaterVpnService.ACTION_STOP, 1)
+            command(TunnelCoordinator.ACTION_STOP, 1)
             org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
             assertEquals(android.service.quicksettings.Tile.STATE_INACTIVE, tile.qsTile.state)
             assertEquals(connected, VpnBus.state.value)
@@ -407,12 +457,12 @@ class VpnServiceLifecycleTest {
         val first = shadow.nextStartedService
         tile.onClick()
         val second = shadow.nextStartedService
-        assertEquals(FarvaterVpnService.ACTION_STOP, first.action)
-        assertEquals(FarvaterVpnService.ACTION_START, second.action)
+        assertEquals(TunnelCoordinator.ACTION_STOP, first.action)
+        assertEquals(TunnelCoordinator.ACTION_START, second.action)
         service.onStartCommand(first, 0, 1)
         tile.onClick()
         val third = shadow.nextStartedService
-        assertEquals(FarvaterVpnService.ACTION_STOP, third.action)
+        assertEquals(TunnelCoordinator.ACTION_STOP, third.action)
         service.onStartCommand(second, 0, 2)
         service.onStartCommand(third, 0, 3)
         queue.drain()
@@ -430,8 +480,8 @@ class VpnServiceLifecycleTest {
         val start = shadow.nextStartedService
         tile.onClick()
         val stop = shadow.nextStartedService
-        assertEquals(FarvaterVpnService.ACTION_START, start.action)
-        assertEquals(FarvaterVpnService.ACTION_STOP, stop.action)
+        assertEquals(TunnelCoordinator.ACTION_START, start.action)
+        assertEquals(TunnelCoordinator.ACTION_STOP, stop.action)
         service.onStartCommand(start, 0, 1)
         service.onStartCommand(stop, 0, 2)
         queue.drain()
@@ -447,11 +497,11 @@ class VpnServiceLifecycleTest {
         tile.onClick()
         val app = org.robolectric.Shadows.shadowOf(ApplicationProvider.getApplicationContext<Application>())
         val stop = app.nextStartedService
-        assertEquals(FarvaterVpnService.ACTION_STOP, stop.action)
+        assertEquals(TunnelCoordinator.ACTION_STOP, stop.action)
         service.onStartCommand(stop, 0, 1)
         tile.onClick()
         val start = app.nextStartedService
-        assertEquals(FarvaterVpnService.ACTION_START, start?.action)
+        assertEquals(TunnelCoordinator.ACTION_START, start?.action)
         service.onStartCommand(start, 0, 2)
         queue.drain()
         assertEquals(1, Core.starts)
@@ -467,11 +517,11 @@ class VpnServiceLifecycleTest {
         service.onStartCommand(app.nextStartedService, 0, 1)
         tile.onClick()
         val start = app.nextStartedService
-        assertEquals(FarvaterVpnService.ACTION_START, start?.action)
+        assertEquals(TunnelCoordinator.ACTION_START, start?.action)
         service.onStartCommand(start, 0, 2)
         tile.onClick()
         val stop = app.nextStartedService
-        assertEquals(FarvaterVpnService.ACTION_STOP, stop?.action)
+        assertEquals(TunnelCoordinator.ACTION_STOP, stop?.action)
         service.onStartCommand(stop, 0, 3)
         queue.drain()
         assertEquals(0, Core.starts)
@@ -480,36 +530,38 @@ class VpnServiceLifecycleTest {
 
     @Test
     fun newStartAfterStopRunsWithoutRevivingOldStart() {
-        command(FarvaterVpnService.ACTION_START, 1)
-        command(FarvaterVpnService.ACTION_STOP, 2)
-        command(FarvaterVpnService.ACTION_START, 3)
+        command(TunnelCoordinator.ACTION_START, 1)
+        command(TunnelCoordinator.ACTION_STOP, 2)
+        command(TunnelCoordinator.ACTION_START, 3)
         queue.drain()
         assertEquals(1, Core.starts)
     }
 
     @Test fun startAfterStopOfConnectedNodeRestartsMonitoring() = restartStoppedConnection(false)
 
-    @Test fun systemStartAfterStopOfConnectedNodeRestartsMonitoring() = restartStoppedConnection(true)
+    @Test fun stickyDeliveryAfterExplicitStopKeepsTheTunnelStopped() = restartStoppedConnection(true)
 
     private fun restartStoppedConnection(fromSystem: Boolean) {
         val node = App.prefs.lastNode!!
         val pipe = android.os.ParcelFileDescriptor.createPipe()
         val monitor = Job()
-        FarvaterVpnService::class.java.getDeclaredField("tun").apply { isAccessible = true }.set(service, pipe[0])
-        FarvaterVpnService::class.java.getDeclaredField("monitor").apply { isAccessible = true }.set(service, monitor)
+        TunnelCoordinator::class.java.getDeclaredField("tun").apply { isAccessible = true }.set(service, pipe[0])
+        TunnelCoordinator::class.java.getDeclaredField("monitor").apply { isAccessible = true }.set(service, monitor)
+        TunnelCoordinator::class.java.getDeclaredField("engineEndpoint").apply { isAccessible = true }.set(service, service.endpoint)
         VpnBus.state.value = VpnState.Connected(node, 123)
         App.prefs.vpnWasOn = true
         try {
-            command(FarvaterVpnService.ACTION_START, 1)
+            command(TunnelCoordinator.ACTION_START, 1)
             queue.drain()
             assertEquals(0, Core.starts)
             assertTrue(monitor.isActive)
-            command(FarvaterVpnService.ACTION_STOP, 2)
+            command(TunnelCoordinator.ACTION_STOP, 2)
             assertFalse(monitor.isActive)
             if (fromSystem) service.onStartCommand(null, 0, 3)
-            else command(FarvaterVpnService.ACTION_START, 3)
+            else command(TunnelCoordinator.ACTION_START, 3)
             queue.drain()
-            assertEquals("Остановленный монитор нельзя оставить у прежнего соединения", 1, Core.starts)
+            assertEquals(if (fromSystem) 0 else 1, Core.starts)
+            if (fromSystem) assertFalse(App.prefs.vpnWasOn)
             assertFalse(VpnBus.state.value is VpnState.Connected)
         } finally {
             monitor.cancel()
@@ -519,13 +571,13 @@ class VpnServiceLifecycleTest {
 
     @Test
     fun stopStartStopCancelsEveryQueuedGeneration() {
-        command(FarvaterVpnService.ACTION_START, 1)
-        command(FarvaterVpnService.ACTION_STOP, 2)
-        command(FarvaterVpnService.ACTION_START, 3)
-        command(FarvaterVpnService.ACTION_STOP, 4)
+        command(TunnelCoordinator.ACTION_START, 1)
+        command(TunnelCoordinator.ACTION_STOP, 2)
+        command(TunnelCoordinator.ACTION_START, 3)
+        command(TunnelCoordinator.ACTION_STOP, 4)
         queue.drain()
         assertEquals(0, Core.starts)
-        command(FarvaterVpnService.ACTION_START, 5)
+        command(TunnelCoordinator.ACTION_START, 5)
         queue.drain()
         assertEquals(1, Core.starts)
     }
@@ -533,10 +585,10 @@ class VpnServiceLifecycleTest {
     @Test
     fun stopAlsoCancelsQueuedSystemRestartAndItsModeCheck() {
         service.onStartCommand(null, 0, 1)
-        command(FarvaterVpnService.ACTION_STOP, 2)
+        command(TunnelCoordinator.ACTION_STOP, 2)
         queue.drain()
         assertEquals(0, Core.starts)
-        val modeJob = FarvaterVpnService::class.java.getDeclaredField("modeJob").apply { isAccessible = true }
+        val modeJob = TunnelCoordinator::class.java.getDeclaredField("modeJob").apply { isAccessible = true }
         assertNull(modeJob.get(service))
     }
 
@@ -553,7 +605,7 @@ class VpnServiceLifecycleTest {
         }
         try {
             assertTrue(locked.await(5, TimeUnit.SECONDS))
-            command(FarvaterVpnService.ACTION_START, 1)
+            command(TunnelCoordinator.ACTION_START, 1)
         } finally {
             accepted.countDown()
             worker.join(6000)
@@ -575,7 +627,7 @@ class VpnServiceLifecycleTest {
         }
         try {
             assertTrue(locked.await(5, TimeUnit.SECONDS))
-            command(FarvaterVpnService.ACTION_STOP, 1)
+            command(TunnelCoordinator.ACTION_STOP, 1)
         } finally {
             accepted.countDown()
             worker.join(6000)
@@ -591,7 +643,7 @@ class VpnServiceLifecycleTest {
         val candidate = old.copy(id = "candidate", name = "candidate")
         App.prefs.selectNode(manual)
         VpnBus.state.value = VpnState.Connected(manual, 123)
-        val method = FarvaterVpnService::class.java.declaredMethods.single { it.name == "startVpn" }
+        val method = TunnelCoordinator::class.java.declaredMethods.single { it.name == "startVpn" }
         method.isAccessible = true
         val args = if (method.parameterCount == 3) arrayOf(candidate, true, old) else arrayOf(candidate, true, old, 0L)
         method.invoke(service, *args)
@@ -607,12 +659,12 @@ class VpnServiceLifecycleTest {
         val candidate = old.copy(id = "candidate", name = "candidate")
         VpnBus.state.value = VpnState.Connected(old, 123)
         Selection.beforeEligibility = { App.prefs.selectNode(manual) }
-        val method = FarvaterVpnService::class.java.declaredMethods.single { it.name == "startVpn" }.apply { isAccessible = true }
+        val method = TunnelCoordinator::class.java.declaredMethods.single { it.name == "startVpn" }.apply { isAccessible = true }
         method.invoke(service, candidate, true, old, 0L)
         assertEquals("Автоматический переход затёр ручной выбор", manual, App.prefs.lastNode)
         assertEquals(0, Core.starts)
         Selection.beforeEligibility = null
-        command(FarvaterVpnService.ACTION_START, 1)
+        command(TunnelCoordinator.ACTION_START, 1)
         queue.drain()
         assertEquals(manual, (VpnBus.state.value as VpnState.Failed).node)
     }
@@ -621,16 +673,11 @@ class VpnServiceLifecycleTest {
     fun cancellingMonitorAlsoCancelsInFlightProbe() = runBlocking {
         scope.cancel()
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-        FarvaterVpnService::class.java.getDeclaredField("scope").apply { isAccessible = true }.set(service, scope)
+        TunnelCoordinator::class.java.getDeclaredField("scope").apply { isAccessible = true }.set(service, scope)
         Probe.entered = CountDownLatch(1)
         Probe.cancelled = CountDownLatch(1)
-        val method = FarvaterVpnService::class.java.getDeclaredMethod("monitorLoop", ProxyNode::class.java, Continuation::class.java)
-            .apply { isAccessible = true }
-        val monitor = scope.launch {
-            suspendCoroutineUninterceptedOrReturn<Unit> { continuation ->
-                method.invoke(service, App.prefs.lastNode!!, continuation)
-            }
-        }
+        val traffic = service.newTraffic(requireNotNull(service.endpoint))
+        val monitor = scope.launch { service.monitorLoop(App.prefs.lastNode!!, traffic) }
         try {
             assertTrue(Probe.entered.await(8, TimeUnit.SECONDS))
             monitor.cancel()
@@ -642,10 +689,10 @@ class VpnServiceLifecycleTest {
 
     @Test
     fun staleRevocationCleanupDoesNotStopNewerCore() {
-        command(FarvaterVpnService.ACTION_START, 1)
+        command(TunnelCoordinator.ACTION_START, 1)
         queue.drain()
         service.onRevoke()
-        command(FarvaterVpnService.ACTION_START, 2)
+        command(TunnelCoordinator.ACTION_START, 2)
         queue.runLast()
         val stops = Core.stops
         queue.drain()
@@ -664,13 +711,13 @@ class VpnServiceLifecycleTest {
             }
         }
         Core.onStart = {
-            if (Core.starts == 2) stoppedBeforeNewStart.set(org.robolectric.Shadows.shadowOf(service).isStoppedBySelf)
+            if (Core.starts == 2) stoppedBeforeNewStart.set(finishedStarts.isNotEmpty())
         }
-        command(FarvaterVpnService.ACTION_START, 1)
+        command(TunnelCoordinator.ACTION_START, 1)
         val worker = thread { queue.drain() }
         try {
             assertTrue(cleaning.await(5, TimeUnit.SECONDS))
-            command(FarvaterVpnService.ACTION_START, 2)
+            command(TunnelCoordinator.ACTION_START, 2)
         } finally {
             release.countDown()
             worker.join(6000)
@@ -680,7 +727,7 @@ class VpnServiceLifecycleTest {
         assertFalse(stoppedBeforeNewStart.get())
     }
 
-    @Test fun stopReturnsWhileNativeStartIsBlocked() = blockedNativeStart { command(FarvaterVpnService.ACTION_STOP, 2) }
+    @Test fun stopReturnsWhileNativeStartIsBlocked() = blockedNativeStart { command(TunnelCoordinator.ACTION_STOP, 2) }
     @Test fun revokeReturnsWhileNativeStartIsBlocked() = blockedNativeStart { service.onRevoke() }
     @Test fun destroyReturnsWhileNativeStartIsBlocked() = blockedNativeStart { service.onDestroy() }
 
@@ -693,7 +740,7 @@ class VpnServiceLifecycleTest {
             entered.countDown()
             check(release.await(5, TimeUnit.SECONDS))
         }
-        command(FarvaterVpnService.ACTION_START, 1)
+        command(TunnelCoordinator.ACTION_START, 1)
         val worker = thread { queue.drain() }
         val timer = thread {
             check(entered.await(5, TimeUnit.SECONDS))
@@ -719,7 +766,7 @@ class VpnServiceLifecycleTest {
 
     @Test
     fun destroyCancelsQueuedStart() {
-        service.onStartCommand(Intent().setAction(FarvaterVpnService.ACTION_START), 0, 1)
+        service.onStartCommand(Intent().setAction(TunnelCoordinator.ACTION_START), 0, 1)
         service.onDestroy()
         queue.drain()
         assertEquals(0, Core.starts)

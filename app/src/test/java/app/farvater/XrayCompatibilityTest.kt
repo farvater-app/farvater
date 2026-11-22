@@ -47,7 +47,7 @@ class XrayCompatibilityTest {
                     fun request(port: Int, host: String = "127.0.0.1"): Int {
                         val curl = ProcessBuilder("curl", "--silent", "--noproxy", "", "--max-time", "3", "--output", "/dev/null",
                             "--write-out", "%{http_code}", "--proxy", "socks5h://127.0.0.1:$port",
-                            "--proxy-user", "${auth.user}:${auth.pass}", "http://$host:${http.address.port}/").start()
+                            "--proxy-user", "${auth.defaultAccount.user}:${auth.defaultAccount.pass}", "http://$host:${http.address.port}/").start()
                         try {
                             assertTrue(curl.waitFor(5, TimeUnit.SECONDS))
                             return curl.inputStream.bufferedReader().readText().toIntOrNull() ?: 0

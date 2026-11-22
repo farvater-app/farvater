@@ -2,7 +2,6 @@ package app.farvater.engine
 
 import app.farvater.R
 import app.farvater.data.LocalizedStateException
-import app.farvater.core.xray.LocalProxyAuth
 import android.content.Context
 import android.app.ActivityManager
 import java.lang.reflect.Method
@@ -16,9 +15,7 @@ object XrayEngine {
     private const val LIB = "libv2ray.Libv2ray"
     private const val CALLBACK = "libv2ray.CoreCallbackHandler"
 
-    private var controller: Any? = null
-    var lastError: String? = null
-        private set
+    @Volatile private var controller: Any? = null
 
     val isAvailable: Boolean by lazy { runCatching { Class.forName(LIB) }.isSuccess }
 
@@ -39,17 +36,27 @@ object XrayEngine {
         runCatching { Class.forName(LIB).methods.firstOrNull { it.name == name } }.getOrNull()
 
     private val ready = CountDownLatch(1)
+    private val initializing = java.util.concurrent.atomic.AtomicBoolean()
+    @Volatile private var initialized = false
 
     fun init(context: Context) {
-        val dir = context.filesDir.absolutePath
+        if (!initializing.compareAndSet(false, true)) return
+        val app = context.applicationContext
         thread(name = "xray-init") {
-            val lowRam = (context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)?.isLowRamDevice != false
-            probeBudget = NativeProbeBudget(if (lowRam) 2 else 8)
-            if (isAvailable) runCatching {
-                val m = libMethod("initCoreEnv") ?: libMethod("initV2Env")
-                if (m != null && m.parameterCount == 2) m.invoke(null, dir, "")
+            try {
+                val memory = app.getSystemService(ActivityManager::class.java)
+                val lowRam = memory?.isLowRamDevice != false
+                probeBudget = NativeProbeBudget(if (lowRam) 2 else 8)
+                if (!isAvailable) return@thread
+                Class.forName("go.Seq").getMethod("setContext", Context::class.java).invoke(null, app)
+                requireNotNull(libMethod("configureMobileRuntime")).invoke(null, (memory?.memoryClass ?: 96).toLong(), lowRam)
+                requireNotNull(libMethod("initCoreEnv")).invoke(null, app.filesDir.absolutePath, "")
+                initialized = true
+            } catch (_: Exception) {
+                initialized = false
+            } finally {
+                ready.countDown()
             }
-            ready.countDown()
         }
     }
 
@@ -58,35 +65,42 @@ object XrayEngine {
     @Synchronized
     fun start(config: String): Result<Unit> = runCatching {
         ready.await()
-        if (!isAvailable) throw LocalizedStateException(R.string.error_xray_missing)
-        stop()
-        controller = launch(config)
-        LocalProxyAuth.open(LocalProxyAuth.port)
-        LocalProxyAuth.open(LocalProxyAuth.probePort)
-        lastError = null
-    }.onFailure { lastError = (it.cause ?: it).message }
+        if (!initialized) throw LocalizedStateException(R.string.error_xray_missing)
+        check(stopCurrent())
+        try {
+            controller = launch(config) { controller = it }
+        } catch (failure: Throwable) {
+            stopCurrent()
+            throw failure
+        }
+    }
 
-    fun startProbe(config: String): Any? = startProbe(config, ProbeLane.NORMAL)
+    private val cleanup = java.util.concurrent.Executors.newSingleThreadScheduledExecutor { task ->
+        Thread(task, "farvater-probe-release").apply { isDaemon = true }
+    }
 
-    internal fun startProbe(config: String, lane: ProbeLane): Any? {
+    internal fun releaseProbe(core: NativeProbeHandle<*>) {
+        core.release { retry -> cleanup.schedule(retry, 5, TimeUnit.SECONDS) }
+    }
+
+    internal fun startProbe(config: String, lane: ProbeLane): NativeProbeHandle<Any>? {
         var lease: NativeProbeBudget.Lease? = null
         var created: Any? = null
         return try {
             ready.await()
-            if (!isAvailable) return null
+            if (!initialized) return null
             val acquired = probeBudget.acquire(lane, 4_000) ?: throw ProbeDeferredException()
             lease = acquired
             NativeProbeHandle(launch(config) { created = it }, acquired, ::stopController)
         } catch (error: Exception) {
-            if (created == null || runCatching { stopController(created) }.isSuccess) lease?.close()
+            val partial = created
+            val acquired = lease
+            if (partial != null && acquired != null) releaseProbe(NativeProbeHandle(partial, acquired, ::stopController))
+            else acquired?.close()
             if (error is ProbeDeferredException) throw error
             if (error is InterruptedException) Thread.currentThread().interrupt()
             null
         }
-    }
-
-    fun stopProbe(probe: Any?) {
-        (probe as? NativeProbeHandle<*>)?.close()
     }
 
     private fun stopController(controller: Any) {
@@ -122,11 +136,14 @@ object XrayEngine {
 
     @Synchronized
     fun stop() {
-        val c = controller ?: return
-        LocalProxyAuth.close(LocalProxyAuth.port)
-        LocalProxyAuth.close(LocalProxyAuth.probePort)
-        runCatching { c.javaClass.methods.first { it.name == "stopLoop" }.invoke(c) }
+        stopCurrent()
+    }
+
+    private fun stopCurrent(): Boolean {
+        val current = controller ?: return true
+        if (runCatching { stopController(current) }.isFailure) return false
         controller = null
+        return true
     }
 
     fun measureDelay(config: String, url: String): Long = measureDelayDetailed(config, url).delayMs
@@ -143,6 +160,7 @@ object XrayEngine {
             Thread.currentThread().interrupt()
             return DelayMeasurement(-1)
         }
+        if (!initialized) return DelayMeasurement(-1)
         return measurers.measure(lane) {
             (m.invoke(null, config, url) as Number).toLong()
         }

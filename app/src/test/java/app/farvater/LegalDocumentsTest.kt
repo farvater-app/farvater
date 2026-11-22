@@ -36,12 +36,13 @@ class LegalDocumentsTest {
         }
     }
 
-    @Test fun oneNewRevisionCoversBackgroundChecksAndLocalDiagnostics() {
-        assertEquals(7, LEGAL_VERSION)
+    @Test fun currentRevisionCoversProtectedStorageBackgroundChecksAndLocalDiagnostics() {
+        assertEquals(8, LEGAL_VERSION)
         val policy = app.assets.open("privacy.txt").bufferedReader().use { it.readText() }
         val terms = app.assets.open("terms.txt").bufferedReader().use { it.readText() }
         assertTrue(terms.contains("Редакция 4 от 20 ноября 2026 года. Применяется после принятия в приложении."))
         listOf(
+            "Редакция $LEGAL_VERSION.", "Android Keystore", "шифрованием AES-GCM", "Файл не зашифрован",
             "web.telegram.org", "www.tiktok.com", "При восстановлении группа требует повторного выбора",
             "при погашенном экране",
             "www.gstatic.com/generate_204",

@@ -46,29 +46,30 @@ object ServiceProbe {
         ServiceKind.TELEGRAM to setOf("Telegram Web"), ServiceKind.TIKTOK to setOf("TikTok", "TikTok - Make Your Day"))
 
     suspend fun check(node: ProxyNode, profile: NodeProfile?, targets: List<ServiceTarget>, onResult: suspend (ServiceTarget, ServiceCheck) -> Unit): Unit = gate.withPermit {
-        checkWithEngine(node, profile, targets, onResult, XrayEngine::startProbe, XrayEngine::stopProbe)
+        checkWithEngine(node, profile, targets, onResult, ProbeClient::startProbe, ProbeClient::stopProbe)
     }
 
     internal suspend fun checkWithEngine(node: ProxyNode, profile: NodeProfile?, targets: List<ServiceTarget>,
         onResult: suspend (ServiceTarget, ServiceCheck) -> Unit, start: (String) -> Any?, stop: (Any?) -> Unit) {
         withContext(Dispatchers.IO) {
             val port = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
+            val account = LocalProxyAuth.Account()
             var probe: Any? = null
             try {
-                val config = configuration(node, profile, port)
+                val config = configuration(node, profile, port, account)
                 probe = ProbeLaunch.await({ start(config) }, stop, deferOnTimeout = true)
                 coroutineContext.ensureActive()
                 if (probe == null) {
                     checkTargets(targets, { result(ServiceVerdict.UNKNOWN, ServiceReason.CORE) }, onResult)
                     return@withContext
                 }
-                LocalProxyAuth.open(port)
+                LocalProxyAuth.open(port, account) { ProbeClient.alive(probe) }
                 val client = base.newBuilder().proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port))).build()
                 checkTargets(targets, { request(client, it) }, onResult)
             } catch (_: ProbeDeferredException) {
                 checkTargets(targets, { result(ServiceVerdict.UNKNOWN, ServiceReason.BUSY) }, onResult)
             } finally {
-                LocalProxyAuth.close(port)
+                LocalProxyAuth.close(port, account)
                 stop(probe)
             }
         }
@@ -82,9 +83,10 @@ object ServiceProbe {
         }
     }
 
-    internal fun configuration(node: ProxyNode, profile: NodeProfile?, port: Int): String {
+    internal fun configuration(node: ProxyNode, profile: NodeProfile?, port: Int,
+        account: LocalProxyAuth.Account = LocalProxyAuth.defaultAccount): String {
         val original = Json.parseToJsonElement(XrayConfigBuilder.build(node, false, encryptedDns = false,
-            profile = profile, socksPort = port)).jsonObject
+            profile = profile, socksPort = port, account = account)).jsonObject
         val routing = original.getValue("routing").jsonObject
         val rules = routing.getValue("rules").jsonArray.filter {
             it.jsonObject["outboundTag"]?.jsonPrimitive?.content != "direct"

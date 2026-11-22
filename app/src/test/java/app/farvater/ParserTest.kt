@@ -110,7 +110,7 @@ class ParserTest {
     @Test fun xrayConfigProtectsLocalProxyAndDns() {
         val cfg = XrayConfigBuilder.build(LinkParser.parse(vless)!!, directRuServices = false)
         assertTrue(cfg.contains("\"auth\":\"password\""))
-        assertTrue(cfg.contains(app.farvater.core.xray.LocalProxyAuth.pass))
+        assertTrue(cfg.contains(app.farvater.core.xray.LocalProxyAuth.defaultAccount.pass))
         assertTrue(cfg.contains("https://1.1.1.1/dns-query"))
         assertTrue(cfg.contains("\"dns-out\""))
         val plain = XrayConfigBuilder.build(LinkParser.parse(vless)!!, directRuServices = false, encryptedDns = false)

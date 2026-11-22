@@ -95,14 +95,14 @@ fun FarvaterRoot(vm: MainViewModel) {
             when (current) {
                 Tab.Home -> {
                     val vpn by vm.vpnState.collectAsStateWithLifecycle()
-                    val traffic by vm.traffic.collectAsStateWithLifecycle()
-                    val history by vm.speedHistory.collectAsStateWithLifecycle()
+                    val traffic = vm.traffic.collectAsStateWithLifecycle()
+                    val history = vm.speedHistory.collectAsStateWithLifecycle()
                     val failed by vm.failedChecks.collectAsStateWithLifecycle()
                     HomeScreen(
                         state = state,
                         vpn = vpn,
-                        traffic = traffic,
-                        history = history,
+                        traffic = { traffic.value },
+                        history = { history.value },
                         onToggle = vm::toggleConnection,
                         onFindWorking = vm::findWorking,
                         onCancelTest = vm::cancelTest,
@@ -150,7 +150,7 @@ fun FarvaterRoot(vm: MainViewModel) {
                     onOpenDocument = { openDocument = it },
                     pageName = settingsPage,
                     onPageName = { settingsPage = it },
-                    hwid = vm.hwid,
+                    loadHwid = vm::loadHwid,
                     onCopied = { vm.showMessage(hwidCopied) },
                     updateVersion = state.update?.versionName,
                     checkingUpdates = state.updateStage is UpdateStage.Checking,

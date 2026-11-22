@@ -120,7 +120,7 @@ import app.farvater.data.AppSettings
 import app.farvater.data.ThemeMode
 import app.farvater.data.UiStyle
 import app.farvater.engine.TunBridge
-import app.farvater.engine.XrayEngine
+import app.farvater.engine.ProbeClient
 import app.farvater.ui.LocalBottomInset
 import app.farvater.ui.components.AppIconImage
 import app.farvater.ui.components.AppLogo
@@ -189,7 +189,7 @@ fun SettingsScreen(
     onOpenDocument: (String) -> Unit,
     pageName: String? = null,
     onPageName: ((String?) -> Unit)? = null,
-    hwid: String = "",
+    loadHwid: suspend () -> String = { "" },
     onCopied: () -> Unit = {},
     updateVersion: String? = null,
     checkingUpdates: Boolean = false,
@@ -253,7 +253,10 @@ fun SettingsScreen(
                     SettingsPage.Connection -> ConnectionPage(settings, onChange) { showApps = true }
                     SettingsPage.Routes -> RoutingPage(settings, onChange)
                     SettingsPage.Security -> SecurityPage(settings, onChange)
-                    SettingsPage.Subscriptions -> SubscriptionsPage(settings, onChange, hwid, onCopied)
+                    SettingsPage.Subscriptions -> {
+                        val hwid by androidx.compose.runtime.produceState("", loadHwid) { value = loadHwid() }
+                        SubscriptionsPage(settings, onChange, hwid, onCopied)
+                    }
                     SettingsPage.Gals -> GalsSettingsPage(settings, sources, onChange)
                     SettingsPage.Testing -> TestingPage(settings, onChange, duplicates)
                     SettingsPage.Background -> BackgroundPage()
@@ -306,7 +309,7 @@ private fun SettingsRoot(
         unrestricted = context.isBatteryUnrestricted()
         onPauseOrDispose { }
     }
-    val complete = XrayEngine.isAvailable && TunBridge.isAvailable
+    val complete = ProbeClient.isAvailable && ProbeClient.bridgeInstalled
 
     val backdrop = rememberGlassBackdrop()
     Box(Modifier.fillMaxSize()) {
@@ -317,7 +320,7 @@ private fun SettingsRoot(
             IosSection {
                 IosRow(
                     title = stringResource(R.string.app_name),
-                    subtitle = stringResource(R.string.version_label, BuildConfig.VERSION_NAME) + (XrayEngine.version?.let { " · Xray $it" } ?: ""),
+                    subtitle = stringResource(R.string.version_label, BuildConfig.VERSION_NAME) + (ProbeClient.version?.let { " · Xray $it" } ?: ""),
                     leading = { AppIconImage(appIcon, 58.dp) },
                     chevron = true,
                     onClick = { onOpen(SettingsPage.About) },
@@ -917,10 +920,10 @@ private fun SubscriptionsPage(
             icon = Icons.Rounded.Fingerprint,
             iconTint = c.gray,
             value = if (hwid.length > 12) hwid.take(8) + "…" + hwid.takeLast(4) else hwid,
-            onClick = {
+            onClick = if (hwid.isEmpty()) null else ({
                 clipboard.setText(AnnotatedString(hwid))
                 onCopied()
-            },
+            }),
         )
     }
 }
@@ -1130,16 +1133,16 @@ private fun AboutPage() {
             stringResource(R.string.xray_core),
             icon = Icons.Rounded.Memory,
             iconTint = c.purple,
-            value = XrayEngine.version ?: if (XrayEngine.isAvailable) stringResource(R.string.built_in_core) else stringResource(R.string.none),
-            valueColor = if (XrayEngine.isAvailable) null else c.red,
+            value = ProbeClient.version ?: if (ProbeClient.isAvailable) stringResource(R.string.built_in_core) else stringResource(R.string.none),
+            valueColor = if (ProbeClient.isAvailable) null else c.red,
         )
         IosDivider(start = divider)
         IosRow(
             stringResource(R.string.tun_bridge),
             icon = Icons.Rounded.SwapVert,
             iconTint = c.teal,
-            value = if (TunBridge.isAvailable) stringResource(R.string.built_in_bridge) else stringResource(R.string.none),
-            valueColor = if (TunBridge.isAvailable) null else c.red,
+            value = if (ProbeClient.bridgeInstalled) stringResource(R.string.built_in_bridge) else stringResource(R.string.none),
+            valueColor = if (ProbeClient.bridgeInstalled) null else c.red,
         )
     }
     IosSection(footer = stringResource(R.string.about_license)) {

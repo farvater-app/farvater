@@ -11,6 +11,8 @@ plugins {
 
 fun env(name: String): String? = System.getenv(name)?.takeIf { it.isNotBlank() }
 
+val nativeVersions = groovy.json.JsonSlurper().parse(rootProject.file("scripts/native-versions.json")) as Map<*, *>
+
 val signingProps = Properties().apply {
     rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
 }
@@ -26,6 +28,7 @@ android {
         val tagVersion = (findProperty("farvaterVersion") as String?)?.removePrefix("v")
         versionName = tagVersion ?: "1.0.0"
         versionCode = tagVersion?.split('.', '-')?.let { p -> p[0].toInt() * 10000 + p[1].toInt() * 100 + p[2].toInt() - if (p.size > 3) 1 else 0 } ?: 1
+        buildConfigField("String", "XRAY_CORE_VERSION", "\"" + nativeVersions["xrayCore"] + "\"")
         buildConfigField("String", "UPDATE_REPO", "\"${findProperty("farvaterUpdateRepo") ?: "farvater-app/farvater"}\"")
     }
 
@@ -74,6 +77,7 @@ android {
         getByName("main") { assets.directories += "../legal" }
     }
     buildFeatures {
+        aidl = true
         compose = true
         buildConfig = true
     }

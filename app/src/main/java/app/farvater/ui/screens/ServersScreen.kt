@@ -155,11 +155,17 @@ fun ServersScreen(
     EdgeHaptics(list)
     val collapsed by remember { derivedStateOf { list.firstVisibleItemIndex > 0 || list.firstVisibleItemScrollOffset > 70 } }
 
-    val visible = remember(state.nodes, state.results, filter, state.settings.hideDead, query, favoritesOnly, state.settings.favoriteNodeIds,
-        selectedService, state.serviceChecks, serviceNow, serviceMode, state.settings.nodeNames) {
+    val relevantResults = if (filter == 1 || state.settings.hideDead) state.results else null
+    val serviceFilterChecks = if (selectedService == null) null else state.serviceChecks
+    val serviceFilterTime = if (selectedService == null) 0L else serviceNow
+    val favorites = if (favoritesOnly) state.settings.favoriteNodeIds else null
+    val visible = remember(state.nodes, relevantResults, filter, state.settings.hideDead, query, favorites,
+        selectedService, serviceFilterChecks, serviceFilterTime, serviceMode, state.settings.nodeNames) {
+        if (filter == 0 && !state.settings.hideDead && query.isBlank() && favorites == null && selectedService == null)
+            return@remember state.nodes
         val needle = query.trim().lowercase()
         state.nodes.filter { node ->
-            val r = state.results[node.id]
+            val r = relevantResults?.get(node.id)
             val passesDead = !state.settings.hideDead || r == null || !r.evaluated || r.alive
             val passesFilter = when (filter) {
                 1 -> r?.alive == true
@@ -169,10 +175,10 @@ fun ServersScreen(
             }
             val passesQuery = needle.isEmpty() || state.settings.nodeLabel(node).lowercase().contains(needle) ||
                 node.protocol.title.lowercase().contains(needle) || node.address.contains(needle)
-            val serviceCheck = selectedService?.let { state.serviceChecks[app.farvater.data.ServiceChecks.key(serviceMode, node.id, it)] }
-            val passesService = selectedService == null || app.farvater.data.ServiceChecks.fresh(serviceCheck, serviceNow) &&
+            val serviceCheck = selectedService?.let { serviceFilterChecks?.get(app.farvater.data.ServiceChecks.key(serviceMode, node.id, it)) }
+            val passesService = selectedService == null || app.farvater.data.ServiceChecks.fresh(serviceCheck, serviceFilterTime) &&
                 serviceCheck?.verdict == app.farvater.data.ServiceVerdict.RESPONDED
-            passesDead && passesFilter && passesQuery && passesService && (!favoritesOnly || node.id in state.settings.favoriteNodeIds)
+            passesDead && passesFilter && passesQuery && passesService && (favorites == null || node.id in favorites)
         }
     }
     val alive = remember(state.nodes, state.results) { state.nodes.count { state.results[it.id]?.alive == true } }

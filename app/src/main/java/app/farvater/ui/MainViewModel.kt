@@ -51,7 +51,7 @@ import app.farvater.engine.Pathfinder
 import app.farvater.engine.TestMethod
 import app.farvater.engine.TestResult
 import app.farvater.net.SafeHttp
-import app.farvater.vpn.FarvaterVpnService
+import app.farvater.vpn.TunnelCoordinator
 import app.farvater.vpn.VpnBus
 import app.farvater.vpn.VpnState
 import kotlinx.coroutines.Dispatchers
@@ -470,7 +470,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (mode == null || !prefs.settings.modeNodes || _state.value.gals || testing) return
         val vpn = VpnBus.state.value
         if (vpn is VpnState.Connected || vpn is VpnState.Connecting) {
-            FarvaterVpnService.recheckMode(getApplication(), mode)
+            TunnelCoordinator.recheckMode(getApplication(), mode)
             return
         }
         val target = prefs.nodeForMode(mode) ?: return
@@ -539,8 +539,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             loading.value = loadingCounts.keys.toSet()
         }
         rebuild()
-        val headers = deviceHeaders(id)
         try {
+            val headers = withContext(Dispatchers.IO) { deviceHeaders(id) }
             repo.fetch(id, urls, viaTunnel, headers, json = id !in communityIds, isCurrent = {
                 synchronized(selectionLock) {
                     val current = if (manual) {
@@ -564,15 +564,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun deviceHeaders(sourceId: String): Map<String, String> {
         if (sourceId in communityIds || !prefs.settings.sendHwid) return emptyMap()
         fun ascii(v: String?) = v.orEmpty().filter { it in ' '..'~' }.trim().ifEmpty { "unknown" }
+        val hwid = prefs.hwid.takeIf { it.isNotEmpty() } ?: return emptyMap()
         return mapOf(
-            "x-hwid" to prefs.hwid,
+            "x-hwid" to hwid,
             "x-device-os" to "Android",
             "x-ver-os" to ascii(android.os.Build.VERSION.RELEASE),
             "x-device-model" to ascii(android.os.Build.MODEL),
         )
     }
 
-    val hwid: String get() = prefs.hwid
+    suspend fun loadHwid(): String = withContext(Dispatchers.IO) { prefs.hwid }
 
     fun refreshSource(id: String) {
         val urls = BuiltInCatalog.byId(id)?.mirrors ?: prefs.userSources.firstOrNull { it.id == id }?.let { listOf(it.url) } ?: return
@@ -613,13 +614,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         val source = UserSource(id = "user-" + shortHash(clean), url = clean, title = hostOf(clean))
-        prefs.userSources = prefs.userSources + source
+        if (!prefs.saveUserSources(prefs.userSources + source)) return toast(messageText(R.string.profile_storage_unavailable))
         rebuild()
         viewModelScope.launch { refreshOne(source.id, listOf(clean), VpnBus.state.value is VpnState.Connected) }
     }
 
     fun removeUserSource(id: String) {
-        prefs.userSources = prefs.userSources.filterNot { it.id == id }
+        if (!prefs.saveUserSources(prefs.userSources.filterNot { it.id == id })) return toast(messageText(R.string.profile_storage_unavailable))
         updateSettings { settings -> settings.copy(
             nodeNames = settings.nodeNames.filterKeys { !it.startsWith("$id/") },
             galsGroups = settings.galsGroups.map { group -> group.copy(sourceIds = group.sourceIds - id) },
@@ -650,13 +651,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     else messageText(R.string.import_rejected, getApplication<Application>().importReasons(parsed.skipped)))
                 return@launch
             }
-            val added = synchronized(repo) {
-                val count = repo.appendManual(parsed.nodes)
-                count
-            }
+            val added = editManual { repo.appendManual(parsed.nodes) } ?: return@launch
             rebuild()
             toast(if (added > 0) messageText(R.string.nodes_added, added) else messageText(R.string.nodes_exist))
         }
+    }
+
+    private fun <T : Any> editManual(change: () -> T): T? = try {
+        change()
+    } catch (_: java.security.GeneralSecurityException) {
+        toast(messageText(R.string.profile_storage_unavailable))
+        null
+    } catch (_: java.io.IOException) {
+        toast(messageText(R.string.profile_storage_unavailable))
+        null
     }
 
     private var backupArchive: app.farvater.data.BackupArchive? = null
@@ -670,7 +678,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     val application = getApplication<Application>()
                     val encoded = synchronized(repo) {
                         synchronized(selectionLock) {
-                            app.farvater.data.BackupArchive.create(prefs, repo.loadManual().nodes,
+                            app.farvater.data.BackupArchive.create(prefs, repo.manualForBackup(),
                                 app.farvater.data.AppLanguages.selected(application)).encode().toByteArray(Charsets.UTF_8)
                         }
                     }
@@ -797,9 +805,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (node.sourceId != ProxyNode.MANUAL_SOURCE) return
         viewModelScope.launch(Dispatchers.IO) {
             withContext(NonCancellable) {
-                synchronized(repo) {
-                    repo.removeManual(node.id)
-                }
+                editManual { repo.removeManual(node.id) } ?: return@withContext
                 withContext(Dispatchers.Main) {
                     updateSettings { it.rename(node, "") }
                     dropSelectionIf { it.id == node.id }
@@ -1176,7 +1182,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun selectAutomatic(node: ProxyNode, mode: NetMode?, stopEpoch: Long, policy: GalsPolicy,
         revision: Long, network: ProbeNetwork): Boolean = synchronized(selectionLock) {
         if (!network.current() || stopEpoch != VpnBus.stopEpoch.get() || revision != automaticRevision || !eligibleAutomaticNode(node, policy)) return@synchronized false
-        setSelected(node, rememberFor = mode)
+        if (!setSelected(node, rememberFor = mode)) return@synchronized false
         connect(node, restart = true, automatic = true, expectedStopEpoch = stopEpoch,
             automaticPolicy = policy, expectedRevision = revision, network = network)
         true
@@ -1308,7 +1314,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         if (_state.value.refining) cancelTest()
         when (VpnBus.state.value) {
-            is VpnState.Connected, is VpnState.Connecting -> FarvaterVpnService.stop(getApplication())
+            is VpnState.Connected, is VpnState.Connecting -> TunnelCoordinator.stop(getApplication())
             else -> {
                 if (preflightJob?.isActive == true) {
                     preflightJob?.cancel()
@@ -1335,7 +1341,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         pendingAutomatic = false
         pendingContext = null
         _state.update { it.copy(preflight = null, deadPrompt = null) }
-        setSelected(node, rememberFor = effectiveMode(prefs.settings))
+        if (!setSelected(node, rememberFor = effectiveMode(prefs.settings))) return
         val current = when (val vpn = VpnBus.state.value) {
             is VpnState.Connected -> vpn.node
             is VpnState.Connecting -> vpn.node
@@ -1344,10 +1350,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (current != null && current.id != node.id) connect(node)
     }
 
-    private fun setSelected(node: ProxyNode, rememberFor: NetMode? = null): Unit = synchronized(selectionLock) {
-        prefs.selectNode(node)
+    private fun setSelected(node: ProxyNode, rememberFor: NetMode? = null): Boolean = synchronized(selectionLock) {
+        if (!prefs.selectNode(node)) {
+            toast(messageText(R.string.profile_storage_unavailable))
+            return@synchronized false
+        }
         if (rememberFor != null && prefs.settings.modeNodes) prefs.rememberForMode(rememberFor, node)
         _state.update { it.copy(selectedId = node.id, savedNode = node) }
+        true
     }
 
     private fun reconcileModeNodes(nodes: List<ProxyNode>) {
@@ -1378,16 +1388,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun reconcileSelection(nodes: List<ProxyNode>): ProxyNode? {
         val id = prefs.selectedNodeId
         nodes.firstOrNull { it.id == id }?.let { listed ->
-            prefs.selectNode(listed)
-            return listed
+            return if (prefs.selectNode(listed)) listed else savedSelection()
         }
         val saved = prefs.lastNode ?: return null
         val chosen = nodes.firstOrNull {
             it.sourceId == saved.sourceId && it.protocol == saved.protocol &&
                 it.address == saved.address && it.port == saved.port && it.name == saved.name
         } ?: saved
-        prefs.selectNode(chosen)
-        return chosen
+        return if (prefs.selectNode(chosen)) chosen else savedSelection()
     }
 
     private fun connect(node: ProxyNode, restart: Boolean = false, automatic: Boolean = false,
@@ -1406,9 +1414,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             pendingRestart = restart
             _events.tryEmit(UiEvent.RequestVpnPermission(permission))
         } else if (checked != null) {
-            FarvaterVpnService.startAutomatic(getApplication(), checked, restart)
+            TunnelCoordinator.startAutomatic(getApplication(), checked, restart)
         } else {
-            FarvaterVpnService.start(getApplication(), node, restart)
+            TunnelCoordinator.start(getApplication(), node, restart)
         }
     }
 
@@ -1423,8 +1431,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         pendingAutomatic = false
         pendingContext = null
         if (granted && node != null && stopEpoch == VpnBus.stopEpoch.get()) {
-            if (automatic) checked?.let { FarvaterVpnService.startAutomatic(getApplication(), it, restart) }
-            else FarvaterVpnService.start(getApplication(), node, restart)
+            if (automatic) checked?.let { TunnelCoordinator.startAutomatic(getApplication(), it, restart) }
+            else TunnelCoordinator.start(getApplication(), node, restart)
         } else if (!granted) toast(messageText(R.string.vpn_permission_denied))
     }
 
@@ -1442,7 +1450,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun updateSettings(transform: (AppSettings) -> AppSettings) {
         val old = prefs.settings
         val new = transform(old)
-        prefs.settings = new
+        if (!prefs.saveSettings(new)) return toast(messageText(R.string.profile_storage_unavailable))
         if (old.probeMethod != new.probeMethod) displayOnlyResults.value = emptyMap()
         if (!GalsPolicy.from(old).sameBehavior(GalsPolicy.from(new))) cancelGals()
         if (old.serviceChecksEnabled != new.serviceChecksEnabled || old.checkedServices != new.checkedServices ||
@@ -1484,7 +1492,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         updateSettings {
             it.copy(onboardingDone = true, communityEnabled = enableCommunity, acceptedLegalVersion = LEGAL_VERSION)
         }
-        if (enableCommunity) refreshAll()
+        if (enableCommunity && prefs.settings.communityEnabled && prefs.settings.onboardingDone) refreshAll()
     }
 
     fun acceptLegal() = updateSettings { it.copy(acceptedLegalVersion = LEGAL_VERSION) }

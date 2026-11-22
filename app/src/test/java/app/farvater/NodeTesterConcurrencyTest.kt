@@ -6,7 +6,7 @@ import app.farvater.core.model.ProxyNode
 import app.farvater.core.model.NodeProfile
 import app.farvater.core.parser.LinkParser
 import app.farvater.engine.NodeTester
-import app.farvater.engine.XrayEngine
+import app.farvater.engine.ProbeClient
 import app.farvater.engine.DelayMeasurement
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class, shadows = [NodeTesterConcurrencyTest.Core::class],
-    instrumentedPackages = ["app.farvater.engine.XrayEngine"] , qualifiers = "ru")
+    instrumentedPackages = ["app.farvater.engine.ProbeClient"] , qualifiers = "ru")
 class NodeTesterConcurrencyTest {
     @Test
     fun savedProfileIsAppliedToTheConfigurationMeasuredByTheCore() {
@@ -164,7 +164,7 @@ class NodeTesterConcurrencyTest {
             "test", params = mapOf("sni" to if (sameSni) "sni.example.test" else "sni$index.example.test"), raw = "hy2://test")
     }
 
-    @Implements(value = XrayEngine::class, isInAndroidSdk = false)
+    @Implements(value = ProbeClient::class, isInAndroidSdk = false)
     class Core {
         @Implementation
         fun isAvailable() = true
@@ -178,8 +178,7 @@ class NodeTesterConcurrencyTest {
             return DelayMeasurement(measureDelay(config, url))
         }
 
-        @Implementation
-        fun measureDelay(config: String, url: String): Long {
+        private fun measureDelay(config: String, url: String): Long {
             val count = active.incrementAndGet()
             peak.accumulateAndGet(count, ::maxOf)
             if (count > limit) overLimit.countDown()

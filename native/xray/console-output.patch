@@ -1,0 +1,11 @@
+--- a/libv2ray_main.go
++++ b/libv2ray_main.go
+@@ -201,7 +201,7 @@
+ func createStdoutLogWriter() corecommlog.WriterCreator {
+ 	return func() corecommlog.Writer {
+ 		return &consoleLogWriter{
+-			logger: log.New(os.Stdout, "", 0),
++			logger: log.New(log.Writer(), "", 0),
+ 		}
+ 	}
+ }

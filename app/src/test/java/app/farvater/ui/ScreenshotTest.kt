@@ -938,7 +938,7 @@ class ScreenshotTest {
     private fun Home(vpn: VpnState, state: UiState = Fake.state) = FarvaterFrame(tab = Tab.Home, onTab = {}) { p ->
         androidx.compose.foundation.layout.Box(Modifier.padding(p)) {
             HomeScreen(
-                state = state, vpn = vpn, traffic = Fake.traffic, history = Fake.history,
+                state = state, vpn = vpn, traffic = { Fake.traffic }, history = { Fake.history },
                 onToggle = {}, onFindWorking = {}, onCancelTest = {}, onOpenServers = {},
             )
         }

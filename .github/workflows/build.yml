@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NDK_VERSION: 27.2.12479018
+      FARVATER_TEST_NATIVE: "1"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
@@ -39,12 +40,12 @@ jobs:
             app/libs/libv2ray.aar
             app/libs/natives-sha256.json
             app/src/main/jniLibs
-          key: natives-${{ env.NDK_VERSION }}-${{ hashFiles('scripts/fetch-natives.sh', 'scripts/check-natives.py', 'scripts/native-versions.json', 'scripts/hev-udp-bind.patch') }}
+          key: natives-${{ env.NDK_VERSION }}-${{ hashFiles('scripts/fetch-natives.sh', 'scripts/check-natives.py', 'scripts/native-versions.json', 'scripts/hev-*.patch', 'scripts/build-xray.sh', 'scripts/merge-xray-aar.py', 'scripts/android_elf.py', 'native/xray/*.go', 'native/xray/*.patch', 'native/hev/test/*') }}
 
       - name: NDK
         if: steps.natives.outputs.cache-hit != 'true'
         run: |
-          sdkmanager "ndk;${NDK_VERSION}"
+          sdkmanager "ndk;${NDK_VERSION}" "platforms;android-36"
           echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
 
       - name: Ядро и TUN-мост
@@ -98,6 +99,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NDK_VERSION: 27.2.12479018
+      FARVATER_TEST_NATIVE: "1"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
@@ -118,12 +120,12 @@ jobs:
             app/libs/libv2ray.aar
             app/libs/natives-sha256.json
             app/src/main/jniLibs
-          key: natives-${{ env.NDK_VERSION }}-${{ hashFiles('scripts/fetch-natives.sh', 'scripts/check-natives.py', 'scripts/native-versions.json', 'scripts/hev-udp-bind.patch') }}
+          key: natives-${{ env.NDK_VERSION }}-${{ hashFiles('scripts/fetch-natives.sh', 'scripts/check-natives.py', 'scripts/native-versions.json', 'scripts/hev-*.patch', 'scripts/build-xray.sh', 'scripts/merge-xray-aar.py', 'scripts/android_elf.py', 'native/xray/*.go', 'native/xray/*.patch', 'native/hev/test/*') }}
 
       - name: NDK
         if: steps.natives.outputs.cache-hit != 'true'
         run: |
-          sdkmanager "ndk;${NDK_VERSION}"
+          sdkmanager "ndk;${NDK_VERSION}" "platforms;android-36"
           echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
 
       - name: Ядро и TUN-мост

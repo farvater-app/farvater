@@ -95,16 +95,19 @@ data class BackupArchive(
         private val nodeId = Regex("[0-9a-f]{16}")
         private val packageName = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+")
 
-        fun create(prefs: Prefs, manual: List<ProxyNode>, language: String): BackupArchive = BackupArchive(
-            settings = JsonObject(json.encodeToJsonElement(AppSettings.serializer(), prefs.settings).jsonObject - excludedSettings),
-            subscriptions = prefs.userSources,
-            enabledSources = prefs.enabledSources,
-            sourceConfigs = prefs.sourceConfigs.filterKeys { key ->
-                BuiltInCatalog.byId(key) != null || prefs.userSources.any { it.id == key }
-            },
-            manualNodes = manual.map { it.raw },
-            language = language,
-        ).validated()
+        fun create(prefs: Prefs, manual: List<ProxyNode>, language: String): BackupArchive {
+            if (!prefs.prepareProtectedData()) throw java.io.IOException("Protected settings unavailable")
+            return BackupArchive(
+                settings = JsonObject(json.encodeToJsonElement(AppSettings.serializer(), prefs.settings).jsonObject - excludedSettings),
+                subscriptions = prefs.userSources,
+                enabledSources = prefs.enabledSources,
+                sourceConfigs = prefs.sourceConfigs.filterKeys { key ->
+                    BuiltInCatalog.byId(key) != null || prefs.userSources.any { it.id == key }
+                },
+                manualNodes = manual.map { it.raw },
+                language = language,
+            ).validated()
+        }
 
         fun read(input: InputStream): BackupArchive {
             val output = ByteArrayOutputStream()

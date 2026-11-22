@@ -149,7 +149,7 @@ class BackupArchiveTest {
         assertEquals(1, SubscriptionRepository(app).loadManual().nodes.size)
         repo.removeManual(node.id)
         assertTrue(SubscriptionRepository(app).loadCached(ProxyNode.MANUAL_SOURCE)!!.nodes.isEmpty())
-        assertTrue(File(app.filesDir, "subs/manual.txt").readText().contains(link))
+        assertFalse(File(app.filesDir, "subs/manual.txt").exists())
     }
 
     @Test

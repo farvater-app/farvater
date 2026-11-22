@@ -599,4 +599,5 @@
     <string name="observatory_hint">Звёздный атлас, телескоп и орбиты узлов.</string>
     <string name="legal_contents">Содержание</string>
     <string name="legal_back_text">К тексту</string>
+    <string name="profile_storage_unavailable">Защищённое хранилище недоступно. Разблокируйте устройство и попробуйте ещё раз.</string>
 </resources>

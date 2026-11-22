@@ -99,8 +99,9 @@ class NodeCheckService : Service() {
     }
 
     private fun releaseWakeLock() {
-        wakeLock?.let { if (it.isHeld) it.release() }
+        val lock = wakeLock ?: return
         wakeLock = null
+        if (lock.isHeld) runCatching { lock.release() }
     }
 
     private fun notification(work: NodeCheckWork): Notification {

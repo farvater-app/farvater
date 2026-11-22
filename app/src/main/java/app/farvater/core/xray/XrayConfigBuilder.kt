@@ -54,6 +54,7 @@ object XrayConfigBuilder {
         probePort: Int? = null,
         routeRules: List<RouteRule> = emptyList(),
         automaticRoutes: Boolean = true,
+        account: LocalProxyAuth.Account = LocalProxyAuth.defaultAccount,
     ): String {
         val provider = if (node.isJson) Json.parseToJsonElement(node.raw).jsonObject else null
         val tuned = profile?.takeIf { provider == null }
@@ -90,8 +91,8 @@ object XrayConfigBuilder {
             putJsonObject("log") { put("loglevel", "warning") }
             if (!forTest) {
                 putJsonArray("inbounds") {
-                    add(socksInbound("socks", socksPort, udp = socksPort == SOCKS_PORT))
-                    probePort?.let { add(socksInbound("probe", it, udp = false)) }
+                    add(socksInbound("socks", socksPort, account, udp = socksPort == SOCKS_PORT))
+                    probePort?.let { add(socksInbound("probe", it, account, udp = false)) }
                 }
                 putJsonObject("dns") {
                     putJsonArray("servers") {
@@ -159,7 +160,7 @@ object XrayConfigBuilder {
         return XrayJsonParser.sanitizeNativeOptions(config).toString()
     }
 
-    private fun socksInbound(tag: String, port: Int, udp: Boolean) = buildJsonObject {
+    private fun socksInbound(tag: String, port: Int, account: LocalProxyAuth.Account, udp: Boolean) = buildJsonObject {
         put("tag", tag)
         put("listen", "127.0.0.1")
         put("port", port)
@@ -168,8 +169,8 @@ object XrayConfigBuilder {
             put("auth", "password")
             putJsonArray("accounts") {
                 addJsonObject {
-                    put("user", LocalProxyAuth.user)
-                    put("pass", LocalProxyAuth.pass)
+                    put("user", account.user)
+                    put("pass", account.pass)
                 }
             }
             put("udp", udp)

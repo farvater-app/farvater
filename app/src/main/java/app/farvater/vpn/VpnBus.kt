@@ -12,6 +12,7 @@ sealed interface VpnState {
     data class Failed(val message: String, val node: ProxyNode?) : VpnState
 }
 
+@androidx.compose.runtime.Immutable
 data class Traffic(
     val upBps: Long = 0,
     val downBps: Long = 0,

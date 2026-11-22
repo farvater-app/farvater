@@ -55,11 +55,11 @@ class QsTileService : TileService() {
 
     override fun onClick() {
         if (isActive(VpnBus.state.value)) {
-            FarvaterVpnService.stop(this)
+            TunnelCoordinator.stop(this)
         } else {
             val node = App.prefs.lastNode
             if (node != null && VpnService.prepare(this) == null) {
-                FarvaterVpnService.start(this, node)
+                TunnelCoordinator.start(this, node)
             } else {
                 if (node == null) {
                     android.widget.Toast.makeText(this, localizedString(app.farvater.R.string.choose_node_first), android.widget.Toast.LENGTH_LONG).show()

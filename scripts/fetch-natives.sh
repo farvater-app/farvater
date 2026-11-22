@@ -9,12 +9,15 @@ HEV_VERSION="${HEV_VERSION:-$PINNED_HEV_VERSION}"
 
 echo "Ядро Xray ($XRAY_LIB_VERSION)"
 mkdir -p "$ROOT/app/libs"
-gh release download "$XRAY_LIB_VERSION" -R 2dust/AndroidLibXrayLite -p 'libv2ray.aar' -D "$ROOT/app/libs" --clobber
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+"$ROOT/scripts/build-xray.sh" "$WORK/libv2ray.aar"
+EXPECTED=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["aarSha256"])' "$ROOT/scripts/native-versions.json")
+printf '%s  %s\n' "$EXPECTED" "$WORK/libv2ray.aar" | sha256sum -c -
+mv "$WORK/libv2ray.aar" "$ROOT/app/libs/libv2ray.aar"
 python3 "$ROOT/scripts/check-natives.py" --aar-only
 
 echo "TUN-мост (hev-socks5-tunnel $HEV_VERSION)"
-WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
 git clone --depth 1 --branch "$HEV_VERSION" --recursive --shallow-submodules \
   https://github.com/heiher/hev-socks5-tunnel "$WORK/jni"
 if [ "$HEV_VERSION" = "$PINNED_HEV_VERSION" ]; then
@@ -23,6 +26,10 @@ else
     echo "Custom HEV_VERSION requires independent source and compatibility verification" >&2
 fi
 patch --fuzz=0 -p1 -d "$WORK/jni" < "$ROOT/scripts/hev-udp-bind.patch"
+patch --fuzz=0 -p1 -d "$WORK/jni" < "$ROOT/scripts/hev-jni-session.patch"
+if [[ "${FARVATER_TEST_NATIVE:-0}" == 1 ]]; then
+    "$ROOT/native/hev/test/run.sh" "$WORK/jni"
+fi
 (
   cd "$WORK"
   "$ANDROID_NDK_HOME/ndk-build" \
@@ -32,7 +39,10 @@ patch --fuzz=0 -p1 -d "$WORK/jni" < "$ROOT/scripts/hev-udp-bind.patch"
     APP_SUPPORT_FLEXIBLE_PAGE_SIZES=true
 )
 mkdir -p "$ROOT/app/src/main/jniLibs"
-cp -r "$WORK/libs/"* "$ROOT/app/src/main/jniLibs/"
+for abi in $ABIS; do
+    mkdir -p "$ROOT/app/src/main/jniLibs/$abi"
+    cp "$WORK/libs/$abi/libhev-socks5-tunnel.so" "$ROOT/app/src/main/jniLibs/$abi/"
+done
 find "$ROOT/app/src/main/jniLibs" -name '*.so'
 python3 "$ROOT/scripts/check-natives.py" --record
 echo "Готово"

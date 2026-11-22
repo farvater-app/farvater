@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 import zipfile
 
+from android_elf import verify_elf
+
 
 def dex_classes(dump):
     classes = {}
@@ -23,8 +25,10 @@ def check(apk, build_tools):
         names = archive.namelist()
         for abi in ("arm64-v8a", "armeabi-v7a", "x86_64", "x86"):
             for library in ("libgojni.so", "libhev-socks5-tunnel.so"):
-                if f"lib/{abi}/{library}" not in names:
-                    raise ValueError(f"Missing native library: {abi}/{library}")
+                name = f"lib/{abi}/{library}"
+                if names.count(name) != 1:
+                    raise ValueError(f"Missing or duplicate native library: {abi}/{library}")
+                verify_elf(archive.read(name), abi)
         dex_files = [name for name in names if re.fullmatch(r"classes\d*\.dex", name)]
         if not dex_files:
             raise ValueError("APK has no DEX files")
@@ -53,11 +57,13 @@ def check(apk, build_tools):
     contracts = {
         "androidx/work/impl/WorkDatabase_Impl": [("<init>", "()V")],
         "app/farvater/data/UpdateWorker": [("<init>", "(Landroid/content/Context;Landroidx/work/WorkerParameters;)V")],
-        "hev/sockstun/TProxyService": [("TProxyStartService", "(Ljava/lang/String;I)Z"),
+        "go/Seq": [("setContext", "(Landroid/content/Context;)V")],
+        "libv2ray/Libv2ray": [("configureMobileRuntime", "(JZ)V")],
+        "hev/sockstun/TProxyService": [("TProxyStartServiceFromConfig", "([BI)Z"),
             ("TProxyStopService", "()Z"), ("TProxyGetStats", "()[J")],
     }
     for component in ("App", "FarvaterActivity", "vpn/ToggleActivity", "vpn/FarvaterVpnService",
-                      "vpn/AutomationReceiver", "vpn/QsTileService", "vpn/NodeCheckService", "vpn/VpnWidget", "vpn/BootReceiver", "data/ApkProvider"):
+                      "vpn/TunnelCoordinator", "engine/ProbeProvider", "vpn/AutomationReceiver", "vpn/QsTileService", "vpn/NodeCheckService", "vpn/VpnWidget", "vpn/BootReceiver", "data/ApkProvider"):
         contracts["app/farvater/" + component] = [("<init>", "()V")]
     for name, methods in contracts.items():
         present = classes.get(f"L{name};", [])

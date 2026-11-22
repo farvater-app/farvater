@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicInteger
 enum class TestMethod { REAL, TCP }
 
 @Serializable
+@androidx.compose.runtime.Immutable
 data class TestResult(
     val nodeId: String,
     val delayMs: Long,
@@ -71,9 +72,9 @@ object NodeTester {
 
     private fun measureNodes(nodes: List<ProxyNode>, url: String, concurrency: Int, profiles: Map<String, NodeProfile>,
         method: ProbeMethod): Flow<TestResult> = channelFlow {
-        val real = XrayEngine.isAvailable
+        val real = ProbeClient.isAvailable
         val tcpGate = Semaphore(TCP_CONCURRENCY)
-        val limit = if (method == ProbeMethod.HTTPS) XrayEngine.measurementParallelism else 32
+        val limit = if (method == ProbeMethod.HTTPS) ProbeClient.measurementParallelism else 32
         val realGate = Semaphore(concurrency.coerceIn(1, limit))
         val hostGates = ConcurrentHashMap<String, Semaphore>()
         val sniGates = ConcurrentHashMap<String, Semaphore>()
@@ -134,7 +135,7 @@ object NodeTester {
     fun test(node: ProxyNode, url: String): TestResult = test(node, url, null)
 
     fun test(node: ProxyNode, url: String, profile: NodeProfile?): TestResult {
-        if (!XrayEngine.isAvailable) {
+        if (!ProbeClient.isAvailable) {
             if (node.protocol == Protocol.HYSTERIA2) return TestResult(node.id, -1, TestMethod.TCP)
             return tcping(node).let { TestResult(node.id, it.delayMs, TestMethod.TCP, reason = it.reason) }
         }
@@ -145,14 +146,14 @@ object NodeTester {
         } catch (_: RuntimeException) {
             return TestResult(node.id, -1, TestMethod.REAL, reason = TestFailure.UNSUPPORTED)
         }
-        return XrayEngine.measureDelayDetailed(config, url).let {
+        return ProbeClient.measureDelayDetailed(config, url).let {
             TestResult(node.id, it.delayMs, TestMethod.REAL, reason = it.reason)
         }
     }
 
     fun testRecovery(node: ProxyNode, url: String, profile: NodeProfile?): TestResult =
-        if (!XrayEngine.isAvailable) test(node, url) else
-            XrayEngine.measureRecovery(XrayConfigBuilder.build(node, directRuServices = false, forTest = true, profile = profile), url)
+        if (!ProbeClient.isAvailable) test(node, url) else
+            ProbeClient.measureRecovery(XrayConfigBuilder.build(node, directRuServices = false, forTest = true, profile = profile), url)
                 .let { TestResult(node.id, it.delayMs, TestMethod.REAL, reason = it.reason) }
 
     private fun tcping(node: ProxyNode): DelayMeasurement = try {

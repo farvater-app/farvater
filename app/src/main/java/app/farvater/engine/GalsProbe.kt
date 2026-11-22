@@ -87,9 +87,10 @@ object GalsProbe {
         dns: List<String>?, lane: ProbeLane): PathResult = withContext(Dispatchers.IO) {
         val port = runCatching { ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort } }
             .getOrNull() ?: return@withContext PathResult(null)
-        val config = ServiceProbe.configuration(node, profile, port)
+        val account = LocalProxyAuth.Account()
+        val config = ServiceProbe.configuration(node, profile, port, account = account)
         val probe = try {
-            ProbeLaunch.await({ XrayEngine.startProbe(config, lane) }, XrayEngine::stopProbe, deferOnTimeout = true,
+            ProbeLaunch.await({ ProbeClient.startProbe(config, lane) }, ProbeClient::stopProbe, deferOnTimeout = true,
                 recovery = lane == ProbeLane.RECOVERY)
         } catch (_: ProbeDeferredException) {
             return@withContext PathResult(null, deferred = true)
@@ -97,7 +98,7 @@ object GalsProbe {
         val pool = ConnectionPool()
         try {
             coroutineContext.ensureActive()
-            LocalProxyAuth.open(port)
+            LocalProxyAuth.open(port, account) { ProbeClient.alive(probe) }
             val client = base.newBuilder().connectionPool(pool)
                 .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port))).build()
             val metrics = withTimeoutOrNull(20_000) { measure(client, group, probeUrl, dns) } ?: GalsMetrics()
@@ -105,8 +106,8 @@ object GalsProbe {
                 speedBps = metrics.speedBps, delayMs = metrics.delayMs, targetCheck = metrics.target)
         } finally {
             pool.evictAll()
-            LocalProxyAuth.close(port)
-            XrayEngine.stopProbe(probe)
+            LocalProxyAuth.close(port, account)
+            ProbeClient.stopProbe(probe)
         }
     }
 

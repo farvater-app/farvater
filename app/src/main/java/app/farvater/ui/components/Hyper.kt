@@ -74,22 +74,22 @@ private const val SWEEPS = 2
 fun HyperConnect(
     mode: ConnectMode,
     status: String,
-    downBps: Long,
-    upBps: Long,
-    history: List<Long>,
+    traffic: () -> app.farvater.vpn.Traffic,
+    history: () -> List<Long>,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val c = Ios.colors
     val active = mode == ConnectMode.Connected
-    val peak = (history.maxOrNull() ?: 0L).coerceAtLeast(512L * 1024)
+    val rates = traffic()
+    val peak = (history().maxOrNull() ?: 0L).coerceAtLeast(512L * 1024)
     Row(
         modifier.fillMaxWidth().padding(horizontal = 16.dp).height(196.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         VpnTile(mode, status, onClick, Modifier.weight(1f).fillMaxHeight())
-        SpeedMeter(downBps, peak, active, Icons.Rounded.ArrowDownward, stringResource(R.string.traffic_download), c.green, Modifier.width(74.dp).fillMaxHeight())
-        SpeedMeter(upBps, peak, active, Icons.Rounded.ArrowUpward, stringResource(R.string.traffic_upload), c.blue, Modifier.width(74.dp).fillMaxHeight())
+        SpeedMeter(rates.downBps, peak, active, Icons.Rounded.ArrowDownward, stringResource(R.string.traffic_download), c.green, Modifier.width(74.dp).fillMaxHeight())
+        SpeedMeter(rates.upBps, peak, active, Icons.Rounded.ArrowUpward, stringResource(R.string.traffic_upload), c.blue, Modifier.width(74.dp).fillMaxHeight())
     }
 }
 

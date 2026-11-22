@@ -599,4 +599,5 @@
     <string name="observatory_hint">اطلس ستارگان، تلسکوپ و مدارهای گره‌ها.</string>
     <string name="legal_contents">فهرست مطالب</string>
     <string name="legal_back_text">بازگشت به متن</string>
+    <string name="profile_storage_unavailable">فضای ذخیره‌سازی محافظت‌شده در دسترس نیست. قفل دستگاه را باز کنید و دوباره تلاش کنید.</string>
 </resources>

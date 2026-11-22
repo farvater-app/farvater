@@ -60,8 +60,25 @@ internal class LeasedTask<T>(private val lease: NativeProbeBudget.Lease, action:
 
 internal class NativeProbeHandle<T>(val value: T, private val lease: NativeProbeBudget.Lease, private val stop: (T) -> Unit) {
     private val closing = AtomicBoolean()
-    fun close() {
-        if (closing.compareAndSet(false, true) && runCatching { stop(value) }.isSuccess) lease.close()
+    @Volatile private var closed = false
+
+    fun release(schedule: (() -> Unit) -> Unit) {
+        if (!close()) schedule { release(schedule) }
+    }
+
+    fun close(): Boolean {
+        if (closed || !closing.compareAndSet(false, true)) return closed
+        return try {
+            if (closed) return true
+            stop(value)
+            lease.close()
+            closed = true
+            true
+        } catch (_: Exception) {
+            false
+        } finally {
+            closing.set(false)
+        }
     }
 }
 

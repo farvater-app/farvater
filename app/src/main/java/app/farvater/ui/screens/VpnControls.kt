@@ -28,7 +28,7 @@ internal fun VpnControls() {
         owner.lifecycle.addObserver(observer)
         onDispose { owner.lifecycle.removeObserver(observer) }
     }
-    val lockdown = remember(resumed, vpn) { FarvaterVpnService.lockdownStatus() }
+    val lockdown = remember(resumed, vpn) { TunnelCoordinator.lockdownStatus() }
     var issued by remember { mutableStateOf(AutomationAccess.current(context) != null) }
     var confirm by remember { mutableStateOf(false) }
     fun error() { Toast.makeText(context, R.string.state_error, Toast.LENGTH_SHORT).show() }

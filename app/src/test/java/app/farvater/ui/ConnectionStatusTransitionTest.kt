@@ -24,13 +24,21 @@ import org.robolectric.annotation.Config
 class ConnectionStatusTransitionTest {
     @get:Rule val rule = createComposeRule()
 
+    @Test fun anIdleHomeDoesNotSubscribeToPerSecondTrafficOrHistory() {
+        var reads = 0
+        rule.setContent { FarvaterTheme(style = UiStyle.WINTER) {
+            HomeScreen(UiState(), VpnState.Idle, { reads++; Traffic() }, { reads++; emptyList() }, {}, {}, {}, {})
+        } }
+        rule.runOnIdle { org.junit.Assert.assertEquals(0, reads) }
+    }
+
     @Test fun changingConnectionNeverKeepsThePreviousStatusOrProtection() {
         val node = LinkParser.parse("vless://test@transition.example.test:443?security=tls#Test")!!
         val vpn = mutableStateOf<VpnState>(VpnState.Connected(node, 0))
         val state = mutableStateOf(UiState())
         rule.mainClock.autoAdvance = false
         rule.setContent { FarvaterTheme(style = UiStyle.WINTER) {
-            HomeScreen(state.value, vpn.value, Traffic(), emptyList(), {}, {}, {}, {})
+            HomeScreen(state.value, vpn.value, { Traffic() }, { emptyList() }, {}, {}, {}, {})
         } }
         rule.mainClock.advanceTimeBy(1500)
         rule.onNodeWithText("Трафик идёт через выбранный узел").assertExists()

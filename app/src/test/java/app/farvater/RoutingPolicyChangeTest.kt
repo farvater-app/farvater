@@ -9,7 +9,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.farvater.data.AppSettings
 import app.farvater.core.parser.LinkParser
 import app.farvater.ui.MainViewModel
-import app.farvater.vpn.FarvaterVpnService
+import app.farvater.vpn.TunnelCoordinator
 import app.farvater.vpn.VpnBus
 import app.farvater.vpn.VpnState
 import kotlinx.coroutines.cancel
@@ -76,16 +76,16 @@ class RoutingPolicyChangeTest {
             vm.updateSettings(change)
             if (stopBeforeRestart) VpnBus.state.value = VpnState.Idle
             if (pendingStop) {
-                FarvaterVpnService.stop(app)
-                assertEquals(FarvaterVpnService.ACTION_STOP, shadowOf(app).nextStartedService?.action)
+                TunnelCoordinator.stop(app)
+                assertEquals(TunnelCoordinator.ACTION_STOP, shadowOf(app).nextStartedService?.action)
                 assertEquals(false, VpnBus.request.value?.active)
             }
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(2))
             val intent = shadowOf(app).nextStartedService
             if (stopBeforeRestart || pendingStop) assertNull(intent) else {
                 assertNotNull(intent)
-                assertEquals(FarvaterVpnService.ACTION_START, intent!!.action)
-                assertTrue(intent.getBooleanExtra(FarvaterVpnService.EXTRA_RESTART, false))
+                assertEquals(TunnelCoordinator.ACTION_START, intent!!.action)
+                assertTrue(intent.getBooleanExtra(TunnelCoordinator.EXTRA_RESTART, false))
             }
         } finally {
             vm.viewModelScope.cancel()

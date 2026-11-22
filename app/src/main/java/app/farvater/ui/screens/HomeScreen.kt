@@ -114,8 +114,8 @@ import kotlinx.coroutines.delay
 fun HomeScreen(
     state: UiState,
     vpn: VpnState,
-    traffic: Traffic,
-    history: List<Long>,
+    traffic: () -> Traffic,
+    history: () -> List<Long>,
     onToggle: () -> Unit,
     onFindWorking: () -> Unit,
     onCancelTest: () -> Unit,
@@ -211,7 +211,7 @@ fun HomeScreen(
                     mode = mode,
                     node = connectedNode,
                     since = (vpn as? VpnState.Connected)?.since,
-                    downBps = traffic.downBps,
+                    downBps = { traffic().downBps },
                     progress = state.progress?.let { it.done to it.total },
                 )
             }
@@ -263,8 +263,7 @@ fun HomeScreen(
                         hyper -> HyperConnect(
                             mode = mode,
                             status = tileStatus(mode, state, connectedNode),
-                            downBps = traffic.downBps,
-                            upBps = traffic.upBps,
+                            traffic = traffic,
                             history = history,
                             onClick = onToggle,
                         )
@@ -438,7 +437,9 @@ private fun supporting(mode: ConnectMode, vpn: VpnState, state: UiState, sumie: 
 }
 
 @Composable
-private fun SessionSection(vpn: VpnState.Connected, traffic: Traffic, history: List<Long>, encryptedDns: Boolean) {
+private fun SessionSection(vpn: VpnState.Connected, readTraffic: () -> Traffic, readHistory: () -> List<Long>, encryptedDns: Boolean) {
+    val traffic = readTraffic()
+    val history = readHistory()
     val c = Ios.colors
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(vpn.since) {

@@ -76,6 +76,24 @@ class BuildContractsTest(unittest.TestCase):
         pin = {"aarSha256": hashlib.sha256(aar.read_bytes()).hexdigest(), "xrayModuleVersion": module}
         (root / "scripts/native-versions.json").write_text(json.dumps(pin))
 
+    def test_android_arm64_requires_16_kib_load_segments(self):
+        import struct
+        from android_elf import verify_elf
+
+        library = bytearray(120)
+        library[:6] = b"\x7fELF\x02\x01"
+        struct.pack_into("<H", library, 18, 183)
+        struct.pack_into("<Q", library, 32, 64)
+        struct.pack_into("<HH", library, 54, 56, 1)
+        struct.pack_into("<I", library, 64, 1)
+        struct.pack_into("<Q", library, 112, 16384)
+        verify_elf(library, "arm64-v8a")
+        with self.assertRaises(ValueError):
+            verify_elf(library, "x86_64")
+        struct.pack_into("<Q", library, 112, 4096)
+        with self.assertRaises(ValueError):
+            verify_elf(library, "arm64-v8a")
+
     def test_correct_hash_with_missing_abi_is_rejected(self):
         for abi in natives.ABIS:
             with self.subTest(abi=abi), tempfile.TemporaryDirectory() as directory:

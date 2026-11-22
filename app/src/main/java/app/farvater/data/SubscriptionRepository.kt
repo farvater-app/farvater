@@ -115,8 +115,8 @@ class SubscriptionRepository(context: Context, private val ioDispatcher: Corouti
                         synchronized(this@SubscriptionRepository) {
                             context.ensureActive()
                             if (fetchTokens[sourceId] === token && isCurrent()) {
-                                File(dir, "$sourceId.txt").writeText(body)
-                                File(dir, "$sourceId.headers").writeText(
+                                ProfileStorage.write(File(dir, "$sourceId.txt"), body)
+                                ProfileStorage.write(File(dir, "$sourceId.headers"),
                                     headers.filterKeys { it.lowercase() in KEPT_HEADERS }.entries.joinToString("\n") { "${it.key}: ${it.value}" },
                                 )
                                 val interval = File(dir, "$sourceId.interval")
@@ -157,6 +157,21 @@ class SubscriptionRepository(context: Context, private val ioDispatcher: Corouti
     fun loadSnapshot(sourceId: String): SourceSnapshot? = loadCached(sourceId).also { publish(sourceId, it) }
 
     @Synchronized
+    internal fun migrateStoredProfiles() {
+        for (key in ProfileStorage.sensitive) {
+            if (preferences.contains(key)) ProfileStorage.get(preferences, key)
+        }
+        for (file in dir.listFiles().orEmpty()) {
+            if (file.extension != "txt" && file.extension != "headers") continue
+            if (file == manualFile && preferences.contains(ProfileStorage.sealedKey(Prefs.MANUAL_NODES_KEY))) {
+                ProfileStorage.delete(file)
+            } else {
+                ProfileStorage.read(file)
+            }
+        }
+    }
+
+    @Synchronized
     fun resetInventory() {
         fetchTokens.clear()
         synchronized(Prefs.selectionLock) { snapshots.value = emptyMap() }
@@ -170,19 +185,33 @@ class SubscriptionRepository(context: Context, private val ioDispatcher: Corouti
     }
 
     @Synchronized
-    fun loadCached(sourceId: String): SourceSnapshot? {
-        if (sourceId == ProxyNode.MANUAL_SOURCE && preferences.contains(Prefs.MANUAL_NODES_KEY)) {
-            val parsed = SubscriptionParser.parse(preferences.getString(Prefs.MANUAL_NODES_KEY, "").orEmpty(), sourceId)
-            return SourceSnapshot(sourceId, null, null, parsed.notices, parsed.nodes, 0, skipped = parsed.skipped)
+    fun loadCached(sourceId: String): SourceSnapshot? = try {
+        readCached(sourceId)
+    } catch (_: java.security.GeneralSecurityException) {
+        unavailableProfile(sourceId)
+    } catch (_: IOException) {
+        unavailableProfile(sourceId)
+    }
+
+    private fun unavailableProfile(sourceId: String) = SourceSnapshot(sourceId, null, null, emptyList(), emptyList(), 0,
+        error = application.localizedString(R.string.profile_storage_unavailable))
+
+    private fun readCached(sourceId: String): SourceSnapshot? {
+        if (sourceId == ProxyNode.MANUAL_SOURCE) {
+            ProfileStorage.get(preferences, Prefs.MANUAL_NODES_KEY)?.let { raw ->
+                ProfileStorage.delete(manualFile)
+                val parsed = SubscriptionParser.parse(raw, sourceId)
+                return SourceSnapshot(sourceId, null, null, parsed.notices, parsed.nodes, 0, skipped = parsed.skipped)
+            }
         }
         val file = File(dir, "$sourceId.txt")
-        if (!file.exists()) return null
-        val headers = File(dir, "$sourceId.headers").takeIf { it.exists() }?.readLines().orEmpty()
+        val body = ProfileStorage.read(file) ?: return null
+        val headers = ProfileStorage.read(File(dir, "$sourceId.headers"))?.lines().orEmpty()
             .filter { ':' in it }.associate { it.substringBefore(':').trim() to it.substringAfter(':').trim() }
-        val parsed = SubscriptionParser.parse(file.readText(), sourceId, headers)
+        val parsed = SubscriptionParser.parse(body, sourceId, headers)
         val interval = File(dir, "$sourceId.interval").takeIf { it.exists() }?.readText()?.trim()?.toIntOrNull()
         return SourceSnapshot(
-            sourceId, parsed.title, parsed.announce, parsed.notices, parsed.nodes, file.lastModified(),
+            sourceId, parsed.title, parsed.announce, parsed.notices, parsed.nodes, ProfileStorage.modified(file),
             skipped = parsed.skipped,
             intervalHours = interval ?: parsed.updateIntervalHours,
             usage = parsed.usage,
@@ -194,13 +223,16 @@ class SubscriptionRepository(context: Context, private val ioDispatcher: Corouti
             ?: SourceSnapshot(ProxyNode.MANUAL_SOURCE, null, null, emptyList(), emptyList(), 0)
 
     @Synchronized
+    internal fun manualForBackup(): List<ProxyNode> = readCached(ProxyNode.MANUAL_SOURCE)?.nodes.orEmpty()
+
+    @Synchronized
     fun appendManual(nodes: List<ProxyNode>): Int {
-        val existing = loadManual().nodes.map { it.id }.toSet()
+        val existing = readCached(ProxyNode.MANUAL_SOURCE)?.nodes.orEmpty().map { it.id }.toSet()
         val fresh = nodes.filter { it.id !in existing }
         if (fresh.isNotEmpty()) {
-            val previous = preferences.getString(Prefs.MANUAL_NODES_KEY, null)
+            val previous = ProfileStorage.get(preferences, Prefs.MANUAL_NODES_KEY)
             val addition = fresh.joinToString("\n", postfix = "\n") { it.raw }
-            if (previous == null) manualFile.appendText(addition)
+            if (previous == null) ProfileStorage.write(manualFile, ProfileStorage.read(manualFile).orEmpty() + addition)
             else writeRestoredManual(previous + addition)
         }
         publish(ProxyNode.MANUAL_SOURCE, loadManual())
@@ -209,17 +241,18 @@ class SubscriptionRepository(context: Context, private val ioDispatcher: Corouti
 
     @Synchronized
     fun removeManual(nodeId: String) {
-        val keep = loadManual().nodes.filter { it.id != nodeId }
+        val keep = readCached(ProxyNode.MANUAL_SOURCE)?.nodes.orEmpty().filter { it.id != nodeId }
         val raw = keep.joinToString("\n", postfix = "\n") { it.raw }
-        if (!preferences.contains(Prefs.MANUAL_NODES_KEY)) manualFile.writeText(raw)
+        if (!preferences.contains(ProfileStorage.sealedKey(Prefs.MANUAL_NODES_KEY))) ProfileStorage.write(manualFile, raw)
         else writeRestoredManual(raw)
         publish(ProxyNode.MANUAL_SOURCE, loadManual())
     }
 
     private fun writeRestoredManual(raw: String): Unit = synchronized(Prefs.selectionLock) {
-        val previous = preferences.getString(Prefs.MANUAL_NODES_KEY, "")
-        if (!preferences.edit().putString(Prefs.MANUAL_NODES_KEY, raw).commit()) {
-            preferences.edit().putString(Prefs.MANUAL_NODES_KEY, previous).commit()
+        val key = ProfileStorage.sealedKey(Prefs.MANUAL_NODES_KEY)
+        val previous = preferences.getString(key, null)
+        if (!ProfileStorage.put(preferences.edit(), Prefs.MANUAL_NODES_KEY, raw).commit()) {
+            preferences.edit().putString(key, previous).commit()
             throw IOException()
         }
     }
@@ -227,9 +260,9 @@ class SubscriptionRepository(context: Context, private val ioDispatcher: Corouti
     @Synchronized
     fun deleteCache(sourceId: String) {
         fetchTokens.remove(sourceId)
-        File(dir, "$sourceId.txt").delete()
+        ProfileStorage.delete(File(dir, "$sourceId.txt"))
         File(dir, "$sourceId.interval").delete()
-        File(dir, "$sourceId.headers").delete()
+        ProfileStorage.delete(File(dir, "$sourceId.headers"))
         publish(sourceId, null)
     }
 
