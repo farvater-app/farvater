@@ -1,0 +1,3 @@
+- Saved nodes, settings and subscriptions are now encrypted on the device. Existing records migrate automatically when you update.
+- The VPN runs in a separate process. If Android restarts the service while you connect or disconnect, Farvater preserves the order of your commands.
+- Speed readings and the traffic graph on the home screen now update independently of the node list.
