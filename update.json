@@ -1,39 +1,38 @@
 {
-  "versionCode": 10032,
-  "versionName": "1.0.32",
-  "published": "21.11.2026",
+  "versionCode": 10033,
+  "versionName": "1.0.33",
+  "published": "22.11.2026",
   "critical": false,
   "notes": [
-    "При включённом VPN ошибка одного узла больше не останавливает проверку подписки. По умолчанию используется HTTPS.",
-    "Для Галса можно выбрать подписки, транспорт, сервис и интервал проверки. Плановый поиск уступает ручной проверке.",
-    "Добавлены правила для доменов и IP, управление из Tasker и MacroDroid и переход к блокировке соединений без VPN в Android.",
-    "Узлы и подписки можно импортировать по QR-коду. Появилась тема «Обсерватория». Ядро Xray обновлено до 26.11.9."
+    "Узлы, настройки и подписки теперь зашифрованы на телефоне. При обновлении прежние записи переносятся автоматически.",
+    "VPN работает в отдельном процессе. Если Android перезапустит службу во время подключения или отключения, Фарватер сохранит порядок команд.",
+    "Показания скорости и график на главном экране обновляются отдельно от списка узлов."
   ],
   "assets": {
     "arm64-v8a": {
-      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.32/Farvater-1.0.32-arm64-v8a.apk",
-      "sha256": "853ec0baee80c088de62507dcd7647bcea1ff39dbc942d9446f1d949ccf81221",
-      "size": 22593487
+      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.33/Farvater-1.0.33-arm64-v8a.apk",
+      "sha256": "d5d55f554a57a656f52dda218c8dfba650dca17e5ee87563d90376be6dd5fc7a",
+      "size": 22612985
     },
     "armeabi-v7a": {
-      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.32/Farvater-1.0.32-armeabi-v7a.apk",
-      "sha256": "8f20b89e8a75a424ef0f3248449c9b1231d92cb9a748c38aba23a421878414ca",
-      "size": 23186528
+      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.33/Farvater-1.0.33-armeabi-v7a.apk",
+      "sha256": "15f25ee404dc15d28fb433a35c5b87a64969af79c72a19bbb7a8268cd9e0ef83",
+      "size": 23205836
     },
     "universal": {
-      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.32/Farvater-1.0.32-universal.apk",
-      "sha256": "8ecf245602a95e6347313a0991b896ca8b60c6a6c94519b28be40ec74ca2eaa3",
-      "size": 61241833
+      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.33/Farvater-1.0.33-universal.apk",
+      "sha256": "2b39a01a635c6f99d341c639e2a8fb5fc945d859e31271d16a90a59068b902bb",
+      "size": 61268410
     },
     "x86": {
-      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.32/Farvater-1.0.32-x86.apk",
-      "sha256": "85c009aa7cefc8b706795aab2ca680fe92fb3a8a102212b48404fd182165c414",
-      "size": 24167821
+      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.33/Farvater-1.0.33-x86.apk",
+      "sha256": "e2cc0fdb27d39280bc742b7fc6aeb4c04d878987e599daf78562d6290818d48f",
+      "size": 24188139
     },
     "x86_64": {
-      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.32/Farvater-1.0.32-x86_64.apk",
-      "sha256": "3e794c6f7a6712e8168410c1c1ac464b67474c3f6b04371163f11d4096c7158d",
-      "size": 23634184
+      "url": "https://github.com/farvater-app/farvater/releases/download/v1.0.33/Farvater-1.0.33-x86_64.apk",
+      "sha256": "7b43f4b93135490749f8550ff209639cec4498c31aaf454bff2c52b27962e889",
+      "size": 23654519
     }
   }
 }
