@@ -74,12 +74,14 @@ data class BackupArchive(
         require(sourceConfigs.size <= 200 && sourceConfigs.keys.all { it in catalog || it in subscriptions.map { s -> s.id } })
         require(sourceConfigs.values.all { it.intervalHours == null || it.intervalHours in setOf(0, 1, 3, 6, 12, 24) })
         require(manualNodes.size <= 1000)
-        val ids = manualNodes.map { raw ->
+        val nodes = manualNodes.map { raw ->
             require(raw.length <= 256 * 1024)
             val parsed = SubscriptionParser.parse(raw, ProxyNode.MANUAL_SOURCE)
             require(parsed.nodes.size == 1 && parsed.skipped.isEmpty() && parsed.notices.isEmpty())
-            parsed.nodes.single().id
+            parsed.nodes.single()
         }
+        SubscriptionParser.checkNodes(nodes.asSequence())
+        val ids = nodes.map { it.id }
         require(ids.distinct().size == ids.size)
         return this
     }
@@ -138,6 +140,7 @@ data class BackupArchive(
                 }
             }
             require(depth == 0 && !quoted)
+            SubscriptionParser.checkBackupJson(text)
             return json.decodeFromString(serializer(), text).validated()
         }
     }

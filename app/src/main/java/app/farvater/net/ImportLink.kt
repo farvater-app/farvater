@@ -1,5 +1,7 @@
 package app.farvater.net
 
+import app.farvater.core.parser.SubscriptionLimitException
+
 object ImportLink {
     private val schemes = setOf("http", "https", "vless", "vmess", "trojan", "ss", "hysteria2", "hy2")
 
@@ -10,7 +12,11 @@ object ImportLink {
 
     fun preview(text: String): String? {
         endpoint(text)?.let { return it }
-        val nodes = app.farvater.core.parser.SubscriptionParser.parse(text, app.farvater.core.model.ProxyNode.MANUAL_SOURCE).nodes
+        val nodes = try {
+            app.farvater.core.parser.SubscriptionParser.parse(text, app.farvater.core.model.ProxyNode.MANUAL_SOURCE).nodes
+        } catch (_: SubscriptionLimitException) {
+            return null
+        }
         return nodes.map { node ->
             val host = if (':' in node.address && !node.address.startsWith("[")) "[${node.address}]" else node.address
             "${node.protocol.title} · $host:${node.port}"

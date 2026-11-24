@@ -454,6 +454,7 @@
     <string name="error_subscription_html">"received a web page instead of a subscription"</string>
     <string name="error_subscription_empty">"the subscription currently has no servers"</string>
     <string name="error_subscription_size">"subscription exceeds %1$d MB"</string>
+    <string name="error_subscription_complexity">"subscription contains too many or overly large entries"</string>
     <string name="error_local_host">"%1$s points to this device"</string>
     <string name="error_redirect_no_address">"server returned a redirect without an address"</string>
     <string name="error_redirect_downgrade">"HTTPS to HTTP redirects are not allowed"</string>

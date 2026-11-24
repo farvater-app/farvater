@@ -17,6 +17,7 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import kotlinx.serialization.SerializationException
 
 object XrayJsonParser {
     private val PROTOCOLS = mapOf(
@@ -28,15 +29,32 @@ object XrayJsonParser {
     )
     private val RESERVED_TAGS = setOf("direct", "block", "dns-out")
 
-    fun parse(text: String, sourceId: String, onRejected: (String) -> Unit = {}): List<ProxyNode>? {
+    fun parse(text: String, sourceId: String, onRejected: (String) -> Unit = {}): List<ProxyNode>? =
+        parse(text, sourceId, onRejected, null)
+
+    internal fun parseSubscription(
+        text: String,
+        sourceId: String,
+        onRejected: (String) -> Unit,
+        budget: SubscriptionBudget,
+    ): List<ProxyNode>? = parse(text, sourceId, onRejected, budget)
+
+    private fun parse(
+        text: String,
+        sourceId: String,
+        onRejected: (String) -> Unit,
+        budget: SubscriptionBudget?,
+    ): List<ProxyNode>? {
         if (!text.startsWith("[") && !text.startsWith("{")) return null
         if (!JsonDepth.supported(text)) {
             onRejected("unsupported_nesting")
             return emptyList()
         }
-        val root = runCatching { Json.parseToJsonElement(text) }.getOrNull() ?: return null
+        budget?.checkJson(text)
+        val root = jsonElement(text) ?: return null
         val configs = (root as? JsonArray)?.filterIsInstance<JsonObject>() ?: listOfNotNull(root as? JsonObject)
         return configs.mapNotNull { config ->
+            budget?.scanEntry()
             val reason = unsupportedReason(config)
             if (reason == null) node(config, sourceId) else {
                 onRejected(reason)
@@ -48,7 +66,7 @@ object XrayJsonParser {
     internal fun linkDownloadSupportIssue(protocol: Protocol, params: Map<String, String>): String? {
         if (params["type"]?.lowercase() !in setOf("xhttp", "splithttp")) return null
         if (params["extra"]?.let { !JsonDepth.supported(it) } == true) return "unsupported_nesting"
-        val extra = params["extra"]?.let { runCatching { Json.parseToJsonElement(it) }.getOrNull() } as? JsonObject ?: return null
+        val extra = params["extra"]?.let(::jsonElement) as? JsonObject ?: return null
         return streamSupportIssue(extra.obj("downloadSettings"), protocol)
     }
 
@@ -203,7 +221,7 @@ object XrayJsonParser {
     }
 
     internal fun mainEncryption(raw: String): String? {
-        val config = runCatching { Json.parseToJsonElement(raw) as? JsonObject }.getOrNull() ?: return null
+        val config = jsonElement(raw) as? JsonObject ?: return null
         val output = config.array("outbounds").firstOrNull() as? JsonObject ?: return null
         if (output.str("protocol") != "vless") return null
         val settings = output.obj("settings") ?: return null
@@ -213,11 +231,11 @@ object XrayJsonParser {
     }
 
     internal fun securityIssue(raw: String): String? =
-        (runCatching { Json.parseToJsonElement(raw) }.getOrNull() as? JsonObject)?.let(::securityIssue)
+        (jsonElement(raw) as? JsonObject)?.let(::securityIssue)
 
     internal fun xhttpSecurityIssue(protocol: Protocol, params: Map<String, String>): String? {
         if (params["type"]?.lowercase() !in setOf("xhttp", "splithttp")) return null
-        val extra = params["extra"]?.let { runCatching { Json.parseToJsonElement(it) }.getOrNull() } as? JsonObject ?: return null
+        val extra = params["extra"]?.let(::jsonElement) as? JsonObject ?: return null
         return downloadSecurityIssue(extra.obj("downloadSettings"), protocol, params)
     }
 
@@ -343,4 +361,12 @@ object XrayJsonParser {
     private fun JsonObject.str(key: String): String? = scalar(key)?.contentOrNull?.takeIf { it.isNotBlank() }
     private fun JsonObject.int(key: String): Int? = scalar(key)?.let { it.intOrNull ?: it.contentOrNull?.toIntOrNull() }
     private fun JsonObject.bool(key: String): Boolean? = scalar(key)?.let { it.booleanOrNull ?: (it.contentOrNull == "1") }
+
+    private fun jsonElement(text: String): JsonElement? = try {
+        Json.parseToJsonElement(text)
+    } catch (_: SerializationException) {
+        null
+    } catch (_: IllegalArgumentException) {
+        null
+    }
 }

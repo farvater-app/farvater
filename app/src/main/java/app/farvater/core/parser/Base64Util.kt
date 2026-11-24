@@ -8,6 +8,10 @@ internal object Base64Util {
         if (clean.isEmpty()) return null
         val normalized = clean.replace('-', '+').replace('_', '/').trimEnd('=')
         val padded = normalized + "=".repeat((4 - normalized.length % 4) % 4)
-        return runCatching { String(Base64.getDecoder().decode(padded), Charsets.UTF_8) }.getOrNull()
+        return try {
+            String(Base64.getDecoder().decode(padded), Charsets.UTF_8)
+        } catch (_: IllegalArgumentException) {
+            null
+        }
     }
 }

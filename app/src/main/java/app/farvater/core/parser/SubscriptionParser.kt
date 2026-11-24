@@ -16,12 +16,17 @@ data class ParsedSubscription(
 
 object SubscriptionParser {
     fun parse(body: String, sourceId: String, headers: Map<String, String> = emptyMap()): ParsedSubscription {
+        val budget = SubscriptionBudget(body, headers)
         var text = body.trim().removePrefix("\uFEFF")
         val skipped = HashMap<String, Int>()
         fun rejected(reason: String) { skipped[reason] = (skipped[reason] ?: 0) + 1 }
-        val json = XrayJsonParser.parse(text, sourceId, ::rejected)
+        val json = XrayJsonParser.parseSubscription(text, sourceId, ::rejected, budget)
         if (json == null && !text.contains("://")) {
-            Base64Util.decodeToString(text)?.takeIf { it.contains("://") }?.let { text = it }
+            budget.base64Input(text)
+            Base64Util.decodeToString(text)?.takeIf { it.contains("://") }?.let {
+                budget.decodedBody(it)
+                text = it
+            }
         }
 
         val meta = headers.mapKeys { it.key.lowercase() }.toMutableMap()
@@ -30,27 +35,39 @@ object SubscriptionParser {
         val announceLines = mutableListOf<String>()
 
         fun add(node: ProxyNode) {
-            if (node.address == "0.0.0.0" || node.address == "127.0.0.1") notices += node.name else nodes.putIfAbsent(node.id, node)
+            if (node.address == "0.0.0.0" || node.address == "127.0.0.1") {
+                budget.retain(node)
+                notices += node.name
+            } else if (node.id !in nodes) {
+                budget.retain(node)
+                nodes[node.id] = node
+            }
         }
 
         json?.forEach(::add)
-        if (json == null) text.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.forEach { line ->
+        if (json == null) text.lineSequence().forEach { rawLine ->
+            budget.scanEntry(rawLine.length)
+            val line = rawLine.trim()
+            if (line.isEmpty()) return@forEach
             if (line.startsWith("{")) {
-                XrayJsonParser.parse(line, sourceId, ::rejected)?.forEach(::add)
+                XrayJsonParser.parseSubscription(line, sourceId, ::rejected, budget)?.forEach(::add)
                 return@forEach
             }
             if (line.startsWith("#")) {
                 val kv = line.removePrefix("#").trim()
                 val key = kv.substringBefore(':', "").trim().lowercase()
+                val value = kv.substringAfter(':', "").trim()
                 if (key == "announce") {
-                    maybeBase64(kv.substringAfter(':').trim()).takeIf { it.isNotBlank() }?.let(announceLines::add)
+                    budget.metadata(key, value)
+                    maybeBase64(value).takeIf { it.isNotBlank() }?.let(announceLines::add)
                 } else if (key.isNotEmpty() && ' ' !in key) {
-                    meta.putIfAbsent(key, kv.substringAfter(':').trim())
+                    budget.metadata(key, value)
+                    meta.putIfAbsent(key, value)
                 }
                 return@forEach
             }
             var unsupported = false
-            val node = LinkParser.parse(line, sourceId) { reason ->
+            val node = LinkParser.parseSubscriptionLine(line, sourceId, budget) { reason ->
                 unsupported = true
                 rejected(reason)
             }
@@ -84,4 +101,14 @@ object SubscriptionParser {
 
     private fun maybeBase64(value: String): String =
         if (value.startsWith("base64:")) Base64Util.decodeToString(value.removePrefix("base64:")) ?: value else value
+
+    internal fun checkNodes(nodes: Sequence<ProxyNode>) = SubscriptionBudget.checkNodes(nodes)
+
+    internal fun checkBackupJson(text: String) =
+        SubscriptionBudget(text, emptyMap()).checkJson(text, SubscriptionBudget.MAX_BACKUP_JSON_CONTAINER_ENTRIES)
+
+    internal const val MAX_NODES = SubscriptionBudget.MAX_NODES
+    internal const val MAX_SCANNED_ENTRIES = SubscriptionBudget.MAX_SCANNED_ENTRIES
+    internal const val MAX_LINK_CHARS = SubscriptionBudget.MAX_LINK_CHARS
+    internal const val MAX_QUERY_PARAMETERS = SubscriptionBudget.MAX_QUERY_PARAMETERS
 }

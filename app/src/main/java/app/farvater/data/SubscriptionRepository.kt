@@ -4,6 +4,7 @@ import app.farvater.R
 import android.content.Context
 import app.farvater.BuildConfig
 import app.farvater.core.model.ProxyNode
+import app.farvater.core.parser.SubscriptionLimitException
 import app.farvater.core.parser.SubscriptionParser
 import app.farvater.core.parser.Usage
 import app.farvater.core.xray.XrayConfigBuilder
@@ -76,6 +77,8 @@ class SubscriptionRepository(context: Context, private val ioDispatcher: Corouti
             val client = if (viaTunnel) tunnelClient else baseClient
             var lastError: String? = null
             var receivedContent = false
+            var budgetRejected = false
+            var budgetError: String? = null
             for (url in urls) for (asJson in if (json) listOf(true, false) else listOf(false)) {
                 try {
                     if (!requestCurrent(sourceId, token, isCurrent)) return@withContext empty
@@ -92,7 +95,9 @@ class SubscriptionRepository(context: Context, private val ioDispatcher: Corouti
                         }
                         receivedContent = true
                         val body = response.body?.let(::readLimited).orEmpty()
-                        val headers = response.headers.toMultimap().mapValues { it.value.firstOrNull().orEmpty() }
+                        val headers = response.headers.toMultimap()
+                            .filterKeys { it.lowercase() in KEPT_HEADERS }
+                            .mapValues { it.value.firstOrNull().orEmpty() }
                         val parsed = SubscriptionParser.parse(body, sourceId, headers)
                         if (parsed.nodes.isEmpty() && parsed.notices.isEmpty()) {
                             lastError = if (body.trimStart().startsWith("<")) {
@@ -117,8 +122,7 @@ class SubscriptionRepository(context: Context, private val ioDispatcher: Corouti
                             if (fetchTokens[sourceId] === token && isCurrent()) {
                                 ProfileStorage.write(File(dir, "$sourceId.txt"), body)
                                 ProfileStorage.write(File(dir, "$sourceId.headers"),
-                                    headers.filterKeys { it.lowercase() in KEPT_HEADERS }.entries.joinToString("\n") { "${it.key}: ${it.value}" },
-                                )
+                                    headers.entries.joinToString("\n") { "${it.key}: ${it.value}" })
                                 val interval = File(dir, "$sourceId.interval")
                                 parsed.updateIntervalHours?.let { interval.writeText(it.toString()) } ?: interval.delete()
                                 publish(sourceId, snapshot)
@@ -128,6 +132,9 @@ class SubscriptionRepository(context: Context, private val ioDispatcher: Corouti
                     }
                 } catch (e: CancellationException) {
                     throw e
+                } catch (_: SubscriptionLimitException) {
+                    budgetError = application.localizedString(R.string.error_subscription_complexity)
+                    budgetRejected = true
                 } catch (e: Exception) {
                     lastError = e.userMessage(application)
                 }
@@ -135,10 +142,11 @@ class SubscriptionRepository(context: Context, private val ioDispatcher: Corouti
             val context = currentCoroutineContext()
             synchronized(this@SubscriptionRepository) {
                 context.ensureActive()
-                val cached = loadCached(sourceId)
+                val cached = snapshots.value[sourceId].takeIf { budgetRejected } ?: loadCached(sourceId)
                 val unavailable = urls.isNotEmpty() && !receivedContent
-                val snapshot = cached?.copy(error = lastError, networkUnavailable = unavailable)
-                    ?: SourceSnapshot(sourceId, null, null, emptyList(), emptyList(), 0, error = lastError, networkUnavailable = unavailable)
+                val error = budgetError ?: lastError
+                val snapshot = cached?.copy(error = error, networkUnavailable = unavailable)
+                    ?: SourceSnapshot(sourceId, null, null, emptyList(), emptyList(), 0, error = error, networkUnavailable = unavailable)
                 if (fetchTokens[sourceId] === token && isCurrent()) publish(sourceId, snapshot)
                 snapshot
             }
@@ -187,6 +195,8 @@ class SubscriptionRepository(context: Context, private val ioDispatcher: Corouti
     @Synchronized
     fun loadCached(sourceId: String): SourceSnapshot? = try {
         readCached(sourceId)
+    } catch (_: SubscriptionLimitException) {
+        limitedProfile(sourceId)
     } catch (_: java.security.GeneralSecurityException) {
         unavailableProfile(sourceId)
     } catch (_: IOException) {
@@ -195,6 +205,9 @@ class SubscriptionRepository(context: Context, private val ioDispatcher: Corouti
 
     private fun unavailableProfile(sourceId: String) = SourceSnapshot(sourceId, null, null, emptyList(), emptyList(), 0,
         error = application.localizedString(R.string.profile_storage_unavailable))
+
+    private fun limitedProfile(sourceId: String) = SourceSnapshot(sourceId, null, null, emptyList(), emptyList(), 0,
+        error = application.localizedString(R.string.error_subscription_complexity))
 
     private fun readCached(sourceId: String): SourceSnapshot? {
         if (sourceId == ProxyNode.MANUAL_SOURCE) {
@@ -227,9 +240,11 @@ class SubscriptionRepository(context: Context, private val ioDispatcher: Corouti
 
     @Synchronized
     fun appendManual(nodes: List<ProxyNode>): Int {
-        val existing = readCached(ProxyNode.MANUAL_SOURCE)?.nodes.orEmpty().map { it.id }.toSet()
-        val fresh = nodes.filter { it.id !in existing }
+        val existing = readCached(ProxyNode.MANUAL_SOURCE)?.nodes.orEmpty()
+        val existingIds = existing.mapTo(HashSet(existing.size)) { it.id }
+        val fresh = nodes.filter { it.id !in existingIds }
         if (fresh.isNotEmpty()) {
+            SubscriptionParser.checkNodes(existing.asSequence() + fresh.asSequence())
             val previous = ProfileStorage.get(preferences, Prefs.MANUAL_NODES_KEY)
             val addition = fresh.joinToString("\n", postfix = "\n") { it.raw }
             if (previous == null) ProfileStorage.write(manualFile, ProfileStorage.read(manualFile).orEmpty() + addition)
