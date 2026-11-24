@@ -13,20 +13,41 @@ import java.security.MessageDigest
 object LinkParser {
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
-    fun parse(line: String, sourceId: String = ProxyNode.MANUAL_SOURCE, onRejected: (String) -> Unit = {}): ProxyNode? {
+    fun parse(line: String, sourceId: String = ProxyNode.MANUAL_SOURCE, onRejected: (String) -> Unit = {}): ProxyNode? =
+        parse(line, sourceId, null, onRejected)
+
+    internal fun parseSubscriptionLine(
+        line: String,
+        sourceId: String,
+        budget: SubscriptionBudget,
+        onRejected: (String) -> Unit,
+    ): ProxyNode? = parse(line, sourceId, budget, onRejected)
+
+    private fun parse(
+        line: String,
+        sourceId: String,
+        budget: SubscriptionBudget?,
+        onRejected: (String) -> Unit,
+    ): ProxyNode? {
         val raw = line.trim()
         if (raw.isEmpty() || raw.startsWith("#")) return null
         val scheme = raw.substringBefore("://", "").lowercase()
-        return runCatching {
+        val node = try {
             when (scheme) {
-                "vless" -> parseUriStyle(raw, Protocol.VLESS, sourceId)
-                "trojan" -> parseUriStyle(raw, Protocol.TROJAN, sourceId)
-                "hysteria2", "hy2" -> parseUriStyle(raw, Protocol.HYSTERIA2, sourceId)
-                "vmess" -> parseVmess(raw, sourceId)
+                "vless" -> parseUriStyle(raw, Protocol.VLESS, sourceId, budget)
+                "trojan" -> parseUriStyle(raw, Protocol.TROJAN, sourceId, budget)
+                "hysteria2", "hy2" -> parseUriStyle(raw, Protocol.HYSTERIA2, sourceId, budget)
+                "vmess" -> parseVmess(raw, sourceId, budget)
                 "ss" -> parseShadowsocks(raw, sourceId)
                 else -> null
             }
-        }.getOrNull()?.let { node ->
+        } catch (e: SubscriptionLimitException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        }
+        return node?.let {
+            node.params["extra"]?.takeIf(JsonDepth::supported)?.let { budget?.checkJson(it) }
             val reason = NodeSupport.reason(node)
             if (reason == null) node else {
                 onRejected(reason)
@@ -35,7 +56,7 @@ object LinkParser {
         }
     }
 
-    private fun parseUriStyle(raw: String, protocol: Protocol, sourceId: String): ProxyNode? {
+    private fun parseUriStyle(raw: String, protocol: Protocol, sourceId: String, budget: SubscriptionBudget?): ProxyNode? {
         val body = raw.substringAfter("://")
         val (beforeFragment, fragment) = splitOnce(body, '#')
         val (beforeQuery, query) = splitOnce(beforeFragment, '?')
@@ -45,7 +66,7 @@ object LinkParser {
         val authority = beforeQuery.substring(at + 1).trimEnd('/')
         val (hostPort, hop) = if (protocol == Protocol.HYSTERIA2) hysteriaPorts(authority) else authority to null
         val (host, port) = parseHostPort(hostPort) ?: return null
-        val params = parseQuery(query).let { q -> if (hop != null && "mport" !in q) q + ("mport" to hop) else q }
+        val params = parseQuery(query, budget).let { q -> if (hop != null && "mport" !in q) q + ("mport" to hop) else q }
         return ProxyNode(
             id = nodeId(raw.substringBefore('#')),
             protocol = protocol,
@@ -67,13 +88,14 @@ object LinkParser {
         return authority.substring(0, colon + 1) + ports.substringBefore(',').substringBefore('-') to ports
     }
 
-    private fun parseVmess(raw: String, sourceId: String): ProxyNode? {
+    private fun parseVmess(raw: String, sourceId: String, budget: SubscriptionBudget?): ProxyNode? {
         val (beforeFragment, fragment) = splitOnce(raw.substringAfter("://"), '#')
         val (encoded, query) = splitOnce(beforeFragment, '?')
-        val options = parseQuery(query)
+        val options = parseQuery(query, budget)
         val payload = Base64Util.decodeToString(encoded) ?: return null
         val obj = if (payload.trimStart().startsWith('{')) {
             if (!JsonDepth.supported(payload)) return null
+            budget?.checkJson(payload)
             json.parseToJsonElement(payload).jsonObject
         } else shadowrocketVmess(payload, options) ?: return null
         fun s(key: String) = (obj[key] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
@@ -186,16 +208,32 @@ object LinkParser {
         return host to port
     }
 
-    private fun parseQuery(query: String): Map<String, String> =
-        query.split('&').mapNotNull { pair ->
-            if (pair.isBlank()) return@mapNotNull null
-            val k = pctDecode(pair.substringBefore('='))
-            val v = pctDecode(pair.substringAfter('=', ""))
-            if (k.isBlank()) null else k to v
-        }.toMap()
+    private fun parseQuery(query: String, budget: SubscriptionBudget?): Map<String, String> {
+        if (query.isEmpty()) return emptyMap()
+        val result = LinkedHashMap<String, String>()
+        var start = 0
+        while (start <= query.length) {
+            val separator = query.indexOf('&', start)
+            val end = if (separator < 0) query.length else separator
+            val pair = query.substring(start, end)
+            if (pair.isNotBlank()) {
+                budget?.queryParameter()
+                val k = pctDecode(pair.substringBefore('='))
+                val v = pctDecode(pair.substringAfter('=', ""))
+                if (k.isNotBlank()) result[k] = v
+            }
+            if (separator < 0) break
+            start = end + 1
+        }
+        return result
+    }
 
     private fun pctDecode(s: String): String =
-        runCatching { URLDecoder.decode(s.replace("+", "%2B"), "UTF-8") }.getOrDefault(s)
+        try {
+            URLDecoder.decode(s.replace("+", "%2B"), "UTF-8")
+        } catch (_: IllegalArgumentException) {
+            s
+        }
 
     private fun displayName(fragment: String, host: String, port: Int): String =
         pctDecode(fragment).trim().ifBlank { "$host:$port" }

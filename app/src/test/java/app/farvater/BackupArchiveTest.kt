@@ -185,6 +185,15 @@ class BackupArchiveTest {
     }
 
     @Test
+    fun readRejectsExcessiveCollectionsBeforeBackupDecoding() {
+        val valid = BackupArchive.create(prefs, emptyList(), "").encode()
+        val oversized = valid.replace("\"manualNodes\":[]",
+            "\"manualNodes\":[" + List(5_001) { "\"node-$it\"" }.joinToString(",") + "]")
+        assertTrue(oversized.toByteArray().size < BackupArchive.MAX_BYTES)
+        assertThrows(Exception::class.java) { BackupArchive.read(oversized.byteInputStream()) }
+    }
+
+    @Test
     fun failedCommitRestoresMemoryAndReopenedStore() {
         repo.appendManual(listOf(node))
         val archive = BackupArchive.create(prefs, emptyList(), "fa").let {

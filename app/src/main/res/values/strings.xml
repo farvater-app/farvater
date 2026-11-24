@@ -454,6 +454,7 @@
     <string name="error_subscription_html">"вместо подписки пришла веб-страница"</string>
     <string name="error_subscription_empty">"в подписке сейчас нет серверов"</string>
     <string name="error_subscription_size">"подписка больше %1$d МБ"</string>
+    <string name="error_subscription_complexity">"в подписке слишком много или слишком большие записи"</string>
     <string name="error_local_host">"%1$s указывает на само устройство"</string>
     <string name="error_redirect_no_address">"сервер вернул перенаправление без адреса"</string>
     <string name="error_redirect_downgrade">"перенаправление с https на http запрещено"</string>

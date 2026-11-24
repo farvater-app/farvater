@@ -454,6 +454,7 @@
     <string name="error_subscription_html">"به‌جای اشتراک، صفحهٔ وب دریافت شد"</string>
     <string name="error_subscription_empty">"اشتراک اکنون سروری ندارد"</string>
     <string name="error_subscription_size">"اشتراک بیش از %1$d مگابایت است"</string>
+    <string name="error_subscription_complexity">"اشتراک شامل ورودی‌های بیش از حد زیاد یا بسیار بزرگ است"</string>
     <string name="error_local_host">"%1$s به همین دستگاه اشاره می‌کند"</string>
     <string name="error_redirect_no_address">"سرور تغییر مسیر بدون نشانی برگرداند"</string>
     <string name="error_redirect_downgrade">"تغییر مسیر از HTTPS به HTTP مجاز نیست"</string>

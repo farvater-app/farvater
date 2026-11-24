@@ -19,6 +19,7 @@ import app.farvater.core.model.ProxyNode
 import app.farvater.core.model.SourceMode
 import app.farvater.core.model.onePerEndpoint
 import app.farvater.core.parser.SubscriptionParser
+import app.farvater.core.parser.SubscriptionLimitException
 import app.farvater.core.parser.Usage
 import app.farvater.data.ProbeMethod
 import app.farvater.data.AppSettings
@@ -640,12 +641,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             toast(messageText(R.string.import_too_large))
             return
         }
-        if (trimmed.lines().size == 1 && (trimmed.startsWith("https://") || trimmed.startsWith("http://"))) {
+        if ('\n' !in trimmed && '\r' !in trimmed && (trimmed.startsWith("https://") || trimmed.startsWith("http://"))) {
             addSubscription(trimmed)
             return
         }
         viewModelScope.launch(Dispatchers.IO) {
-            val parsed = SubscriptionParser.parse(trimmed, ProxyNode.MANUAL_SOURCE)
+            val parsed = try {
+                SubscriptionParser.parse(trimmed, ProxyNode.MANUAL_SOURCE)
+            } catch (_: SubscriptionLimitException) {
+                toast(messageText(R.string.import_too_large))
+                return@launch
+            }
             if (parsed.nodes.isEmpty()) {
                 toast(if (parsed.skipped.isEmpty()) messageText(R.string.import_no_links)
                     else messageText(R.string.import_rejected, getApplication<Application>().importReasons(parsed.skipped)))
@@ -659,6 +665,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun <T : Any> editManual(change: () -> T): T? = try {
         change()
+    } catch (_: SubscriptionLimitException) {
+        toast(messageText(R.string.import_too_large))
+        null
     } catch (_: java.security.GeneralSecurityException) {
         toast(messageText(R.string.profile_storage_unavailable))
         null

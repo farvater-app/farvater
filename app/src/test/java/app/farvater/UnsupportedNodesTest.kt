@@ -8,8 +8,8 @@ import org.junit.Test
 class UnsupportedNodesTest {
     @Test
     fun deeplyNestedXhttpIsRejectedWithoutLosingFollowingNode() {
-        val nested = "{\"network\":\"xhttp\",\"xhttpSettings\":{\"extra\":{\"downloadSettings\":".repeat(10_000) +
-            "{}" + "}}}".repeat(10_000)
+        val nested = "{\"network\":\"xhttp\",\"xhttpSettings\":{\"extra\":{\"downloadSettings\":".repeat(65) +
+            "{}" + "}}}".repeat(65)
         val extra = java.net.URLEncoder.encode("{\"downloadSettings\":$nested}", "UTF-8")
         val good = "vless://test@node.example.test:443?security=tls"
         val parsed = SubscriptionParser.parse("$good&type=xhttp&extra=$extra\n$good", "test")

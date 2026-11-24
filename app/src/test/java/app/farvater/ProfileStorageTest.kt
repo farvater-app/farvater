@@ -3,6 +3,8 @@ package app.farvater
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import app.farvater.core.parser.LinkParser
+import app.farvater.core.parser.SubscriptionLimitException
+import app.farvater.core.parser.SubscriptionParser
 import app.farvater.data.Prefs
 import app.farvater.data.SubscriptionRepository
 import app.farvater.data.UserSource
@@ -156,5 +158,17 @@ class ProfileStorageTest {
         })
         repo.removeManual(node.id)
         assertTrue(SubscriptionRepository(context).loadManual().nodes.isEmpty())
+    }
+
+    @Test fun manualNodeOverflowLeavesTheExistingArchiveUnchanged() {
+        val repo = SubscriptionRepository(context)
+        val nodes = List(SubscriptionParser.MAX_NODES) { index ->
+            LinkParser.parse("vless://id-$index@node-$index.example.test:443?security=tls")!!
+        }
+        assertEquals(SubscriptionParser.MAX_NODES, repo.appendManual(nodes))
+        assertThrows(SubscriptionLimitException::class.java) {
+            repo.appendManual(listOf(LinkParser.parse("vless://overflow@overflow.example.test:443?security=tls")!!))
+        }
+        assertEquals(nodes.map { it.id }, SubscriptionRepository(context).loadManual().nodes.map { it.id })
     }
 }

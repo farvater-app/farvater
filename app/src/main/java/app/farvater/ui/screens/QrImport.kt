@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import app.farvater.R
 import app.farvater.core.model.ProxyNode
 import app.farvater.core.parser.LinkParser
+import app.farvater.core.parser.SubscriptionLimitException
 import app.farvater.core.parser.SubscriptionParser
 import app.farvater.net.ImportLink
 import app.farvater.ui.ios.AlertAction
@@ -58,7 +59,11 @@ internal object ProfileQr {
                 else link.takeIf { LinkParser.parse(it) != null }
         }
         if (!value.startsWith("{") && !value.startsWith("[")) return null
-        return value.takeIf { SubscriptionParser.parse(it, ProxyNode.MANUAL_SOURCE).nodes.isNotEmpty() }
+        return try {
+            value.takeIf { SubscriptionParser.parse(it, ProxyNode.MANUAL_SOURCE).nodes.isNotEmpty() }
+        } catch (_: SubscriptionLimitException) {
+            null
+        }
     }
 
     fun read(resolver: ContentResolver, uri: Uri): String? {
