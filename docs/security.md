@@ -25,7 +25,7 @@ Personal subscription requests can send an installation-specific random ID, phon
 
 ## Updates and the tunnel
 
-Before offering an in-app APK for installation, Farvater checks the file hash, package, version, and signing identity against the installed app. Android performs the installation. The [installation guide](../README.md#verify-the-apk) gives the release fingerprint for checking a fresh download.
+Before offering an in-app APK for installation, Farvater checks the file hash, package, version, and signing identity against the installed app. Android performs the installation. The [installation guide](../README.md#установка) gives the release fingerprint for checking a fresh download.
 
 Android's TUN interface feeds a native bridge and an authenticated local SOCKS listener used by Xray-core. The listener binds to loopback. For traffic outside the tunnel and Android's lockdown setting, see [routing](routing.md).
 

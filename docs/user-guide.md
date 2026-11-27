@@ -1,6 +1,8 @@
 # Using Farvater on Android
 
-For installation and the first connection, start with the [README](../README.md#quick-start).
+For installation and the first connection, start with the [README](../README.md#быстрый-старт).
+
+The first-run screen links to the [terms of use](../legal/terms.txt) and [privacy policy](../legal/privacy.txt). Choose **Only my subscriptions** to start with your own profiles.
 
 ## Change the active node
 

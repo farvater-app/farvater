@@ -2,7 +2,9 @@
 
 ## Android refuses to install or update the APK
 
-Check that the phone runs Android 8.0 or later and that the APK matches the Android ABI. Try the universal APK if you are unsure. Follow the [APK verification procedure](../README.md#verify-the-apk). A debug build or a build from another signer cannot update an official installation in place. Before removing an installation, [export a backup](user-guide.md#back-up-or-restore) if you need its data.
+For the checksum command, use GNU Coreutils in a directory containing just the APK and `SHA256SUMS.txt` from its release. Use `apksigner` from Android SDK Build Tools and compare the `Signer #1 certificate SHA-256 digest` only after verification succeeds.
+
+Check that the phone runs Android 8.0 or later and that the APK matches the Android ABI. Try the universal APK if you are unsure. Follow the [APK verification procedure](../README.md#установка). A debug build or a build from another signer cannot update an official installation in place. Before removing an installation, [export a backup](user-guide.md#back-up-or-restore) if you need its data.
 
 ## A subscription is empty or shows fewer nodes than expected
 

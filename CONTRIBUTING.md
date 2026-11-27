@@ -25,6 +25,18 @@
 
 Проверочная сборка GitHub Actions соберёт APK для всех архитектур, проверит его состав и сделает release-сборку с R8. Pull request принимается, когда все проверки прошли.
 
+## Сборка на Linux
+
+Установите JDK 17, Android SDK Platform 36, NDK `27.2.12479018` и Go `1.27.3`. Нативные скрипты используют Bash, Git, Python 3, curl, unzip, patch и GNU Coreutils. Задайте `ANDROID_SDK_ROOT` для установленного SDK.
+
+```sh
+git clone https://github.com/farvater-app/farvater.git
+cd farvater
+export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/27.2.12479018"
+```
+
+Далее выполните [команды сборки](README.md#сборка). Debug-APK появятся в `app/build/outputs/apk/debug/`. Их подпись отличается от подписи официального выпуска. [Версии нативных компонентов](scripts/native-versions.json) и [настройка проверок в CI](.github/workflows/build.yml) хранятся в репозитории.
+
 ## Стиль кода
 
 - Kotlin, официальный стиль JetBrains, отступ четыре пробела.
